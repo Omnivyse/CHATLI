@@ -1,0 +1,99 @@
+import React, { useEffect, useState } from 'react';
+import api from '../services/api';
+import Post from './Post';
+import { Plus, X as XIcon, Image as ImageIcon } from 'lucide-react';
+import NewPostModal from './NewPostModal';
+
+const PostFeed = ({ user }) => {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [content, setContent] = useState('');
+  const [image, setImage] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.getPosts();
+      if (res.success) setPosts(res.data.posts);
+      else setError(res.message || 'Алдаа гарлаа');
+    } catch (e) {
+      setError('Алдаа гарлаа');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setImage(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCreatePost = async (e) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+    setCreating(true);
+    try {
+      const res = await api.createPost({ content, image });
+      if (res.success) {
+        setContent('');
+        setImage('');
+        fetchPosts();
+      }
+    } catch (e) {
+      // Optionally show error
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl mx-auto w-full p-4">
+      {/* Minimal New Post UI */}
+      <div className="mb-6 bg-background rounded-2xl shadow p-4 flex items-center gap-3 border border-border">
+        <input
+          className="flex-1 bg-muted rounded-full px-4 py-2 border border-border focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition placeholder:text-secondary text-base cursor-pointer"
+          placeholder="Юу бодож байна?"
+          onFocus={() => setShowModal(true)}
+          readOnly
+        />
+        <button
+          className="ml-2 px-6 py-2 bg-primary text-primary-dark rounded-full font-semibold hover:bg-primary/90 transition"
+          onClick={() => setShowModal(true)}
+        >
+          Постлох
+        </button>
+      </div>
+      {showModal && (
+        <NewPostModal user={user} onClose={() => setShowModal(false)} onPostCreated={fetchPosts} />
+      )}
+      {/* Posts Feed */}
+      {loading ? (
+        <div className="text-center text-secondary">Уншиж байна...</div>
+      ) : error ? (
+        <div className="text-center text-red-500">{error}</div>
+      ) : posts.length === 0 ? (
+        <div className="text-center text-secondary">Пост байхгүй байна</div>
+      ) : (
+        <div className="space-y-6">
+          {posts.map(post => (
+            <Post key={post._id} post={post} user={user} onPostUpdate={fetchPosts} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PostFeed; 
