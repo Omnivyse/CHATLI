@@ -7,20 +7,37 @@ import {
   Loader2,
   Home,
   User as UserIcon,
-  Bell
+  Bell,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { getDisplayDate } from '../utils/dateUtils';
 import { cn } from '../utils/themeUtils';
 import api from '../services/api';
+import logo from '../assets/logo3.png';
 
 const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfileSettings, onTabChange, activeTab, unreadNotificationCount }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showLogoProfile, setShowLogoProfile] = useState(false);
+  const [shineKey, setShineKey] = useState(0);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isPrivateProfile, setIsPrivateProfile] = useState(false);
 
   useEffect(() => {
     loadChats();
+  }, []);
+
+  useEffect(() => {
+    // Show logo for 3 seconds every minute
+    const interval = setInterval(() => {
+      setShowLogoProfile(true);
+      setShineKey(k => k + 1); // trigger shine
+      const timeout = setTimeout(() => setShowLogoProfile(false), 5000);
+      return () => clearTimeout(timeout);
+    }, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadChats = async () => {
@@ -89,8 +106,18 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
       {/* Header */}
       <div className="p-4 border-b border-border dark:border-border-dark bg-background dark:bg-background-dark">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={onProfileSettings}>
-            {user.avatar ? (
+          <div
+            className={`flex items-center gap-3 cursor-pointer transition-all duration-300 ${showLogoProfile ? 'opacity-80 scale-105' : 'opacity-100 scale-100'}`}
+            onClick={onProfileSettings}
+            style={{ position: 'relative' }}
+          >
+            {showLogoProfile ? (
+              <img 
+                src={logo} 
+                alt="CHATLI Logo"
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : user.avatar ? (
               <img 
                 src={user.avatar} 
                 alt={user.name}
@@ -102,11 +129,37 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
               </div>
             )}
             <div>
-              <h2 className="font-semibold text-sm">{user.name}</h2>
+              <h2 className="font-semibold text-sm">{showLogoProfile ? 'CHATLI' : user.name}</h2>
               <p className="text-xs text-secondary dark:text-secondary-dark">Онлайн</p>
             </div>
+            {showLogoProfile && (
+              <div
+                key={shineKey}
+                className="absolute left-0 top-0 w-full h-full pointer-events-none overflow-hidden"
+                style={{ borderRadius: 9999 }}
+              >
+                <div className="shine-effect w-full h-full" />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setTimeout(() => window.location.reload(), 400);
+              }}
+              title="Нүүр хуудас руу очих"
+            >
+              <Home className="w-4 h-4" />
+            </button>
+            <button
+              className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
+              onClick={() => setShowSettingsModal(true)}
+              title="Тохиргоо"
+            >
+              <SettingsIcon className="w-4 h-4" />
+            </button>
             <button 
               onClick={onLogout}
               className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
@@ -242,6 +295,36 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
           <span className="text-sm font-medium">Шинэ чат</span>
         </button>
       </div>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-background rounded-xl shadow-xl p-6 w-full max-w-xs relative text-black">
+            <button
+              className="absolute top-2 right-2 p-2 rounded-full hover:bg-muted"
+              onClick={() => setShowSettingsModal(false)}
+              title="Хаах"
+            >
+              <LogOut className="w-5 h-5 rotate-45" />
+            </button>
+            <h2 className="text-lg font-bold mb-4">Тохиргоо</h2>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Нууцлал</h3>
+              <div className="flex items-center justify-between">
+                <span>Хувийн профайл</span>
+                <button
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPrivateProfile ? 'bg-primary' : 'bg-muted'}`}
+                  onClick={() => setIsPrivateProfile(v => !v)}
+                >
+                  <span
+                    className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${isPrivateProfile ? 'translate-x-6' : 'translate-x-0'}`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
