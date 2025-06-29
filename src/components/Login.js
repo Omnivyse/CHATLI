@@ -64,7 +64,7 @@ const Login = ({ onLogin }) => {
                 placeholder="Профайл нэр"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-base rounded-none"
+                className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-black dark:text-white text-base rounded-none"
                 required
                 autoFocus
               />
@@ -73,7 +73,7 @@ const Login = ({ onLogin }) => {
                 placeholder="Нэр"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-base rounded-none"
+                className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-black dark:text-white text-base rounded-none"
                 required
               />
             </>
@@ -83,7 +83,7 @@ const Login = ({ onLogin }) => {
             placeholder="Имэйл"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-base rounded-none"
+            className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-black dark:text-white text-base rounded-none"
             required
             autoFocus={mode === 'login'}
           />
@@ -92,7 +92,7 @@ const Login = ({ onLogin }) => {
             placeholder="Нууц үг"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-base rounded-none"
+            className="w-full px-0 py-2 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-black dark:text-white text-base rounded-none"
             required
           />
           {error && <div className="text-red-500 text-sm text-center mt-2">{error}</div>}

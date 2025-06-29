@@ -76,6 +76,63 @@
   @apply bg-secondary;
 }
 
+/* Video Player Custom Styles */
+.video-player-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.video-player-range::-webkit-slider-track {
+  background: rgba(255, 255, 255, 0.3);
+  height: 4px;
+  border-radius: 2px;
+}
+
+.video-player-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: white;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.video-player-range::-moz-range-track {
+  background: rgba(255, 255, 255, 0.3);
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+}
+
+.video-player-range::-moz-range-thumb {
+  background: white;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Video controls hover effects */
+.video-controls-button {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+.video-controls-button:hover {
+  @apply scale-110;
+}
+
+/* Video progress bar hover effect */
+.video-progress-bar:hover {
+  height: 6px;
+  margin-top: -1px;
+}
+
 /* Mongolian text rendering optimization */
 .mongolian-text {
   font-family: 'Noto Sans Mongolian', Arial, sans-serif;
@@ -87,4 +144,85 @@
 /* Dark mode transitions */
 * {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Modern vertical volume slider for modal video */
+.vertical-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+.vertical-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #222;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.vertical-volume-slider::-webkit-slider-thumb:hover {
+  background: #eee;
+}
+.vertical-volume-slider::-webkit-slider-runnable-track {
+  width: 3px;
+  height: 80px;
+  background: #444;
+  border-radius: 2px;
+  margin: 0 auto;
+}
+.vertical-volume-slider:focus {
+  outline: none;
+}
+.vertical-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #222;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  cursor: pointer;
+}
+.vertical-volume-slider::-moz-range-thumb:hover {
+  background: #eee;
+}
+.vertical-volume-slider::-moz-range-track {
+  width: 3px;
+  height: 80px;
+  background: #444;
+  border-radius: 2px;
+}
+.vertical-volume-slider::-ms-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #222;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  cursor: pointer;
+}
+.vertical-volume-slider::-ms-fill-lower,
+.vertical-volume-slider::-ms-fill-upper {
+  background: #444;
+  border-radius: 2px;
+}
+.vertical-volume-slider:focus::-ms-fill-lower,
+.vertical-volume-slider:focus::-ms-fill-upper {
+  background: #444;
+}
+.vertical-volume-slider::-ms-tooltip {
+  display: none;
+}
+
+/* Hide the default outline for the slider */
+.vertical-volume-slider:focus {
+  outline: none;
 } 

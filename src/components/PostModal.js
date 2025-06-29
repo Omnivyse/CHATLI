@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { X, Trash, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CustomVideoPlayer from './CustomVideoPlayer';
 
 const PostModal = ({ postId, user, onClose, onPostUpdate, show = true }) => {
   const [post, setPost] = useState(null);
@@ -127,6 +128,15 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true }) => {
             <div className="mb-2 whitespace-pre-line">{post.content}</div>
             {post.image && (
               <img src={post.image} alt="post" className="max-h-64 rounded mb-2 object-contain" />
+            )}
+            {post.video && (
+              <CustomVideoPlayer
+                src={post.video}
+                autoPlay={true}
+                hideControls={false}
+                minimalControls={true}
+                className="mb-2"
+              />
             )}
             <div className="flex items-center gap-4 mb-2">
               <span className="flex items-center gap-1 text-secondary">

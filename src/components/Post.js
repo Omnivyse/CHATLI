@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import api from '../services/api';
 import { Heart, MessageCircle, Trash, Eye } from 'lucide-react';
 import PostModal from './PostModal';
 import UserProfileModal from './UserProfileModal';
+import CustomVideoPlayer from './CustomVideoPlayer';
 import { motion } from 'framer-motion';
 
 const Post = ({ post, user, onPostUpdate }) => {
   const [showModal, setShowModal] = useState(false);
   const [liking, setLiking] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const videoRef = useRef(null);
   const isOwner = post.author._id === user._id;
   const isLiked = post.likes.includes(user._id);
 
@@ -32,6 +34,13 @@ const Post = ({ post, user, onPostUpdate }) => {
   const handleOpenProfile = () => {
     console.log('DEBUG post.author:', post.author);
     setShowProfile(true);
+  };
+
+  const handleOpenModal = () => {
+    if (videoRef.current && videoRef.current.pause) {
+      videoRef.current.pause();
+    }
+    setShowModal(true);
   };
 
   return (
@@ -71,11 +80,14 @@ const Post = ({ post, user, onPostUpdate }) => {
         />
       )}
       {post.video && (
-        <video
+        <CustomVideoPlayer
+          ref={videoRef}
           src={post.video}
-          controls
-          className="max-h-64 rounded mb-2 w-full object-contain cursor-pointer hover:opacity-80 transition"
-          onClick={() => setShowModal(true)}
+          className="max-h-64 rounded mb-2 w-full cursor-pointer hover:opacity-80 transition"
+          onClick={handleOpenModal}
+          muted={true}
+          hideControls={true}
+          autoPlayOnView={true}
         />
       )}
       <div className="flex items-center gap-4 mb-2">

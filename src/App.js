@@ -188,9 +188,9 @@ function App() {
         </div>
       )}
 
-      {/* Sidebar - Only show on mobile if showSidebarMobile is true, always show on desktop */}
+      {/* Sidebar - Fixed on desktop, overlay on mobile */}
       {((isMobile && showSidebarMobile) || !isMobile) && (
-        <div className={`fixed inset-0 z-50 bg-background w-full md:static md:w-80 border-r border-border bg-background ${isMobile ? '' : ''}`} style={isMobile ? {maxWidth: '100vw'} : {}}>
+        <div className={`${isMobile ? 'fixed inset-0 z-50' : 'fixed left-0 top-0 h-full'} bg-background w-full md:w-80 border-r border-border`} style={isMobile ? {maxWidth: '100vw'} : {}}>
           <Sidebar 
             user={user}
             selectedChat={selectedChat} 
@@ -211,8 +211,8 @@ function App() {
         </div>
       )}
 
-      {/* Main Content - Full width on mobile with top padding for header, hidden if sidebar is open on mobile */}
-      <div className={`${isMobile && (showSidebarMobile) ? 'hidden' : 'block'} flex-1 flex flex-col bg-background ${isMobile ? 'pt-16' : ''}`}>
+      {/* Main Content - Scrollable area with proper spacing */}
+      <div className={`${isMobile && showSidebarMobile ? 'hidden' : 'block'} flex-1 flex flex-col bg-background ${isMobile ? 'pt-16' : 'md:ml-80'}`}>
         {activeTab === 'feed' ? (
           <PostFeed user={user} />
         ) : activeTab === 'notifications' ? (

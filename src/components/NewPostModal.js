@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X as XIcon, Image as ImageIcon, Plus } from 'lucide-react';
 import api from '../services/api';
+import CustomVideoPlayer from './CustomVideoPlayer';
 
 const NewPostModal = ({ user, onClose, onPostCreated }) => {
   const [content, setContent] = useState('');
@@ -61,7 +62,11 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
               {fileType === 'image' ? (
                 <img src={file} alt="post" className="max-h-48 rounded-xl object-contain border border-border" />
               ) : fileType === 'video' ? (
-                <video src={file} controls className="max-h-48 rounded-xl object-contain border border-border" />
+                <CustomVideoPlayer 
+                  src={file} 
+                  className="max-h-48 rounded-xl object-contain border border-border" 
+                  muted={true}
+                />
               ) : null}
               <button
                 type="button"
