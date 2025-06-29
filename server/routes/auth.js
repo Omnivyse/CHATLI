@@ -17,10 +17,10 @@ function escapeRegex(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// @route   GET /api/auth/users/search
+// @route   GET /users/search
 // @desc    Search users by name or username
 // @access  Private
-router.get('/auth/users/search', auth, async (req, res) => {
+router.get('/users/search', auth, async (req, res) => {
   try {
     const q = req.query.q || '';
     if (!q.trim()) return res.json({ success: true, data: { users: [] } });
@@ -453,6 +453,26 @@ router.post('/users/:id/reject-request', auth, async (req, res) => {
     res.json({ success: true, message: 'Дагах хүсэлт цуцлагдлаа', data: { followRequests: currentUser.followRequests } });
   } catch (error) {
     console.error('Reject request error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
+// @route   POST /api/users/:id/cancel-follow-request
+// @desc    Cancel a follow request
+// @access  Private
+router.post('/users/:id/cancel-follow-request', auth, async (req, res) => {
+  try {
+    const userToCancel = await User.findById(req.params.id);
+    const currentUser = await User.findById(req.user._id);
+    if (!userToCancel) {
+      return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
+    }
+    // Remove from followRequests
+    userToCancel.followRequests = userToCancel.followRequests.filter(id => id.toString() !== currentUser._id.toString());
+    await userToCancel.save();
+    res.json({ success: true, message: 'Дагах хүсэлт цуцлагдлаа', data: { followRequests: userToCancel.followRequests } });
+  } catch (error) {
+    console.error('Cancel follow request error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
   }
 });

@@ -12,6 +12,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
   const [followLoading, setFollowLoading] = useState(false);
   const [privateProfile, setPrivateProfile] = useState(false);
   const [isRequestSent, setIsRequestSent] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Move fetchData outside useEffect so it can be reused
   const fetchData = async () => {
@@ -50,6 +51,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
   }, [userId, currentUser._id]);
 
   const handleFollow = async () => {
+    if (followLoading) return; // Prevent double requests
     setFollowLoading(true);
     try {
       if (isFollowing) {
@@ -69,6 +71,17 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
       }
       // Refetch everything to update modal (cover, posts, etc)
       await fetchData();
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    setFollowLoading(true);
+    try {
+      await api.request(`/auth/users/${userId}/cancel-follow-request`, { method: 'POST' });
+      await fetchData();
+      setShowCancelDialog(false);
     } finally {
       setFollowLoading(false);
     }
@@ -142,7 +155,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
                   <div className="flex gap-2 mt-1">
                     {user._id !== currentUser._id && !isFollowing && !isRequestSent && (
                       <button
-                        onClick={handleFollow}
+                        onClick={followLoading ? undefined : handleFollow}
                         disabled={followLoading}
                         className="px-5 py-1.5 rounded-full font-semibold transition bg-primary text-primary-dark hover:opacity-90 mt-2"
                       >
@@ -150,12 +163,34 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
                       </button>
                     )}
                     {user._id !== currentUser._id && isRequestSent && !isFollowing && (
-                      <button
-                        disabled
-                        className="px-5 py-1.5 rounded-full font-semibold transition bg-muted text-secondary mt-2 cursor-not-allowed"
-                      >
-                        Хүлээгдэж байна
-                      </button>
+                      <>
+                        <button
+                          disabled={followLoading}
+                          className="px-5 py-1.5 rounded-full font-semibold transition bg-muted text-secondary mt-2 cursor-pointer"
+                          onClick={() => setShowCancelDialog(true)}
+                        >
+                          Хүлээгдэж байна
+                        </button>
+                        {showCancelDialog && (
+                          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40">
+                            <div className="bg-white rounded-lg shadow-xl p-6 max-w-xs w-full text-center">
+                              <div className="mb-4 text-lg font-semibold">Дагах хүсэлтийг цуцлах уу?</div>
+                              <div className="flex gap-4 justify-center">
+                                <button
+                                  className="px-4 py-2 rounded bg-muted hover:bg-muted/80"
+                                  onClick={() => setShowCancelDialog(false)}
+                                  disabled={followLoading}
+                                >Үгүй</button>
+                                <button
+                                  className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+                                  onClick={handleCancelRequest}
+                                  disabled={followLoading}
+                                >Тийм</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                     {user._id !== currentUser._id && isFollowing && (
                       <div className="flex gap-2 mt-2">

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X as XIcon, User as UserIcon, Loader2 } from 'lucide-react';
 import api from '../services/api';
 import UserProfileModal from './UserProfileModal';
 import ReactDOM from 'react-dom';
 
-const UserSearchModal = ({ onClose }) => {
+const UserSearchModal = ({ onClose, currentUser }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -15,8 +15,10 @@ const UserSearchModal = ({ onClose }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    console.log('[UserSearchModal] Searching for:', query);
     try {
       const res = await api.searchUsers(query);
+      console.log('[UserSearchModal] API response:', res);
       if (res.success) {
         setResults(res.data.users);
       } else {
@@ -24,12 +26,19 @@ const UserSearchModal = ({ onClose }) => {
         setResults([]);
       }
     } catch (err) {
+      console.error('[UserSearchModal] API error:', err);
       setError('Серверийн алдаа. Дахин оролдоно уу.');
       setResults([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (selectedUser) {
+      console.log('[UserSearchModal] selectedUser:', selectedUser, 'currentUser:', currentUser);
+    }
+  }, [selectedUser, currentUser]);
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
@@ -76,7 +85,7 @@ const UserSearchModal = ({ onClose }) => {
           </div>
         )}
         {selectedUser && (
-          <UserProfileModal userId={selectedUser._id} currentUser={selectedUser} onClose={() => setSelectedUser(null)} show={true} />
+          <UserProfileModal userId={selectedUser._id} currentUser={currentUser} onClose={() => setSelectedUser(null)} show={true} />
         )}
       </div>
     </div>,

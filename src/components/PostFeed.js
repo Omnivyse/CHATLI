@@ -85,7 +85,7 @@ const PostFeed = ({ user }) => {
         </button>
       </div>
       {showUserSearchModal && (
-        <UserSearchModal onClose={() => setShowUserSearchModal(false)} />
+        <UserSearchModal onClose={() => setShowUserSearchModal(false)} currentUser={user} />
       )}
       {showModal && (
         <NewPostModal user={user} onClose={() => setShowModal(false)} onPostCreated={fetchPosts} />
