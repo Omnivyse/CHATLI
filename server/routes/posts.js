@@ -10,20 +10,20 @@ const router = express.Router();
 // Create a post
 router.post('/', auth, [
   body('content').trim().notEmpty().withMessage('Постын агуулга шаардлагатай'),
-  body('image').optional().isString(),
-  body('video').optional().isString()
+  body('media').optional().isArray(),
+  body('media.*.type').optional().isIn(['image', 'video']),
+  body('media.*.url').optional().isString()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ success: false, message: 'Оролтын алдаа', errors: errors.array() });
     }
-    const { content, image, video } = req.body;
+    const { content, media } = req.body;
     const post = new Post({
       author: req.user._id,
       content,
-      image,
-      video
+      media: Array.isArray(media) ? media : []
     });
     await post.save();
     await post.populate('author', 'name avatar');
@@ -37,10 +37,19 @@ router.post('/', auth, [
 // Get all posts (feed)
 router.get('/', auth, async (req, res) => {
   try {
-    const posts = await Post.find()
+    let posts = await Post.find()
       .sort({ createdAt: -1 })
-      .populate('author', 'name avatar')
-      .populate('comments.author', 'name avatar');
+      .populate('author', 'name avatar privateProfile followers');
+    // Filter out posts from private users unless requester is a follower or the user themselves
+    posts = posts.filter(post => {
+      const author = post.author;
+      if (!author.privateProfile) return true;
+      if (String(author._id) === String(req.user._id)) return true;
+      if (Array.isArray(author.followers) && author.followers.map(id => String(id)).includes(String(req.user._id))) return true;
+      return false;
+    });
+    // Populate comments.author for filtered posts
+    await Post.populate(posts, { path: 'comments.author', select: 'name avatar' });
     res.json({ success: true, data: { posts } });
   } catch (error) {
     console.error('Get posts error:', error);
@@ -185,6 +194,11 @@ router.delete('/:postId/comments/:commentId', auth, async (req, res) => {
 // @access  Private
 router.get('/user/:userId', auth, async (req, res) => {
   try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
+    if (user.privateProfile && !user._id.equals(req.user._id) && !user.followers.includes(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Энэ профайл хувийн байна' });
+    }
     const posts = await Post.find({ author: req.params.userId })
       .sort({ createdAt: -1 })
       .populate('author', 'name avatar')

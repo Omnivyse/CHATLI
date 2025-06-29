@@ -57,7 +57,7 @@ const CustomVideoPlayer = forwardRef(({
   // Auto-hide controls after 3 seconds
   useEffect(() => {
     let timeout;
-    if (showControls && isPlaying && !hideControls && !minimalControls) {
+    if (showControls, isPlaying && !hideControls && !minimalControls) {
       timeout = setTimeout(() => setShowControls(false), 3000);
     }
     return () => clearTimeout(timeout);
@@ -210,7 +210,7 @@ const CustomVideoPlayer = forwardRef(({
 
   // Aspect ratio wrapper (16:9)
   return (
-    <div className={`relative w-full rounded-xl overflow-hidden bg-black ${className}`} style={{ aspectRatio: '16/9', maxWidth: '100%' }}>
+    <div className={`relative w-full rounded-xl overflow-hidden bg-black z-0 ${className}`} style={{ aspectRatio: '16/9', maxWidth: '100%' }}>
       <video
         ref={videoRef}
         src={src}

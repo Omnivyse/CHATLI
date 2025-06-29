@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import api from '../services/api';
-import { Heart, MessageCircle, Trash, Eye } from 'lucide-react';
+import { Heart, MessageCircle, Trash, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import PostModal from './PostModal';
 import UserProfileModal from './UserProfileModal';
 import CustomVideoPlayer from './CustomVideoPlayer';
@@ -13,6 +13,7 @@ const Post = ({ post, user, onPostUpdate }) => {
   const videoRef = useRef(null);
   const isOwner = post.author._id === user._id;
   const isLiked = post.likes.includes(user._id);
+  const [currentMedia, setCurrentMedia] = useState(0);
 
   const handleLike = async () => {
     setLiking(true);
@@ -44,7 +45,7 @@ const Post = ({ post, user, onPostUpdate }) => {
   };
 
   return (
-    <div className="bg-background rounded-lg shadow p-4">
+    <div className="bg-background rounded-lg shadow p-4 z-0">
       <div className="flex items-center gap-3 mb-2">
         <div className="cursor-pointer" onClick={handleOpenProfile}>
           {post.author.avatar ? (
@@ -71,7 +72,50 @@ const Post = ({ post, user, onPostUpdate }) => {
       >
         {post.content}
       </div>
-      {post.image && (
+      {/* Media carousel for new posts */}
+      {Array.isArray(post.media) && post.media.length > 0 && (
+        <div className="relative w-full flex flex-col items-center mb-2 z-0">
+          <div className="relative w-full flex items-center justify-center z-0">
+            {post.media.length > 1 && (
+              <button type="button" onClick={e => { e.stopPropagation(); setCurrentMedia((currentMedia - 1 + post.media.length) % post.media.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1 z-0">
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+            {post.media[currentMedia].type === 'image' ? (
+              <img
+                src={post.media[currentMedia].url}
+                alt="post"
+                className="max-h-64 rounded object-contain border border-border cursor-pointer hover:opacity-80 transition z-0"
+                onClick={() => setShowModal(true)}
+              />
+            ) : (
+              <CustomVideoPlayer
+                ref={videoRef}
+                src={post.media[currentMedia].url}
+                className="max-h-64 rounded w-full object-contain border border-border cursor-pointer hover:opacity-80 transition z-0"
+                onClick={handleOpenModal}
+                muted={true}
+                hideControls={true}
+                autoPlayOnView={true}
+              />
+            )}
+            {post.media.length > 1 && (
+              <button type="button" onClick={e => { e.stopPropagation(); setCurrentMedia((currentMedia + 1) % post.media.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1 z-0">
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+          {post.media.length > 1 && (
+            <div className="flex gap-1 mt-2 justify-center">
+              {post.media.map((_, idx) => (
+                <span key={idx} className={`inline-block w-2 h-2 rounded-full ${idx === currentMedia ? 'bg-primary' : 'bg-muted'}`}></span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Fallback for legacy posts with image/video fields */}
+      {(!post.media || post.media.length === 0) && post.image && (
         <img
           src={post.image}
           alt="post"
@@ -79,7 +123,7 @@ const Post = ({ post, user, onPostUpdate }) => {
           onClick={() => setShowModal(true)}
         />
       )}
-      {post.video && (
+      {(!post.media || post.media.length === 0) && post.video && (
         <CustomVideoPlayer
           ref={videoRef}
           src={post.video}

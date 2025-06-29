@@ -9,8 +9,19 @@ const commentSchema = new mongoose.Schema({
 const postSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   content: { type: String, required: true, maxlength: 2000 },
-  image: { type: String }, // base64 or URL
-  video: { type: String }, // base64 or URL
+  media: [
+    {
+      type: {
+        type: String,
+        enum: ['image', 'video'],
+        required: true
+      },
+      url: {
+        type: String,
+        required: true
+      }
+    }
+  ],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [commentSchema]
 }, {

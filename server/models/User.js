@@ -69,7 +69,16 @@ const userSchema = new mongoose.Schema({
   coverImage: {
     type: String,
     default: ''
-  }
+  },
+  privateProfile: {
+    type: Boolean,
+    default: false
+  },
+  followRequests: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: []
+  }]
 }, {
   timestamps: true
 });

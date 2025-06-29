@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 const router = express.Router();
 
@@ -10,6 +11,11 @@ const router = express.Router();
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
+
+// Utility to escape regex special characters
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -194,7 +200,11 @@ router.put('/profile', auth, [
   body('coverImage')
     .optional()
     .isString()
-    .withMessage('Ковер зураг буруу байна')
+    .withMessage('Ковер зураг буруу байна'),
+  body('privateProfile')
+    .optional()
+    .isBoolean()
+    .withMessage('Хувийн профайл утга буруу байна')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -206,13 +216,14 @@ router.put('/profile', auth, [
       });
     }
 
-    const { name, bio, avatar, coverImage } = req.body;
+    const { name, bio, avatar, coverImage, privateProfile } = req.body;
     const updateFields = {};
 
     if (name) updateFields.name = name;
     if (bio !== undefined) updateFields.bio = bio;
     if (avatar) updateFields.avatar = avatar;
     if (coverImage) updateFields.coverImage = coverImage;
+    if (privateProfile !== undefined) updateFields.privateProfile = privateProfile;
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -260,18 +271,74 @@ router.post('/logout', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/auth/users/search
+// @desc    Search users by name or username
+// @access  Private
+router.get('/auth/users/search', auth, async (req, res) => {
+  try {
+    const q = req.query.q || '';
+    if (!q.trim()) return res.json({ success: true, data: { users: [] } });
+    const safeQ = escapeRegex(q);
+    const regex = new RegExp(`^${safeQ}$`, 'i'); // exact match for uniqueness
+    console.log('[UserSearch] Query:', q, '| safeQ:', safeQ, '| regex:', regex);
+
+    // Try to find by username first (unique)
+    let user = await User.findOne({ username: regex }).select('_id name username avatar privateProfile');
+    console.log('[UserSearch] Username match:', user);
+    if (user) {
+      return res.json({ success: true, data: { users: [user] } });
+    }
+
+    // Then try to find by name (should be unique if enforced)
+    let usersByName = await User.find({ name: regex }).select('_id name username avatar privateProfile');
+    console.log('[UserSearch] Name match:', usersByName);
+    if (usersByName.length === 1) {
+      return res.json({ success: true, data: { users: usersByName } });
+    } else if (usersByName.length > 1) {
+      // Legacy data: multiple users with same name
+      return res.status(409).json({
+        success: false,
+        message: 'Олдсон нэр давхцаж байна. Админд хандана уу.',
+        data: { users: usersByName }
+      });
+    }
+
+    // If not found, fallback to partial search (for suggestions)
+    const partialRegex = new RegExp(safeQ, 'i');
+    const or = [
+      { name: partialRegex },
+      { username: partialRegex }
+    ];
+    if (mongoose.Types.ObjectId.isValid(q)) {
+      or.push({ _id: q });
+    }
+    console.log('[UserSearch] Partial search $or:', or);
+    const suggestions = await User.find({ $or: or }).select('_id name username avatar privateProfile').limit(10);
+    console.log('[UserSearch] Suggestions:', suggestions);
+    return res.json({ success: true, data: { users: suggestions } });
+  } catch (error) {
+    console.error('[UserSearch] Error:', error.stack || error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
 // @route   GET /api/users/:id
 // @desc    Get user by ID
 // @access  Private
 router.get('/users/:id', auth, async (req, res) => {
   try {
-    console.log('DEBUG /users/:id req.params.id:', req.params.id);
     const user = await User.findById(req.params.id).select('-password');
-    console.log('DEBUG /users/:id found user:', user);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
     }
-    res.json({ success: true, data: { user } });
+    let userObj = user.toObject();
+    // Only include followRequests if viewing own profile
+    if (user._id.equals(req.user._id)) {
+      userObj.followRequests = user.followRequests;
+    } else {
+      delete userObj.followRequests;
+    }
+    res.json({ success: true, data: { user: userObj } });
   } catch (error) {
     console.error('Get user by ID error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
@@ -293,6 +360,14 @@ router.post('/users/:id/follow', auth, async (req, res) => {
     }
     if (userToFollow.followers.includes(currentUser._id)) {
       return res.status(400).json({ success: false, message: 'Та аль хэдийн дагасан байна' });
+    }
+    if (userToFollow.privateProfile) {
+      if (userToFollow.followRequests.includes(currentUser._id)) {
+        return res.status(400).json({ success: false, message: 'Дагах хүсэлт илгээсэн байна' });
+      }
+      userToFollow.followRequests.push(currentUser._id);
+      await userToFollow.save();
+      return res.json({ success: true, message: 'Дагах хүсэлт илгээгдлээ', data: { followRequests: userToFollow.followRequests } });
     }
     userToFollow.followers.push(currentUser._id);
     currentUser.following.push(userToFollow._id);
@@ -325,6 +400,59 @@ router.post('/users/:id/unfollow', auth, async (req, res) => {
     res.json({ success: true, message: 'Дагахаа болилоо', data: { followers: userToUnfollow.followers, following: currentUser.following } });
   } catch (error) {
     console.error('Unfollow error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
+// @route   POST /api/users/:id/accept-request
+// @desc    Accept a follow request
+// @access  Private
+router.post('/users/:id/accept-request', auth, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user._id);
+    const requesterId = req.body.requesterId;
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
+    }
+    if (!currentUser.followRequests.includes(requesterId)) {
+      return res.status(400).json({ success: false, message: 'Дагах хүсэлт олдсонгүй' });
+    }
+    // Remove from followRequests, add to followers
+    currentUser.followRequests = currentUser.followRequests.filter(id => id.toString() !== requesterId);
+    currentUser.followers.push(requesterId);
+    await currentUser.save();
+    // Also add to requester's following
+    const requester = await User.findById(requesterId);
+    if (requester) {
+      requester.following.push(currentUser._id);
+      await requester.save();
+    }
+    res.json({ success: true, message: 'Дагах хүсэлт зөвшөөрөгдлөө', data: { followers: currentUser.followers } });
+  } catch (error) {
+    console.error('Accept request error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
+// @route   POST /api/users/:id/reject-request
+// @desc    Reject a follow request
+// @access  Private
+router.post('/users/:id/reject-request', auth, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user._id);
+    const requesterId = req.body.requesterId;
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
+    }
+    if (!currentUser.followRequests.includes(requesterId)) {
+      return res.status(400).json({ success: false, message: 'Дагах хүсэлт олдсонгүй' });
+    }
+    // Remove from followRequests
+    currentUser.followRequests = currentUser.followRequests.filter(id => id.toString() !== requesterId);
+    await currentUser.save();
+    res.json({ success: true, message: 'Дагах хүсэлт цуцлагдлаа', data: { followRequests: currentUser.followRequests } });
+  } catch (error) {
+    console.error('Reject request error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
   }
 });

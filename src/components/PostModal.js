@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
-import { X, Trash, Loader2 } from 'lucide-react';
+import { X, Trash, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CustomVideoPlayer from './CustomVideoPlayer';
 
@@ -11,6 +11,7 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true }) => {
   const [commenting, setCommenting] = useState(false);
   const [deletingComments, setDeletingComments] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, commentId: null });
+  const [currentMedia, setCurrentMedia] = useState(0);
 
   useEffect(() => {
     fetchPost();
@@ -126,10 +127,50 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true }) => {
               </div>
             </div>
             <div className="mb-2 whitespace-pre-line">{post.content}</div>
-            {post.image && (
+            {/* Media carousel for new posts */}
+            {Array.isArray(post.media) && post.media.length > 0 && (
+              <div className="relative w-full flex flex-col items-center mb-2">
+                <div className="relative w-full flex items-center justify-center">
+                  {post.media.length > 1 && (
+                    <button type="button" onClick={e => { e.stopPropagation(); setCurrentMedia((currentMedia - 1 + post.media.length) % post.media.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1 z-10">
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                  )}
+                  {post.media[currentMedia].type === 'image' ? (
+                    <img
+                      src={post.media[currentMedia].url}
+                      alt="post"
+                      className="max-h-64 rounded object-contain border border-border"
+                    />
+                  ) : (
+                    <CustomVideoPlayer
+                      src={post.media[currentMedia].url}
+                      className="max-h-64 rounded w-full object-contain border border-border"
+                      autoPlay={true}
+                      hideControls={false}
+                      minimalControls={true}
+                    />
+                  )}
+                  {post.media.length > 1 && (
+                    <button type="button" onClick={e => { e.stopPropagation(); setCurrentMedia((currentMedia + 1) % post.media.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1 z-10">
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  )}
+                </div>
+                {post.media.length > 1 && (
+                  <div className="flex gap-1 mt-2 justify-center">
+                    {post.media.map((_, idx) => (
+                      <span key={idx} className={`inline-block w-2 h-2 rounded-full ${idx === currentMedia ? 'bg-primary' : 'bg-muted'}`}></span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Fallback for legacy posts with image/video fields */}
+            {(!post.media || post.media.length === 0) && post.image && (
               <img src={post.image} alt="post" className="max-h-64 rounded mb-2 object-contain" />
             )}
-            {post.video && (
+            {(!post.media || post.media.length === 0) && post.video && (
               <CustomVideoPlayer
                 src={post.video}
                 autoPlay={true}

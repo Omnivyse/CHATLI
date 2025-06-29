@@ -205,6 +205,32 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  async followUser(userId) {
+    return this.request(`/auth/users/${userId}/follow`, { method: 'POST' });
+  }
+
+  async unfollowUser(userId) {
+    return this.request(`/auth/users/${userId}/unfollow`, { method: 'POST' });
+  }
+
+  async acceptFollowRequest(userId, requesterId) {
+    return this.request(`/auth/users/${userId}/accept-request`, {
+      method: 'POST',
+      body: JSON.stringify({ requesterId })
+    });
+  }
+
+  async rejectFollowRequest(userId, requesterId) {
+    return this.request(`/auth/users/${userId}/reject-request`, {
+      method: 'POST',
+      body: JSON.stringify({ requesterId })
+    });
+  }
+
+  async searchUsers(query) {
+    return this.request(`/auth/users/search?q=${encodeURIComponent(query)}`);
+  }
 }
 
 const apiService = new ApiService();

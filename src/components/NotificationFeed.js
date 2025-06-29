@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import socketService from '../services/socket';
-import { Bell, Heart, MessageCircle, Loader2 } from 'lucide-react';
+import { Bell, Heart, MessageCircle, Loader2, User as UserIcon, Check, X as XIcon } from 'lucide-react';
 import PostModal from './PostModal';
 
 const NotificationFeed = ({ user }) => {
@@ -10,6 +10,10 @@ const NotificationFeed = ({ user }) => {
   const [error, setError] = useState('');
   const [modalPostId, setModalPostId] = useState(null);
   const lastFetchRef = useRef(0);
+  const [followRequests, setFollowRequests] = useState([]);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
 
   useEffect(() => {
     const now = Date.now();
@@ -28,6 +32,26 @@ const NotificationFeed = ({ user }) => {
     };
   }, []);
 
+  useEffect(() => {
+    // Fetch current user profile for follow requests
+    const fetchProfile = async () => {
+      setProfileLoading(true);
+      setProfileError('');
+      try {
+        const res = await api.request(`/auth/users/${user._id}`);
+        if (res.success) {
+          setFollowRequests(res.data.user.followRequests || []);
+          setIsPrivate(res.data.user.privateProfile);
+        }
+      } catch (e) {
+        setProfileError('Профайл уншихад алдаа гарлаа');
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    if (user?._id) fetchProfile();
+  }, [user?._id]);
+
   const fetchNotifications = async () => {
     setLoading(true);
     setError('');
@@ -42,6 +66,15 @@ const NotificationFeed = ({ user }) => {
     }
   };
 
+  const handleAccept = async (requesterId) => {
+    await api.acceptFollowRequest(user._id, requesterId);
+    setFollowRequests(followRequests.filter(id => id !== requesterId));
+  };
+  const handleReject = async (requesterId) => {
+    await api.rejectFollowRequest(user._id, requesterId);
+    setFollowRequests(followRequests.filter(id => id !== requesterId));
+  };
+
   return (
     <div className="max-w-xl mx-auto w-full p-4">
       <div className="flex items-center justify-between mb-4">
@@ -49,6 +82,17 @@ const NotificationFeed = ({ user }) => {
           <Bell className="w-6 h-6" /> Мэдэгдэл
         </h2>
       </div>
+      {/* Follow Requests Section */}
+      {isPrivate && followRequests.length > 0 && (
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
+          <div className="font-semibold mb-2">Дагах хүсэлтүүд</div>
+          <div className="space-y-3">
+            {followRequests.map((id) => (
+              <FollowRequestItem key={id} userId={id} onAccept={handleAccept} onReject={handleReject} />
+            ))}
+          </div>
+        </div>
+      )}
       {loading ? (
         <div className="text-center text-secondary"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
       ) : error ? (
@@ -107,5 +151,48 @@ const NotificationFeed = ({ user }) => {
     </div>
   );
 };
+
+function FollowRequestItem({ userId, onAccept, onReject }) {
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      try {
+        const res = await api.request(`/auth/users/${userId}`);
+        setProfile(res.data.user);
+      } catch {}
+      setLoading(false);
+    };
+    fetchProfile();
+  }, [userId]);
+  if (loading) return <div className="flex items-center gap-2 text-secondary text-sm"><Loader2 className="w-4 h-4 animate-spin" />Уншиж байна...</div>;
+  if (!profile) return null;
+  return (
+    <div className="flex items-center gap-3">
+      {profile.avatar ? (
+        <img src={profile.avatar} alt={profile.name} className="w-8 h-8 rounded-full object-cover" />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+          <UserIcon className="w-5 h-5 text-secondary" />
+        </div>
+      )}
+      <span className="font-medium">{profile.name}</span>
+      <span className="text-secondary text-xs">@{profile.username}</span>
+      <button
+        onClick={() => onAccept(userId)}
+        className="ml-auto px-3 py-1 rounded bg-black text-white hover:bg-gray-800 transition font-semibold"
+      >
+        Зөвшөөрөх
+      </button>
+      <button
+        onClick={() => onReject(userId)}
+        className="ml-2 px-3 py-1 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition font-semibold"
+      >
+        Цуцлах
+      </button>
+    </div>
+  );
+}
 
 export default NotificationFeed; 
