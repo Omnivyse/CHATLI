@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import api from '../services/api';
-import { Heart, MessageCircle, Trash, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, MessageCircle, Trash, Eye, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import PostModal from './PostModal';
 import UserProfileModal from './UserProfileModal';
 import CustomVideoPlayer from './CustomVideoPlayer';
@@ -14,6 +14,10 @@ const Post = ({ post, user, onPostUpdate }) => {
   const isOwner = post.author._id === user._id;
   const isLiked = post.likes.includes(user._id);
   const [currentMedia, setCurrentMedia] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editContent, setEditContent] = useState(post.content);
+  const [editLoading, setEditLoading] = useState(false);
 
   const handleLike = async () => {
     setLiking(true);
@@ -61,9 +65,27 @@ const Post = ({ post, user, onPostUpdate }) => {
           <div className="text-xs text-secondary">{new Date(post.createdAt).toLocaleString()}</div>
         </div>
         {isOwner && (
-          <button onClick={handleDeletePost} className="p-2 rounded hover:bg-red-100 text-red-500" title="Пост устгах">
-            <Trash className="w-5 h-5" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((open) => !open)}
+              className="p-2 rounded hover:bg-muted"
+              title="Илүү"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-32 bg-white border border-border rounded shadow-lg z-10">
+                <button
+                  className="block w-full text-left px-4 py-2 hover:bg-muted"
+                  onClick={() => { setMenuOpen(false); setEditModalOpen(true); setEditContent(post.content); }}
+                >Засах</button>
+                <button
+                  className="block w-full text-left px-4 py-2 text-red-500 hover:bg-red-100"
+                  onClick={() => { setMenuOpen(false); handleDeletePost(); }}
+                >Устгах</button>
+              </div>
+            )}
+          </div>
         )}
       </div>
       <div
@@ -150,6 +172,41 @@ const Post = ({ post, user, onPostUpdate }) => {
       {/* Comments are hidden by default */}
       {showModal && (
         <PostModal postId={post._id} user={user} onClose={() => setShowModal(false)} onPostUpdate={onPostUpdate} />
+      )}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg shadow-xl max-w-md w-full p-6 relative" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4">Пост засах</h2>
+            <textarea
+              className="w-full p-3 rounded-xl border border-border bg-muted focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition placeholder:text-secondary text-base resize-none min-h-[60px] mb-4"
+              value={editContent}
+              onChange={e => setEditContent(e.target.value)}
+              rows={3}
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                className="px-4 py-2 bg-muted rounded hover:bg-muted/80"
+                onClick={() => setEditModalOpen(false)}
+                disabled={editLoading}
+              >Болих</button>
+              <button
+                className="px-4 py-2 bg-primary text-primary-dark rounded font-semibold hover:bg-primary/90 transition disabled:opacity-50"
+                onClick={async () => {
+                  setEditLoading(true);
+                  try {
+                    await api.updatePost(post._id, { content: editContent });
+                    setEditModalOpen(false);
+                    onPostUpdate && onPostUpdate();
+                  } finally {
+                    setEditLoading(false);
+                  }
+                }}
+                disabled={editLoading || !editContent.trim()}
+              >Хадгалах</button>
+            </div>
+          </div>
+        </div>
       )}
       <UserProfileModal userId={post.author._id} currentUser={user} onClose={() => setShowProfile(false)} show={showProfile} />
     </div>

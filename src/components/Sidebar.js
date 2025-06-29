@@ -27,11 +27,6 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
   const [isPrivateProfile, setIsPrivateProfile] = useState(user.privateProfile || false);
   const [updatingPrivate, setUpdatingPrivate] = useState(false);
   const [privateError, setPrivateError] = useState('');
-  const [userSearch, setUserSearch] = useState('');
-  const [userResults, setUserResults] = useState([]);
-  const [showUserSearchModal, setShowUserSearchModal] = useState(false);
-  const [userSearchLoading, setUserSearchLoading] = useState(false);
-  const [userSearchError, setUserSearchError] = useState('');
 
   useEffect(() => {
     loadChats();
@@ -51,33 +46,6 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
   useEffect(() => {
     setIsPrivateProfile(user.privateProfile || false);
   }, [user.privateProfile]);
-
-  useEffect(() => {
-    if (userSearch.trim().length === 0) {
-      setUserResults([]);
-      setUserSearchError('');
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      setUserSearchLoading(true);
-      setUserSearchError('');
-      try {
-        const res = await api.searchUsers(userSearch);
-        if (res.success) {
-          setUserResults(res.data.users);
-        } else {
-          setUserSearchError(res.message || 'Хайлт хийхэд алдаа гарлаа');
-          setUserResults([]);
-        }
-      } catch (e) {
-        setUserSearchError('Серверийн алдаа. Дахин оролдоно уу.');
-        setUserResults([]);
-      } finally {
-        setUserSearchLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [userSearch]);
 
   const loadChats = async () => {
     setLoading(true);
@@ -232,40 +200,11 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
           <input
             type="text"
             placeholder="Хэрэглэгч хайх..."
-            value={userSearch}
-            onChange={e => setUserSearch(e.target.value)}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-muted dark:bg-muted-dark rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             autoComplete="off"
           />
-          {userSearchError && (
-            <div className="text-xs text-red-500 mt-1">{userSearchError}</div>
-          )}
-          <button
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-white underline"
-            onClick={() => setShowUserSearchModal(true)}
-            tabIndex={-1}
-          >
-            Бүгдийг харах
-          </button>
-          {userSearch && userResults.length > 0 && (
-            <div className="absolute left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-              {userResults.map(u => (
-                <div key={u._id} className="flex items-center gap-3 px-4 py-2 hover:bg-muted cursor-pointer">
-                  {u.avatar ? (
-                    <img src={u.avatar} alt={u.name} className="w-7 h-7 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
-                      <UserIcon className="w-4 h-4 text-secondary" />
-                    </div>
-                  )}
-                  <span className="font-medium">{u.name}</span>
-                  <span className="text-secondary text-xs">@{u.username}</span>
-                  {u.privateProfile && <span className="ml-2 text-xs text-primary">Хувийн</span>}
-                </div>
-              ))}
-              {userSearchLoading && <div className="text-center text-xs text-secondary py-2">Уншиж байна...</div>}
-            </div>
-          )}
         </div>
       </div>
 
@@ -412,10 +351,6 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
             </div>
           </div>
         </div>
-      )}
-
-      {showUserSearchModal && (
-        <UserSearchModal onClose={() => setShowUserSearchModal(false)} />
       )}
     </div>
   );

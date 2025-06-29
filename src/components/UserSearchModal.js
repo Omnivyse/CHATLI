@@ -38,6 +38,7 @@ const UserSearchModal = ({ onClose }) => {
           <XIcon className="w-5 h-5" />
         </button>
         <h2 className="text-center text-lg font-semibold mb-4">Хэрэглэгч хайх</h2>
+        <div className="text-center text-secondary text-sm mb-4">Та нэр эсвэл хэрэглэгчийн нэрээр хайх боломжтой.</div>
         <form onSubmit={handleSearch} className="flex gap-2 mb-4">
           <input
             type="text"

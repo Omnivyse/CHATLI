@@ -210,4 +210,24 @@ router.get('/user/:userId', auth, async (req, res) => {
   }
 });
 
+// Edit a post (owner only)
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    if (String(post.author) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Та зөвшөөрөлгүй байна' });
+    }
+    const { content, media } = req.body;
+    if (typeof content === 'string') post.content = content;
+    if (Array.isArray(media)) post.media = media;
+    await post.save();
+    await post.populate('author', 'name avatar');
+    res.json({ success: true, message: 'Пост амжилттай засагдлаа', data: { post } });
+  } catch (error) {
+    console.error('Edit post error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
 module.exports = router; 

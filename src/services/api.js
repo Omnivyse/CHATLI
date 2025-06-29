@@ -231,6 +231,13 @@ class ApiService {
   async searchUsers(query) {
     return this.request(`/auth/users/search?q=${encodeURIComponent(query)}`);
   }
+
+  async updatePost(postId, postData) {
+    return this.request(`/posts/${postId}`, {
+      method: 'PUT',
+      body: JSON.stringify(postData),
+    });
+  }
 }
 
 const apiService = new ApiService();

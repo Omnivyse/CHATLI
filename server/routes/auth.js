@@ -17,6 +17,80 @@ function escapeRegex(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// @route   GET /api/auth/users/search
+// @desc    Search users by name or username
+// @access  Private
+router.get('/auth/users/search', auth, async (req, res) => {
+  try {
+    const q = req.query.q || '';
+    if (!q.trim()) return res.json({ success: true, data: { users: [] } });
+    const safeQ = escapeRegex(q);
+    const regex = new RegExp(`^${safeQ}$`, 'i'); // exact match for uniqueness
+    console.log('[UserSearch] Query:', q, '| safeQ:', safeQ, '| regex:', regex);
+
+    // Try to find by username first (unique)
+    let user = await User.findOne({ username: regex }).select('_id name username avatar privateProfile');
+    console.log('[UserSearch] Username match:', user);
+    if (user) {
+      return res.json({ success: true, data: { users: [user] } });
+    }
+
+    // Then try to find by name (should be unique if enforced)
+    let usersByName = await User.find({ name: regex }).select('_id name username avatar privateProfile');
+    console.log('[UserSearch] Name match:', usersByName);
+    if (usersByName.length === 1) {
+      return res.json({ success: true, data: { users: usersByName } });
+    } else if (usersByName.length > 1) {
+      // Legacy data: multiple users with same name
+      return res.status(409).json({
+        success: false,
+        message: 'Олдсон нэр давхцаж байна. Админд хандана уу.',
+        data: { users: usersByName }
+      });
+    }
+
+    // If not found, fallback to partial search (for suggestions)
+    const partialRegex = new RegExp(safeQ, 'i');
+    const or = [
+      { name: partialRegex },
+      { username: partialRegex }
+    ];
+    if (mongoose.Types.ObjectId.isValid(q)) {
+      or.push({ _id: q });
+    }
+    console.log('[UserSearch] Partial search $or:', or);
+    const suggestions = await User.find({ $or: or }).select('_id name username avatar privateProfile').limit(10);
+    console.log('[UserSearch] Suggestions:', suggestions);
+    return res.json({ success: true, data: { users: suggestions } });
+  } catch (error) {
+    console.error('[UserSearch] Error:', error.stack || error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
+// @route   GET /api/users/:id
+// @desc    Get user by ID
+// @access  Private
+router.get('/users/:id', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
+    }
+    let userObj = user.toObject();
+    // Only include followRequests if viewing own profile
+    if (user._id.equals(req.user._id)) {
+      userObj.followRequests = user.followRequests;
+    } else {
+      delete userObj.followRequests;
+    }
+    res.json({ success: true, data: { user: userObj } });
+  } catch (error) {
+    console.error('Get user by ID error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
@@ -268,80 +342,6 @@ router.post('/logout', auth, async (req, res) => {
       success: false,
       message: 'Серверийн алдаа'
     });
-  }
-});
-
-// @route   GET /api/auth/users/search
-// @desc    Search users by name or username
-// @access  Private
-router.get('/auth/users/search', auth, async (req, res) => {
-  try {
-    const q = req.query.q || '';
-    if (!q.trim()) return res.json({ success: true, data: { users: [] } });
-    const safeQ = escapeRegex(q);
-    const regex = new RegExp(`^${safeQ}$`, 'i'); // exact match for uniqueness
-    console.log('[UserSearch] Query:', q, '| safeQ:', safeQ, '| regex:', regex);
-
-    // Try to find by username first (unique)
-    let user = await User.findOne({ username: regex }).select('_id name username avatar privateProfile');
-    console.log('[UserSearch] Username match:', user);
-    if (user) {
-      return res.json({ success: true, data: { users: [user] } });
-    }
-
-    // Then try to find by name (should be unique if enforced)
-    let usersByName = await User.find({ name: regex }).select('_id name username avatar privateProfile');
-    console.log('[UserSearch] Name match:', usersByName);
-    if (usersByName.length === 1) {
-      return res.json({ success: true, data: { users: usersByName } });
-    } else if (usersByName.length > 1) {
-      // Legacy data: multiple users with same name
-      return res.status(409).json({
-        success: false,
-        message: 'Олдсон нэр давхцаж байна. Админд хандана уу.',
-        data: { users: usersByName }
-      });
-    }
-
-    // If not found, fallback to partial search (for suggestions)
-    const partialRegex = new RegExp(safeQ, 'i');
-    const or = [
-      { name: partialRegex },
-      { username: partialRegex }
-    ];
-    if (mongoose.Types.ObjectId.isValid(q)) {
-      or.push({ _id: q });
-    }
-    console.log('[UserSearch] Partial search $or:', or);
-    const suggestions = await User.find({ $or: or }).select('_id name username avatar privateProfile').limit(10);
-    console.log('[UserSearch] Suggestions:', suggestions);
-    return res.json({ success: true, data: { users: suggestions } });
-  } catch (error) {
-    console.error('[UserSearch] Error:', error.stack || error);
-    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
-  }
-});
-
-// @route   GET /api/users/:id
-// @desc    Get user by ID
-// @access  Private
-router.get('/users/:id', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
-    }
-    let userObj = user.toObject();
-    // Only include followRequests if viewing own profile
-    if (user._id.equals(req.user._id)) {
-      userObj.followRequests = user.followRequests;
-    } else {
-      delete userObj.followRequests;
-    }
-    res.json({ success: true, data: { user: userObj } });
-  } catch (error) {
-    console.error('Get user by ID error:', error);
-    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
   }
 });
 

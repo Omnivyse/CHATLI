@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import Post from './Post';
-import { Plus, X as XIcon, Image as ImageIcon } from 'lucide-react';
+import { Plus, X as XIcon, Image as ImageIcon, Search as SearchIcon } from 'lucide-react';
 import NewPostModal from './NewPostModal';
+import UserSearchModal from './UserSearchModal';
 
 const PostFeed = ({ user }) => {
   const [posts, setPosts] = useState([]);
@@ -12,6 +13,7 @@ const PostFeed = ({ user }) => {
   const [image, setImage] = useState('');
   const [creating, setCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showUserSearchModal, setShowUserSearchModal] = useState(false);
 
   useEffect(() => {
     fetchPosts();
@@ -60,8 +62,8 @@ const PostFeed = ({ user }) => {
 
   return (
     <div className="max-w-xl mx-auto w-full p-4">
-      {/* Minimal New Post UI */}
-      <div className="mb-6 bg-background rounded-2xl shadow p-4 flex items-center gap-3 border border-border">
+      {/* Sticky New Post UI */}
+      <div className="sticky top-0 z-10 mb-6 bg-background/95 backdrop-blur-sm rounded-2xl shadow p-4 flex items-center gap-3 border border-border">
         <input
           className="flex-1 bg-muted rounded-full px-4 py-2 border border-border focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition placeholder:text-secondary text-base cursor-pointer"
           placeholder="Юу бодож байна?"
@@ -74,7 +76,17 @@ const PostFeed = ({ user }) => {
         >
           Постлох
         </button>
+        <button
+          className="ml-2 p-2 bg-muted text-primary rounded-full hover:bg-primary/10 transition flex items-center justify-center"
+          title="Хэрэглэгч хайх"
+          onClick={() => setShowUserSearchModal(true)}
+        >
+          <SearchIcon className="w-5 h-5" />
+        </button>
       </div>
+      {showUserSearchModal && (
+        <UserSearchModal onClose={() => setShowUserSearchModal(false)} />
+      )}
       {showModal && (
         <NewPostModal user={user} onClose={() => setShowModal(false)} onPostCreated={fetchPosts} />
       )}
