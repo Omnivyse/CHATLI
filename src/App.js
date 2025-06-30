@@ -207,6 +207,7 @@ function App() {
             }}
             activeTab={activeTab}
             unreadNotificationCount={unreadNotificationCount}
+            onClose={() => setShowSidebarMobile(false)}
           />
         </div>
       )}
