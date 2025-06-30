@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import socketService from '../services/socket';
-import { Bell, Heart, MessageCircle, Loader2, User as UserIcon, Check, X as XIcon } from 'lucide-react';
+import { Bell, Heart, MessageCircle, Loader2, User as UserIcon } from 'lucide-react';
 import PostModal from './PostModal';
 
 const NotificationFeed = ({ user }) => {
@@ -11,8 +11,6 @@ const NotificationFeed = ({ user }) => {
   const [modalPostId, setModalPostId] = useState(null);
   const lastFetchRef = useRef(0);
   const [followRequests, setFollowRequests] = useState([]);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [profileError, setProfileError] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
 
   useEffect(() => {
@@ -35,8 +33,6 @@ const NotificationFeed = ({ user }) => {
   useEffect(() => {
     // Fetch current user profile for follow requests
     const fetchProfile = async () => {
-      setProfileLoading(true);
-      setProfileError('');
       try {
         const res = await api.request(`/auth/users/${user._id}`);
         if (res.success) {
@@ -44,9 +40,7 @@ const NotificationFeed = ({ user }) => {
           setIsPrivate(res.data.user.privateProfile);
         }
       } catch (e) {
-        setProfileError('Профайл уншихад алдаа гарлаа');
-      } finally {
-        setProfileLoading(false);
+        console.error('Профайл уншихад алдаа гарлаа', e);
       }
     };
     if (user?._id) fetchProfile();
@@ -76,7 +70,7 @@ const NotificationFeed = ({ user }) => {
   };
 
   return (
-    <div className="max-w-xl mx-auto w-full p-4">
+    <div className="max-w-xl mx-auto w-full p-4 bg-white dark:bg-black rounded-xl">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <Bell className="w-6 h-6" /> Мэдэгдэл
@@ -84,7 +78,7 @@ const NotificationFeed = ({ user }) => {
       </div>
       {/* Follow Requests Section */}
       {isPrivate && followRequests.length > 0 && (
-        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-black rounded-lg border border-yellow-200 dark:border-yellow-700">
           <div className="font-semibold mb-2">Дагах хүсэлтүүд</div>
           <div className="space-y-3">
             {followRequests.map((id) => (
@@ -116,7 +110,7 @@ const NotificationFeed = ({ user }) => {
             return (
               <div
                 key={n._id}
-                className={`flex items-start gap-3 p-4 rounded-lg border border-border ${n.isRead ? 'bg-muted' : 'bg-yellow-50 dark:bg-yellow-900/20'} cursor-pointer hover:bg-muted/70 transition`}
+                className={`flex items-start gap-3 p-4 rounded-lg border border-border ${n.isRead ? 'bg-muted dark:bg-zinc-900' : 'bg-yellow-50 dark:bg-zinc-900'} cursor-pointer hover:bg-muted/70 transition`}
                 onClick={handleClick}
               >
                 <div className="pt-1">

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import Post from './Post';
-import { Plus, X as XIcon, Image as ImageIcon, Search as SearchIcon } from 'lucide-react';
+import { Search as SearchIcon } from 'lucide-react';
 import NewPostModal from './NewPostModal';
 import UserSearchModal from './UserSearchModal';
 
@@ -9,9 +9,6 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [content, setContent] = useState('');
-  const [image, setImage] = useState('');
-  const [creating, setCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
 
@@ -30,33 +27,6 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
       setError('Алдаа гарлаа');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setImage(reader.result);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCreatePost = async (e) => {
-    e.preventDefault();
-    if (!content.trim()) return;
-    setCreating(true);
-    try {
-      const res = await api.createPost({ content, image });
-      if (res.success) {
-        setContent('');
-        setImage('');
-        fetchPosts();
-      }
-    } catch (e) {
-      // Optionally show error
-    } finally {
-      setCreating(false);
     }
   };
 

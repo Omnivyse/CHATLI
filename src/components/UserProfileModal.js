@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import { X as XIcon, Loader2 } from 'lucide-react';
 import Post from './Post';
@@ -16,7 +16,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
   const [chatLoading, setChatLoading] = useState(false);
 
   // Move fetchData outside useEffect so it can be reused
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const userRes = await api.request(`/auth/users/${userId}`);
@@ -45,11 +45,11 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, currentUser._id]);
 
   useEffect(() => {
     if (userId) fetchData();
-  }, [userId, currentUser._id]);
+  }, [userId, currentUser._id, fetchData]);
 
   const handleFollow = async () => {
     if (followLoading) return; // Prevent double requests
