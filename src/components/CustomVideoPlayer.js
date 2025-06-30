@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 const CustomVideoPlayer = forwardRef(({
-  src, className = "", onClick, autoPlay = false, loop = false, muted = false, hideControls = false, minimalControls = false, autoPlayOnView = false
+  src, className = "", onClick, autoPlay = false, loop = false, muted = false, hideControls = false, minimalControls = false, autoPlayOnView = false, playPauseOnly = false
 }, ref) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -18,7 +18,6 @@ const CustomVideoPlayer = forwardRef(({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(false);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,14 +33,12 @@ const CustomVideoPlayer = forwardRef(({
     if (!autoPlayOnView || !videoRef.current) return;
     const video = videoRef.current;
     let observer;
-    let wasPlaying = false;
     const handleIntersection = (entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           video.muted = true;
           video.play().catch(() => {});
         } else {
-          wasPlaying = !video.paused;
           video.pause();
         }
       });
@@ -57,7 +54,7 @@ const CustomVideoPlayer = forwardRef(({
   // Auto-hide controls after 3 seconds
   useEffect(() => {
     let timeout;
-    if (showControls, isPlaying && !hideControls && !minimalControls) {
+    if (showControls && isPlaying && !hideControls && !minimalControls) {
       timeout = setTimeout(() => setShowControls(false), 3000);
     }
     return () => clearTimeout(timeout);
@@ -233,8 +230,19 @@ const CustomVideoPlayer = forwardRef(({
         </div>
       )}
 
+      {/* Play/Pause only button at bottom left */}
+      {playPauseOnly && !isLoading && (
+        <button
+          onClick={togglePlay}
+          className="absolute bottom-4 left-4 w-12 h-12 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-all z-10"
+          style={{ pointerEvents: 'auto' }}
+        >
+          {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-0.5" />}
+        </button>
+      )}
+
       {/* Minimal controls for modal (top right, small) */}
-      {minimalControls && !isLoading && (
+      {!playPauseOnly && minimalControls && !isLoading && (
         <>
           <div className="absolute top-4 right-4 flex gap-2 pointer-events-none">
             <button
@@ -293,7 +301,7 @@ const CustomVideoPlayer = forwardRef(({
       )}
 
       {/* Controls overlay (hidden if hideControls or minimalControls) */}
-      {!hideControls && !minimalControls && (showControls || !isPlaying) && !isLoading && (
+      {!playPauseOnly && !hideControls && !minimalControls && (showControls || !isPlaying) && !isLoading && (
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-xl pointer-events-none">
           {/* Top controls */}
           <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-auto">

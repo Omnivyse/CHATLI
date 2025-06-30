@@ -4,11 +4,11 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border dark:border-border-dark;
   }
   
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   
@@ -23,39 +23,39 @@
   }
   
   .chat-bubble-sent {
-    @apply bg-primary text-primary-dark ml-auto;
+    @apply bg-primary dark:bg-primary-dark text-primary-dark dark:text-primary ml-auto;
   }
   
   .chat-bubble-received {
-    @apply bg-muted text-foreground;
+    @apply bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark;
   }
   
   .thread-indent {
-    @apply ml-8 border-l border-border pl-4;
+    @apply ml-8 border-l border-border dark:border-border-dark pl-4;
   }
   
   .sidebar-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors cursor-pointer;
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted dark:hover:bg-muted-dark transition-colors cursor-pointer;
   }
   
   .sidebar-item-active {
-    @apply bg-muted;
+    @apply bg-muted dark:bg-muted-dark;
   }
   
   .input-area {
-    @apply flex items-end gap-2 p-4 border-t border-border bg-background;
+    @apply flex items-end gap-2 p-4 border-t border-border dark:border-border-dark bg-background dark:bg-background-dark;
   }
   
   .message-input {
-    @apply flex-1 min-h-[44px] max-h-32 px-4 py-2 rounded-full border border-border bg-muted resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply flex-1 min-h-[44px] max-h-32 px-4 py-2 rounded-full border border-border dark:border-border-dark bg-muted dark:bg-muted-dark resize-none focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark focus:border-transparent;
   }
   
   .emoji-button {
-    @apply p-2 rounded-full hover:bg-muted transition-colors;
+    @apply p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors;
   }
   
   .voice-button {
-    @apply p-2 rounded-full bg-primary text-primary-dark hover:bg-primary/90 transition-colors;
+    @apply p-2 rounded-full bg-primary dark:bg-primary-dark text-primary-dark dark:text-primary hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors;
   }
 }
 
@@ -69,11 +69,11 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full;
+  @apply bg-border dark:bg-border-dark rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-secondary;
+  @apply bg-secondary dark:bg-secondary-dark;
 }
 
 /* Video Player Custom Styles */

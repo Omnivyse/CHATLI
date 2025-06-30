@@ -8,10 +8,12 @@ import {
   Home,
   User as UserIcon,
   Bell,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { getDisplayDate } from '../utils/dateUtils';
-import { cn } from '../utils/themeUtils';
+import { cn, toggleTheme, getDomTheme } from '../utils/themeUtils';
 import api from '../services/api';
 import logo from '../assets/logo3.png';
 import UserSearchModal from './UserSearchModal';
@@ -27,6 +29,7 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
   const [isPrivateProfile, setIsPrivateProfile] = useState(user.privateProfile || false);
   const [updatingPrivate, setUpdatingPrivate] = useState(false);
   const [privateError, setPrivateError] = useState('');
+  const [isDark, setIsDark] = useState(getDomTheme() === 'dark');
 
   useEffect(() => {
     loadChats();
@@ -123,6 +126,11 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
     } finally {
       setUpdatingPrivate(false);
     }
+  };
+
+  const handleThemeToggle = () => {
+    const newTheme = toggleTheme();
+    setIsDark(newTheme === 'dark');
   };
 
   return (
@@ -323,22 +331,24 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-background rounded-xl shadow-xl p-6 w-full max-w-xs relative text-black">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+          <div className="bg-background dark:bg-background-dark rounded-xl shadow-xl p-6 w-full max-w-xs relative text-black dark:text-white z-[10000]">
             <button
-              className="absolute top-2 right-2 p-2 rounded-full hover:bg-muted"
+              className="absolute top-2 right-2 p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark"
               onClick={() => setShowSettingsModal(false)}
               title="Хаах"
             >
               <LogOut className="w-5 h-5 rotate-45" />
             </button>
             <h2 className="text-lg font-bold mb-4">Тохиргоо</h2>
-            <div className="mb-4">
+            
+            {/* Privacy Settings */}
+            <div className="mb-6">
               <h3 className="font-semibold mb-2">Нууцлал</h3>
               <div className="flex items-center justify-between">
                 <span>Хувийн профайл</span>
                 <button
-                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPrivateProfile ? 'bg-primary' : 'bg-muted'}`}
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPrivateProfile ? 'bg-primary dark:bg-primary-dark' : 'bg-muted dark:bg-muted-dark'}`}
                   onClick={handlePrivateToggle}
                   disabled={updatingPrivate}
                 >
@@ -348,6 +358,31 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
                 </button>
               </div>
               {privateError && <div className="text-xs text-red-500 mt-1">{privateError}</div>}
+            </div>
+
+            {/* Theme Settings */}
+            <div className="mb-6">
+              <h3 className="font-semibold mb-2">Харагдах байдал</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {isDark ? (
+                    <Moon className="w-5 h-5 text-secondary dark:text-secondary-dark" />
+                  ) : (
+                    <Sun className="w-5 h-5 text-secondary dark:text-secondary-dark" />
+                  )}
+                  <span className="font-medium">
+                    {isDark ? 'Харанхуй горим' : 'Гэрэл горим'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleThemeToggle}
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isDark ? 'bg-primary dark:bg-primary-dark' : 'bg-muted dark:bg-muted-dark'}`}
+                >
+                  <span
+                    className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${isDark ? 'translate-x-6' : 'translate-x-0'}`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>

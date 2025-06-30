@@ -132,10 +132,10 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-secondary">Уншиж байна...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary dark:border-primary-dark mx-auto mb-4"></div>
+          <p className="text-secondary dark:text-secondary-dark">Уншиж байна...</p>
         </div>
       </div>
     );
@@ -146,15 +146,15 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground relative">
+    <div className="flex h-screen bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark relative">
       {/* Mobile Header - Only shown on mobile when sidebar is hidden */}
       {isMobile && !showSidebarMobile && (activeTab === 'feed' || activeTab === 'notifications' || selectedChat) && (
-        <div className="fixed top-0 left-0 right-0 z-40 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
+        <div className="fixed top-0 left-0 right-0 z-40 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => {
               setShowSidebarMobile(true);
             }}
-            className="flex items-center gap-2 text-primary hover:text-primary/80"
+            className="flex items-center gap-2 text-primary dark:text-primary-dark hover:text-primary/80 dark:hover:text-primary-dark/80"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -172,7 +172,7 @@ function App() {
               <span className="font-semibold text-lg">Чат</span>
             )}
           </div>
-          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center cursor-pointer" onClick={handleProfileSettings}>
+          <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center cursor-pointer" onClick={handleProfileSettings}>
             {user.avatar ? (
               <img 
                 src={user.avatar} 
@@ -180,7 +180,7 @@ function App() {
                 className="w-8 h-8 rounded-full object-cover"
               />
             ) : (
-              <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-secondary dark:text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             )}
@@ -190,7 +190,7 @@ function App() {
 
       {/* Sidebar - Fixed on desktop, overlay on mobile */}
       {((isMobile && showSidebarMobile) || !isMobile) && (
-        <div className={`${isMobile ? 'fixed inset-0 z-50' : 'fixed left-0 top-0 h-full'} bg-background w-full md:w-80 border-r border-border`} style={isMobile ? {maxWidth: '100vw'} : {}}>
+        <div className={`${isMobile ? 'fixed inset-0 z-50' : 'fixed left-0 top-0 h-full'} bg-background dark:bg-background-dark w-full md:w-80 border-r border-border dark:border-border-dark`} style={isMobile ? {maxWidth: '100vw'} : {}}>
           <Sidebar 
             user={user}
             selectedChat={selectedChat} 
@@ -212,7 +212,7 @@ function App() {
       )}
 
       {/* Main Content - Scrollable area with proper spacing */}
-      <div className={`${isMobile && showSidebarMobile ? 'hidden' : 'block'} flex-1 flex flex-col bg-background ${isMobile ? 'pt-16' : 'md:ml-80'}`}>
+      <div className={`${isMobile && showSidebarMobile ? 'hidden' : 'block'} flex-1 flex flex-col bg-background dark:bg-background-dark ${isMobile ? 'pt-16' : 'md:ml-80'}`}>
         {activeTab === 'feed' ? (
           <PostFeed user={user} />
         ) : activeTab === 'notifications' ? (
@@ -225,7 +225,7 @@ function App() {
             isMobile={isMobile}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-secondary">
+          <div className="flex-1 flex items-center justify-center text-secondary dark:text-secondary-dark">
             <div className="text-center">
               <h2 className="text-xl font-medium mb-2">Чат сонгоно уу</h2>
               <p className="text-sm">Хэлэлцэх хүнээ сонгоно уу</p>

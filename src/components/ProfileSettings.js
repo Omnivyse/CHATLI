@@ -12,6 +12,7 @@ import {
   Globe
 } from 'lucide-react';
 import api from '../services/api';
+import { toggleTheme, getDomTheme } from '../utils/themeUtils';
 
 const ProfileSettings = ({ user, onClose, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -20,6 +21,7 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
   const [success, setSuccess] = useState('');
   const fileInputRef = useRef(null);
   const coverInputRef = useRef(null);
+  const [isDark, setIsDark] = useState(getDomTheme() === 'dark');
   
   const [formData, setFormData] = useState({
     name: user.name || '',
@@ -27,6 +29,11 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
     avatar: user.avatar || '',
     coverImage: user.coverImage || ''
   });
+
+  const handleThemeToggle = () => {
+    const newTheme = toggleTheme();
+    setIsDark(newTheme === 'dark');
+  };
 
   const handleInputChange = (e) => {
     setFormData({
@@ -241,7 +248,7 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-6">
             {isEditing ? (
               <>
                 <button
@@ -273,6 +280,31 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
                 Засах
               </button>
             )}
+          </div>
+
+          {/* Theme Toggle Section */}
+          <div className="mt-6 pt-6 border-t border-border">
+            <h3 className="text-lg font-semibold mb-4">Харагдах байдал</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {isDark ? (
+                  <Moon className="w-5 h-5 text-secondary" />
+                ) : (
+                  <Sun className="w-5 h-5 text-secondary" />
+                )}
+                <span className="font-medium">
+                  {isDark ? 'Харанхуй горим' : 'Гэрэл горим'}
+                </span>
+              </div>
+              <button
+                onClick={handleThemeToggle}
+                className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isDark ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <span
+                  className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${isDark ? 'translate-x-6' : 'translate-x-0'}`}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </div>
