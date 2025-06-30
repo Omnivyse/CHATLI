@@ -5,7 +5,7 @@ import { Plus, X as XIcon, Image as ImageIcon, Search as SearchIcon } from 'luci
 import NewPostModal from './NewPostModal';
 import UserSearchModal from './UserSearchModal';
 
-const PostFeed = ({ user }) => {
+const PostFeed = ({ user, settingsModalOpen }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -100,7 +100,7 @@ const PostFeed = ({ user }) => {
       ) : (
         <div className="space-y-6">
           {posts.map(post => (
-            <Post key={post._id} post={post} user={user} onPostUpdate={fetchPosts} />
+            <Post key={post._id} post={post} user={user} onPostUpdate={fetchPosts} settingsModalOpen={settingsModalOpen} />
           ))}
         </div>
       )}

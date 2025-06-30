@@ -41,7 +41,7 @@ const UserSearchModal = ({ onClose, currentUser }) => {
   }, [selectedUser, currentUser]);
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[10001]">
       <div className="bg-background rounded-2xl shadow-xl max-w-lg w-full p-6 relative text-black z-[10000]" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-muted">
           <XIcon className="w-5 h-5" />
@@ -89,7 +89,7 @@ const UserSearchModal = ({ onClose, currentUser }) => {
         )}
       </div>
     </div>,
-    document.body
+    document.getElementById('root')
   );
 };
 

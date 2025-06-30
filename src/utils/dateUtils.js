@@ -56,4 +56,19 @@ export const getDisplayDate = (date) => {
   } else {
     return formatMongolianDate(date);
   }
+};
+
+// Format short relative time (e.g., '17h', '2d', '1w')
+export const formatShortRelativeTime = (date) => {
+  const mongoliaTime = utcToZonedTime(new Date(date), MONGOLIA_TIMEZONE);
+  const now = utcToZonedTime(new Date(), MONGOLIA_TIMEZONE);
+  const diffMs = now - mongoliaTime;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 60) return `${diffMinutes}m`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  return `${diffWeeks}w`;
 }; 

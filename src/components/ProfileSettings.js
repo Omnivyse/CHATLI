@@ -105,7 +105,7 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-background dark:bg-background-dark rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Cover Image Section */}
         <div className="relative h-32 w-full bg-muted rounded-t-lg overflow-hidden flex items-center justify-center">
           {formData.coverImage || user.coverImage ? (
@@ -182,7 +182,7 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
           {/* Profile Info */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 Нэр
               </label>
               <div className="relative">
@@ -193,14 +193,14 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
                   value={formData.name}
                   onChange={handleInputChange}
                   disabled={!isEditing}
-                  className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+                  className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-black placeholder:text-secondary"
                   placeholder="Нэрээ оруулна уу"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 Имэйл
               </label>
               <div className="relative">
@@ -209,14 +209,14 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
                   type="email"
                   value={user.email || ''}
                   disabled
-                  className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg opacity-50 cursor-not-allowed"
+                  className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg opacity-50 cursor-not-allowed text-black placeholder:text-secondary"
                   placeholder="Имэйл"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 Био
               </label>
               <div className="relative">
@@ -227,7 +227,7 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
                   onChange={handleInputChange}
                   disabled={!isEditing}
                   rows={3}
-                  className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 resize-none"
+                  className="w-full pl-10 pr-4 py-2 bg-white text-black border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 resize-none placeholder:text-secondary"
                   placeholder="Өөрийнхөө тухай бичнэ үү..."
                 />
               </div>
@@ -254,7 +254,7 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
                 <button
                   onClick={handleSave}
                   disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-primary text-primary-dark rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-primary text-primary-dark dark:bg-white dark:text-black rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -274,37 +274,12 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-primary text-primary-dark rounded-lg hover:bg-primary/90 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-primary text-primary-dark dark:bg-white dark:text-black rounded-lg hover:bg-primary/90 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
                 Засах
               </button>
             )}
-          </div>
-
-          {/* Theme Toggle Section */}
-          <div className="mt-6 pt-6 border-t border-border">
-            <h3 className="text-lg font-semibold mb-4">Харагдах байдал</h3>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {isDark ? (
-                  <Moon className="w-5 h-5 text-secondary" />
-                ) : (
-                  <Sun className="w-5 h-5 text-secondary" />
-                )}
-                <span className="font-medium">
-                  {isDark ? 'Харанхуй горим' : 'Гэрэл горим'}
-                </span>
-              </div>
-              <button
-                onClick={handleThemeToggle}
-                className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isDark ? 'bg-primary' : 'bg-muted'}`}
-              >
-                <span
-                  className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${isDark ? 'translate-x-6' : 'translate-x-0'}`}
-                />
-              </button>
-            </div>
           </div>
         </div>
       </div>

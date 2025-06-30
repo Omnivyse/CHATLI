@@ -111,7 +111,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.85, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20, duration: 0.28 }}
-            className="bg-background rounded-2xl shadow-xl max-w-lg w-full p-6 relative overflow-y-auto max-h-[90vh]"
+            className="bg-background dark:bg-background-dark rounded-2xl shadow-xl max-w-lg w-full p-6 relative overflow-y-auto max-h-[90vh]"
             onClick={e => e.stopPropagation()}
           >
             {loading ? (
@@ -173,7 +173,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
                         </button>
                         {showCancelDialog && (
                           <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40">
-                            <div className="bg-white rounded-lg shadow-xl p-6 max-w-xs w-full text-center">
+                            <div className="bg-background dark:bg-background-dark rounded-lg shadow-xl p-6 max-w-xs w-full text-center">
                               <div className="mb-4 text-lg font-semibold">Дагах хүсэлтийг цуцлах уу?</div>
                               <div className="flex gap-4 justify-center">
                                 <button

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 const CustomVideoPlayer = forwardRef(({
-  src, className = "", onClick, autoPlay = false, loop = false, muted = false, hideControls = false, minimalControls = false, autoPlayOnView = false, playPauseOnly = false
+  src, className = "", onClick, autoPlay = false, loop = false, muted = false, hideControls = false, minimalControls = false, autoPlayOnView = false, playPauseOnly = false, inModal = false
 }, ref) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -25,6 +25,12 @@ const CustomVideoPlayer = forwardRef(({
   useImperativeHandle(ref, () => ({
     pause: () => {
       if (videoRef.current) videoRef.current.pause();
+    },
+    play: () => {
+      if (videoRef.current) videoRef.current.play();
+    },
+    currentTime: () => {
+      return videoRef.current ? videoRef.current.currentTime : 0;
     }
   }));
 
@@ -54,11 +60,11 @@ const CustomVideoPlayer = forwardRef(({
   // Auto-hide controls after 3 seconds
   useEffect(() => {
     let timeout;
-    if (showControls && isPlaying && !hideControls && !minimalControls) {
+    if (showControls && isPlaying && !hideControls && !minimalControls && !inModal) {
       timeout = setTimeout(() => setShowControls(false), 3000);
     }
     return () => clearTimeout(timeout);
-  }, [showControls, isPlaying, hideControls, minimalControls]);
+  }, [showControls, isPlaying, hideControls, minimalControls, inModal]);
 
   // Handle video events
   useEffect(() => {
@@ -191,12 +197,12 @@ const CustomVideoPlayer = forwardRef(({
 
   if (error) {
     return (
-      <div className={`${className} bg-muted rounded-lg flex items-center justify-center min-h-48`}>
-        <div className="text-center text-secondary">
+      <div className={`${className} bg-muted dark:bg-muted-dark rounded-lg flex items-center justify-center min-h-48`}>
+        <div className="text-center text-secondary dark:text-secondary-dark">
           <p>Video loading failed</p>
           <button 
             onClick={() => window.location.reload()} 
-            className="mt-2 px-4 py-2 bg-primary text-primary-dark rounded-lg text-sm"
+            className="mt-2 px-4 py-2 bg-primary dark:bg-primary-dark text-primary-dark dark:text-primary rounded-lg text-sm"
           >
             Retry
           </button>
@@ -207,7 +213,7 @@ const CustomVideoPlayer = forwardRef(({
 
   // Aspect ratio wrapper (16:9)
   return (
-    <div className={`relative w-full rounded-xl overflow-hidden bg-black z-0 ${className}`} style={{ aspectRatio: '16/9', maxWidth: '100%' }}>
+    <div className={`relative w-full rounded-xl overflow-hidden bg-black z-auto ${className}`} style={{ aspectRatio: '16/9', maxWidth: '100%' }}>
       <video
         ref={videoRef}
         src={src}
@@ -215,8 +221,8 @@ const CustomVideoPlayer = forwardRef(({
         muted={isMuted}
         className="w-full h-full object-cover rounded-xl select-none"
         onClick={handleVideoClick}
-        onMouseEnter={() => !hideControls && !minimalControls && setShowControls(true)}
-        onMouseLeave={() => isPlaying && !hideControls && !minimalControls && setShowControls(false)}
+        onMouseEnter={() => !hideControls && !minimalControls && !inModal && setShowControls(true)}
+        onMouseLeave={() => isPlaying && !hideControls && !minimalControls && !inModal && setShowControls(false)}
         draggable={false}
         tabIndex={-1}
         playsInline
@@ -225,7 +231,7 @@ const CustomVideoPlayer = forwardRef(({
 
       {/* Loading overlay */}
       {isLoading && (
-        <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center z-10">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
       )}
@@ -234,8 +240,10 @@ const CustomVideoPlayer = forwardRef(({
       {playPauseOnly && !isLoading && (
         <button
           onClick={togglePlay}
-          className="absolute bottom-4 left-4 w-12 h-12 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-all z-10"
+          className="absolute bottom-4 left-4 w-12 h-12 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-all z-10 cursor-pointer touch-button"
           style={{ pointerEvents: 'auto' }}
+          type="button"
+          title={isPlaying ? 'Зогсоох' : 'Тоглуулах'}
         >
           {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-0.5" />}
         </button>
@@ -244,24 +252,28 @@ const CustomVideoPlayer = forwardRef(({
       {/* Minimal controls for modal (top right, small) */}
       {!playPauseOnly && minimalControls && !isLoading && (
         <>
-          <div className="absolute top-4 right-4 flex gap-2 pointer-events-none">
+          <div className="absolute top-4 right-4 flex gap-2 pointer-events-none z-10">
             <button
               onClick={togglePlay}
-              className="w-9 h-9 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-all video-controls-button pointer-events-auto"
+              className="w-9 h-9 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-all video-controls-button pointer-events-auto cursor-pointer touch-button"
+              type="button"
+              title={isPlaying ? 'Зогсоох' : 'Тоглуулах'}
             >
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
             </button>
             <button
               onClick={toggleMute}
-              className="w-9 h-9 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-all video-controls-button pointer-events-auto"
+              className="w-9 h-9 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-all video-controls-button pointer-events-auto cursor-pointer touch-button"
               tabIndex={0}
+              type="button"
+              title={isMuted ? 'Дуу идэвхжүүлэх' : 'Дуу унтраах'}
             >
               {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
           </div>
           {/* Progress bar at the bottom (interactive) */}
           <div
-            className="absolute left-0 right-0 bottom-0 h-1 bg-black/30 cursor-pointer"
+            className="absolute left-0 right-0 bottom-0 h-1 bg-black/30 cursor-pointer z-10"
             onClick={e => {
               if (!duration || !videoRef.current) return;
               const rect = e.currentTarget.getBoundingClientRect();
@@ -291,6 +303,7 @@ const CustomVideoPlayer = forwardRef(({
               window.addEventListener('touchmove', onMove);
               window.addEventListener('touchend', onUp);
             }}
+            title="Прогресс барих"
           >
             <div
               className="h-full bg-white rounded-full transition-all"
@@ -301,30 +314,35 @@ const CustomVideoPlayer = forwardRef(({
       )}
 
       {/* Controls overlay (hidden if hideControls or minimalControls) */}
-      {!playPauseOnly && !hideControls && !minimalControls && (showControls || !isPlaying) && !isLoading && (
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-xl pointer-events-none">
+      {!playPauseOnly && !hideControls && !minimalControls && (showControls || !isPlaying || inModal) && !isLoading && (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-xl pointer-events-none z-10">
           {/* Top controls */}
-          <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-auto">
+          <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-auto z-10">
             <button
               onClick={toggleMute}
-              className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button"
+              className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button cursor-pointer touch-button"
+              type="button"
+              title={isMuted ? 'Дуу идэвхжүүлэх' : 'Дуу унтраах'}
             >
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <button
               onClick={toggleFullscreen}
-              className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button"
+              className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button cursor-pointer touch-button"
+              type="button"
+              title={isFullscreen ? 'Бүтэн дэлгэцээс гарах' : 'Бүтэн дэлгэцээр харах'}
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
 
           {/* Bottom controls */}
-          <div className="absolute bottom-4 left-4 right-4 pointer-events-auto">
+          <div className="absolute bottom-4 left-4 right-4 pointer-events-auto z-10">
             {/* Progress bar */}
             <div 
-              className="w-full h-1 bg-white/30 rounded-full cursor-pointer mb-3 video-progress-bar transition-all"
+              className="w-full h-1 bg-white/30 rounded-full cursor-pointer mb-3 video-progress-bar transition-all z-10"
               onClick={handleProgressClick}
+              title="Прогресс барих"
             >
               <div 
                 className="h-full bg-white rounded-full transition-all"
@@ -333,22 +351,24 @@ const CustomVideoPlayer = forwardRef(({
             </div>
 
             {/* Time and volume controls */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between z-10">
+              <div className="flex items-center gap-4 z-10">
                 <button
                   onClick={togglePlay}
-                  className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button"
+                  className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button cursor-pointer touch-button z-10"
+                  type="button"
+                  title={isPlaying ? 'Зогсоох' : 'Тоглуулах'}
                 >
                   {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
                 </button>
-                <div className="text-white text-sm">
+                <div className="text-white text-sm cursor-default">
                   {formatTime(currentTime)} / {formatTime(duration)}
                 </div>
               </div>
 
               {/* Volume slider */}
-              <div className="flex items-center gap-2">
-                <Volume2 className="w-4 h-4 text-white" />
+              <div className="flex items-center gap-2 z-10">
+                <Volume2 className="w-4 h-4 text-white cursor-default" />
                 <input
                   type="range"
                   min="0"
@@ -356,10 +376,11 @@ const CustomVideoPlayer = forwardRef(({
                   step="0.1"
                   value={volume}
                   onChange={handleVolumeChange}
-                  className="w-20 h-1 video-player-range"
+                  className="w-20 h-1 video-player-range cursor-pointer"
                   style={{
                     background: `linear-gradient(to right, white 0%, white ${volume * 100}%, rgba(255,255,255,0.3) ${volume * 100}%, rgba(255,255,255,0.3) 100%)`
                   }}
+                  title="Дууны түвшин"
                 />
               </div>
             </div>
