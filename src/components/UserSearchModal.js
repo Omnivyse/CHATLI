@@ -4,7 +4,7 @@ import api from '../services/api';
 import UserProfileModal from './UserProfileModal';
 import ReactDOM from 'react-dom';
 
-const UserSearchModal = ({ onClose, currentUser }) => {
+const UserSearchModal = ({ onClose, currentUser, onStartChat }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -85,7 +85,13 @@ const UserSearchModal = ({ onClose, currentUser }) => {
           </div>
         )}
         {selectedUser && (
-          <UserProfileModal userId={selectedUser._id} currentUser={currentUser} onClose={() => setSelectedUser(null)} show={true} />
+          <UserProfileModal 
+            userId={selectedUser._id} 
+            currentUser={currentUser} 
+            onClose={() => setSelectedUser(null)} 
+            show={true}
+            onStartChat={onStartChat}
+          />
         )}
       </div>
     </div>,

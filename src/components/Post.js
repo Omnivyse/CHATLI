@@ -6,7 +6,7 @@ import UserProfileModal from './UserProfileModal';
 import CustomVideoPlayer from './CustomVideoPlayer';
 import { formatShortRelativeTime } from '../utils/dateUtils';
 
-const Post = ({ post, user, onPostUpdate, settingsModalOpen }) => {
+const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
   const [showModal, setShowModal] = useState(false);
   const [liking, setLiking] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -246,7 +246,13 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen }) => {
           </div>
         </div>
       )}
-      <UserProfileModal userId={post.author._id} currentUser={user} onClose={() => setShowProfile(false)} show={showProfile} />
+      <UserProfileModal 
+        userId={post.author._id} 
+        currentUser={user} 
+        onClose={() => setShowProfile(false)} 
+        show={showProfile}
+        onStartChat={onStartChat}
+      />
     </div>
   );
 };

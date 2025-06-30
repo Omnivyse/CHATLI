@@ -23,6 +23,7 @@ function App() {
   useEffect(() => {
     // Initialize theme
     initializeTheme();
+    setActiveTab('feed'); // Always show feed on load
 
     // Check if mobile
     const checkMobile = () => {
@@ -59,6 +60,7 @@ function App() {
 
   const handleLogin = (userData) => {
     setUser(userData);
+    setActiveTab('feed'); // Always show feed on login
     // Connect to socket with token
     const token = localStorage.getItem('token');
     if (token) {
@@ -89,6 +91,13 @@ function App() {
 
   const handleProfileClose = () => {
     setShowProfileSettings(false);
+  };
+
+  // Handle starting a chat from user profile
+  const handleStartChat = (chatId) => {
+    setSelectedChat(chatId);
+    setActiveTab('chats'); // Switch to chats tab
+    setShowSidebarMobile(false);
   };
 
   // Fetch unread notification count
@@ -130,12 +139,24 @@ function App() {
     };
   }, []);
 
+  // Remove auto-switch to chat on incoming messages
+  useEffect(() => {
+    if (!user) return;
+    const handleIncomingMessage = (data) => {
+      // Only update unread counts or show notification, do not auto-switch tab
+      // Optionally, you can add a notification badge here
+    };
+    socketService.on('new_message', handleIncomingMessage);
+    return () => {
+      socketService.off('new_message', handleIncomingMessage);
+    };
+  }, [user]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary dark:border-primary-dark mx-auto mb-4"></div>
-          <p className="text-secondary dark:text-secondary-dark">Уншиж байна...</p>
         </div>
       </div>
     );
@@ -196,6 +217,7 @@ function App() {
             selectedChat={selectedChat} 
             onChatSelect={(chatId) => {
               setSelectedChat(chatId);
+              setActiveTab('chats');
               setShowSidebarMobile(false);
             }}
             onLogout={handleLogout}
@@ -215,7 +237,7 @@ function App() {
       {/* Main Content - Scrollable area with proper spacing */}
       <div className={`${isMobile && showSidebarMobile ? 'hidden' : 'block'} flex-1 flex flex-col bg-background dark:bg-background-dark ${isMobile ? 'pt-16' : 'md:ml-80'}`}>
         {activeTab === 'feed' ? (
-          <PostFeed user={user} />
+          <PostFeed user={user} onStartChat={handleStartChat} />
         ) : activeTab === 'notifications' ? (
           <NotificationFeed user={user} />
         ) : selectedChat ? (

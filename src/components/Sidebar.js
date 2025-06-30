@@ -82,7 +82,7 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
 
   const tabs = [
     { id: 'feed', label: 'Фийд', icon: Home },
-    { id: 'groups', label: 'Группүүд', icon: Users },
+    { id: 'groups', label: 'Chat', icon: Users },
     { id: 'notifications', label: 'Мэдэгдэл', icon: Bell },
   ];
 

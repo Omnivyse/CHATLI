@@ -238,6 +238,89 @@ class ApiService {
       body: JSON.stringify(postData),
     });
   }
+
+  // Message reactions
+  async reactToMessage(chatId, messageId, emoji) {
+    return this.request(`/chats/${chatId}/messages/${messageId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    });
+  }
+
+  // Reply to message
+  async replyToMessage(chatId, messageId, content) {
+    return this.request(`/chats/${chatId}/messages/${messageId}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  // Forward message
+  async forwardMessage(chatId, messageId, targetChatId) {
+    return this.request(`/chats/${chatId}/messages/${messageId}/forward`, {
+      method: 'POST',
+      body: JSON.stringify({ targetChatId }),
+    });
+  }
+
+  // Pin message
+  async pinMessage(chatId, messageId) {
+    return this.request(`/chats/${chatId}/messages/${messageId}/pin`, {
+      method: 'POST',
+    });
+  }
+
+  // Unpin message
+  async unpinMessage(chatId, messageId) {
+    return this.request(`/chats/${chatId}/messages/${messageId}/unpin`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Get pinned messages
+  async getPinnedMessages(chatId) {
+    return this.request(`/chats/${chatId}/pinned-messages`);
+  }
+
+  // Mark chat as read
+  async markChatAsRead(chatId) {
+    return this.request(`/chats/${chatId}/read`, {
+      method: 'POST',
+    });
+  }
+
+  // Get chat participants
+  async getChatParticipants(chatId) {
+    return this.request(`/chats/${chatId}/participants`);
+  }
+
+  // Add participant to group chat
+  async addParticipant(chatId, userId) {
+    return this.request(`/chats/${chatId}/participants`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  }
+
+  // Remove participant from group chat
+  async removeParticipant(chatId, userId) {
+    return this.request(`/chats/${chatId}/participants/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Update group chat settings
+  async updateChatSettings(chatId, settings) {
+    return this.request(`/chats/${chatId}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  // Search messages in chat
+  async searchMessages(chatId, query) {
+    return this.request(`/chats/${chatId}/messages/search?q=${encodeURIComponent(query)}`);
+  }
 }
 
 const apiService = new ApiService();

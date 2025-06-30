@@ -166,7 +166,7 @@ function FollowRequestItem({ userId, onAccept, onReject }) {
     };
     fetchProfile();
   }, [userId]);
-  if (loading) return <div className="flex items-center gap-2 text-secondary text-sm"><Loader2 className="w-4 h-4 animate-spin" />Уншиж байна...</div>;
+  if (loading) return <div className="flex items-center gap-2 text-secondary text-sm"><Loader2 className="w-4 h-4 animate-spin" /></div>;
   if (!profile) return null;
   return (
     <div className="flex items-center gap-3">

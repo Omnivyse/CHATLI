@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
   Smile, 
@@ -8,12 +8,13 @@ import {
   X
 } from 'lucide-react';
 
-const MessageInput = ({ onSendMessage }) => {
+const MessageInput = ({ onSendMessage, onTypingStart, onTypingStop, replyingTo, onCancelReply }) => {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const textareaRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const handleSend = () => {
     if (message.trim()) {
@@ -21,6 +22,9 @@ const MessageInput = ({ onSendMessage }) => {
       setMessage('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
+      }
+      if (onTypingStop) {
+        onTypingStop();
       }
     }
   };
@@ -33,12 +37,32 @@ const MessageInput = ({ onSendMessage }) => {
   };
 
   const handleTextareaChange = (e) => {
-    setMessage(e.target.value);
+    const newValue = e.target.value;
+    setMessage(newValue);
     
     // Auto-resize textarea
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    }
+
+    // Handle typing indicators
+    if (onTypingStart && onTypingStop) {
+      if (newValue.trim()) {
+        onTypingStart();
+        
+        // Clear existing timeout
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        
+        // Set timeout to stop typing indicator after 2 seconds of inactivity
+        typingTimeoutRef.current = setTimeout(() => {
+          onTypingStop();
+        }, 2000);
+      } else {
+        onTypingStop();
+      }
     }
   };
 
@@ -56,87 +80,20 @@ const MessageInput = ({ onSendMessage }) => {
     }
   };
 
+  // Cleanup typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const emojis = ['😊', '😂', '❤️', '👍', '🎉', '🔥', '😎', '🤔', '😢', '😡'];
 
   return (
-    <div className="input-area">
-      {/* Emoji Picker */}
-      {showEmojiPicker && (
-        <div className="absolute bottom-full left-4 mb-2 bg-background border border-border rounded-lg p-2 shadow-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-secondary">Эможи</span>
-            <button
-              onClick={() => setShowEmojiPicker(false)}
-              className="p-1 hover:bg-muted rounded"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="grid grid-cols-5 gap-1">
-            {emojis.map((emoji, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setMessage(prev => prev + emoji);
-                  setShowEmojiPicker(false);
-                }}
-                className="p-2 hover:bg-muted rounded text-lg"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Image Picker */}
-      {showImagePicker && (
-        <div className="absolute bottom-full left-4 mb-2 bg-background border border-border rounded-lg p-2 shadow-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-secondary">Зураг</span>
-            <button
-              onClick={() => setShowImagePicker(false)}
-              className="p-1 hover:bg-muted rounded"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-            id="image-upload"
-          />
-          <label
-            htmlFor="image-upload"
-            className="block px-3 py-2 text-sm hover:bg-muted rounded cursor-pointer"
-          >
-            Галерейас сонгох
-          </label>
-        </div>
-      )}
-
-      {/* Input Area */}
-      <div className="flex items-end gap-2 w-full">
-        {/* Attachment Button */}
-        <button
-          onClick={() => setShowImagePicker(!showImagePicker)}
-          className="emoji-button"
-          title="Хавсаргах"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-
-        {/* Emoji Button */}
-        <button
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className="emoji-button"
-          title="Эможи"
-        >
-          <Smile className="w-5 h-5" />
-        </button>
-
+    <div className="border-t border-border dark:border-border-dark bg-background dark:bg-background-dark p-4">
+      <div className="flex items-end gap-3 max-w-4xl mx-auto">
         {/* Text Input */}
         <div className="flex-1 relative">
           <textarea
@@ -144,29 +101,21 @@ const MessageInput = ({ onSendMessage }) => {
             value={message}
             onChange={handleTextareaChange}
             onKeyPress={handleKeyPress}
-            placeholder="Зурган дээр дарж зургаа илгээх..."
-            className="message-input mongolian-text"
+            placeholder="Зурвасаа бичнэ үү..."
+            className="w-full bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark rounded-2xl px-4 py-3 border-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark resize-none overflow-hidden mongolian-text text-sm leading-relaxed"
             rows={1}
+            style={{ minHeight: '44px', maxHeight: '120px' }}
           />
         </div>
-
-        {/* Voice Button */}
-        <button
-          onClick={handleVoiceToggle}
-          className={`voice-button ${isRecording ? 'bg-red-500' : ''}`}
-          title={isRecording ? 'Дуу бичлэгийг зогсоох' : 'Дуу бичлэг'}
-        >
-          {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
-
+        
         {/* Send Button */}
         <button
           onClick={handleSend}
           disabled={!message.trim()}
-          className={`p-2 rounded-full transition-colors ${
+          className={`flex-shrink-0 p-3 rounded-full transition-all duration-200 shadow-sm ${
             message.trim() 
-              ? 'bg-primary text-primary-dark hover:bg-primary/90' 
-              : 'bg-muted text-secondary cursor-not-allowed'
+              ? 'bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transform hover:scale-105' 
+              : 'bg-muted dark:bg-muted-dark text-secondary dark:text-secondary-dark cursor-not-allowed'
           }`}
           title="Илгээх"
         >

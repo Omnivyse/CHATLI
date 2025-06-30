@@ -5,7 +5,7 @@ import { Plus, X as XIcon, Image as ImageIcon, Search as SearchIcon } from 'luci
 import NewPostModal from './NewPostModal';
 import UserSearchModal from './UserSearchModal';
 
-const PostFeed = ({ user, settingsModalOpen }) => {
+const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,14 +85,20 @@ const PostFeed = ({ user, settingsModalOpen }) => {
         </button>
       </div>
       {showUserSearchModal && (
-        <UserSearchModal onClose={() => setShowUserSearchModal(false)} currentUser={user} />
+        <UserSearchModal 
+          onClose={() => setShowUserSearchModal(false)} 
+          currentUser={user}
+          onStartChat={onStartChat}
+        />
       )}
       {showModal && (
         <NewPostModal user={user} onClose={() => setShowModal(false)} onPostCreated={fetchPosts} />
       )}
       {/* Posts Feed */}
       {loading ? (
-        <div className="text-center text-secondary dark:text-secondary-dark">Уншиж байна...</div>
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary dark:border-primary-dark"></div>
+        </div>
       ) : error ? (
         <div className="text-center text-red-500">{error}</div>
       ) : posts.length === 0 ? (
@@ -100,7 +106,14 @@ const PostFeed = ({ user, settingsModalOpen }) => {
       ) : (
         <div className="space-y-6">
           {posts.map(post => (
-            <Post key={post._id} post={post} user={user} onPostUpdate={fetchPosts} settingsModalOpen={settingsModalOpen} />
+            <Post 
+              key={post._id} 
+              post={post} 
+              user={user} 
+              onPostUpdate={fetchPosts} 
+              settingsModalOpen={settingsModalOpen}
+              onStartChat={onStartChat}
+            />
           ))}
         </div>
       )}

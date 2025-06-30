@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { formatMongolianTime } from '../utils/dateUtils';
 import MessageBubble from './MessageBubble';
+import api from '../services/api';
 
-const MessageList = ({ messages, currentUserId }) => {
+const MessageList = ({ messages, currentUserId, chatId, onReply, onReact, reactionTarget, setReactionTarget }) => {
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -12,13 +13,33 @@ const MessageList = ({ messages, currentUserId }) => {
     }
   }, [messages]);
 
+  const handleReply = (message) => {
+    if (onReply) onReply(message);
+  };
+
+  const handleReact = (messageId, emoji) => {
+    if (onReact) onReact(messageId, emoji);
+  };
+
+  const handleDelete = async (messageId) => {
+    try {
+      const response = await api.deleteMessage(chatId, messageId);
+      if (response.success) {
+        // Remove message from list
+        console.log('Message deleted:', messageId);
+      }
+    } catch (error) {
+      console.error('Delete message error:', error);
+    }
+  };
+
   const renderMessage = (message, index) => {
     const user = message.sender;
     const isOwnMessage = message.sender._id === currentUserId;
     const showAvatar = !isOwnMessage && (index === 0 || messages[index - 1].sender._id !== message.sender._id);
 
     return (
-      <div key={message._id} className="mb-4">
+      <div key={message._id} className="animate-fade-in">
         <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
           <div className={`flex ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 max-w-[70%]`}>
             {showAvatar && (
@@ -33,10 +54,23 @@ const MessageList = ({ messages, currentUserId }) => {
             )}
             
             <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+              {/* Reply Preview */}
+              {message.replyTo && (
+                <div className={`mb-1 p-2 bg-muted dark:bg-muted-dark rounded-lg text-xs max-w-[200px] ${isOwnMessage ? 'text-right' : 'text-left'}`}>
+                  <div className="font-medium text-secondary">{message.replyTo.sender?.name}</div>
+                  <div className="truncate">{message.replyTo.content.text}</div>
+                </div>
+              )}
+              
               <MessageBubble 
                 message={message}
                 isOwnMessage={isOwnMessage}
                 user={user}
+                onReply={handleReply}
+                onReact={handleReact}
+                onDelete={handleDelete}
+                reactionTarget={reactionTarget}
+                setReactionTarget={setReactionTarget}
               />
               
               {/* Replies */}
@@ -55,12 +89,16 @@ const MessageList = ({ messages, currentUserId }) => {
                             className="w-6 h-6 rounded-full object-cover flex-shrink-0"
                           />
                           <div className={`flex flex-col ${isOwnReply ? 'items-end' : 'items-start'}`}>
-                            <div className={`chat-bubble ${isOwnReply ? 'chat-bubble-sent' : 'chat-bubble-received'}`}>
-                              <p className="text-sm">{reply.content.text}</p>
-                            </div>
-                            <span className="text-xs text-secondary mt-1">
-                              {formatMongolianTime(reply.createdAt)}
-                            </span>
+                            <MessageBubble 
+                              message={reply}
+                              isOwnMessage={isOwnReply}
+                              user={replyUser}
+                              onReply={handleReply}
+                              onReact={handleReact}
+                              onDelete={handleDelete}
+                              reactionTarget={reactionTarget}
+                              setReactionTarget={setReactionTarget}
+                            />
                           </div>
                         </div>
                       </div>
@@ -78,17 +116,21 @@ const MessageList = ({ messages, currentUserId }) => {
   return (
     <div 
       ref={scrollRef}
-      className="flex-1 overflow-y-auto p-4 space-y-4"
+      className="flex-1 overflow-y-auto px-2 md:px-4 py-2 md:py-4 space-y-6"
     >
       {messages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-secondary">
           <div className="text-center">
             <p className="text-sm">Энд хэлэлцэх</p>
-            <p className="text-xs">Зурган дээр дарж зургаа илгээх</p>
+            <p className="text-xs">Зурвасаа бичнэ үү</p>
           </div>
         </div>
       ) : (
-        messages.map((message, index) => renderMessage(message, index))
+        messages.map((message, index) => (
+          <div key={message._id} className="animate-fade-in">
+            {renderMessage(message, index)}
+          </div>
+        ))
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { X as XIcon, Loader2 } from 'lucide-react';
 import Post from './Post';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
+const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) => {
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +13,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
   const [privateProfile, setPrivateProfile] = useState(false);
   const [isRequestSent, setIsRequestSent] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
 
   // Move fetchData outside useEffect so it can be reused
   const fetchData = async () => {
@@ -87,9 +88,50 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
     }
   };
 
-  const handleChat = () => {
-    // You can implement chat opening logic here (e.g., open chat window with user)
-    alert('Чатлах үйлдэл (TODO): ' + user.name);
+  const handleChat = async () => {
+    if (chatLoading) return;
+    setChatLoading(true);
+    
+    try {
+      // Create or get existing chat with this user
+      const response = await api.createChat({
+        type: 'direct',
+        participants: [userId]
+      });
+      
+      if (response.success) {
+        // Close the profile modal
+        onClose();
+        
+        // Notify parent component to start chat
+        if (onStartChat) {
+          onStartChat(response.data.chat._id);
+        }
+      }
+    } catch (error) {
+      console.error('Create chat error:', error);
+      // If chat already exists, try to find it
+      try {
+        const chatsResponse = await api.getChats();
+        if (chatsResponse.success) {
+          const existingChat = chatsResponse.data.chats.find(chat => 
+            chat.type === 'direct' && 
+            chat.participants.some(p => p._id === userId)
+          );
+          
+          if (existingChat) {
+            onClose();
+            if (onStartChat) {
+              onStartChat(existingChat._id);
+            }
+          }
+        }
+      } catch (findError) {
+        console.error('Find existing chat error:', findError);
+      }
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   if (!userId) return null;
@@ -155,13 +197,28 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
                       </div>
                       <div className="flex gap-2 mt-1">
                         {user._id !== currentUser._id && !isFollowing && !isRequestSent && (
-                          <button
-                            onClick={followLoading ? undefined : handleFollow}
-                            disabled={followLoading}
-                            className="px-5 py-1.5 rounded-full font-semibold transition bg-primary text-primary-dark hover:opacity-90 mt-2"
-                          >
-                            Дагах
-                          </button>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={followLoading ? undefined : handleFollow}
+                              disabled={followLoading}
+                              className="px-5 py-1.5 rounded-full font-semibold transition bg-primary text-primary-dark hover:opacity-90"
+                            >
+                              Дагах
+                            </button>
+                            <button
+                              onClick={handleChat}
+                              disabled={chatLoading}
+                              className="px-5 py-1.5 rounded-full font-semibold bg-muted text-primary hover:bg-primary hover:text-primary-dark transition flex items-center gap-2"
+                            >
+                              {chatLoading ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                </>
+                              ) : (
+                                'Чатлах'
+                              )}
+                            </button>
+                          </div>
                         )}
                         {user._id !== currentUser._id && isRequestSent && !isFollowing && (
                           <>
@@ -204,9 +261,16 @@ const UserProfileModal = ({ userId, currentUser, onClose, show }) => {
                             </button>
                             <button
                               onClick={handleChat}
-                              className="px-5 py-1.5 rounded-full font-semibold bg-muted text-primary hover:bg-primary hover:text-primary-dark transition"
+                              disabled={chatLoading}
+                              className="px-5 py-1.5 rounded-full font-semibold bg-muted text-primary hover:bg-primary hover:text-primary-dark transition flex items-center gap-2"
                             >
-                              Чатлах
+                              {chatLoading ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                </>
+                              ) : (
+                                'Чатлах'
+                              )}
                             </button>
                           </div>
                         )}
