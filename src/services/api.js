@@ -289,6 +289,13 @@ class ApiService {
     });
   }
 
+  // Delete chat
+  async deleteChat(chatId) {
+    return this.request(`/chats/${chatId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Get chat participants
   async getChatParticipants(chatId) {
     return this.request(`/chats/${chatId}/participants`);

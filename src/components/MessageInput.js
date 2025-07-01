@@ -93,6 +93,26 @@ const MessageInput = ({ onSendMessage, onTypingStart, onTypingStop, replyingTo, 
 
   return (
     <div className="border-t border-border dark:border-border-dark bg-background dark:bg-background-dark p-4">
+      {/* Reply preview */}
+      {replyingTo && (
+        <div className="max-w-4xl mx-auto flex items-center gap-3 mb-2 bg-muted/50 dark:bg-muted-dark/50 px-3 py-2 rounded-lg">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium text-primary dark:text-white">Хариулах:</span>
+              <span className="text-secondary truncate dark:text-white">{replyingTo.sender?.name}</span>
+            </div>
+            <div className="text-sm text-foreground dark:text-foreground-dark truncate mt-1">
+              {replyingTo.content.text}
+            </div>
+          </div>
+          <button 
+            onClick={onCancelReply} 
+            className="flex-shrink-0 p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark text-secondary hover:text-primary transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       <div className="flex items-end gap-3 max-w-4xl mx-auto">
         {/* Text Input */}
         <div className="flex-1 relative">
@@ -107,7 +127,6 @@ const MessageInput = ({ onSendMessage, onTypingStart, onTypingStop, replyingTo, 
             style={{ minHeight: '44px', maxHeight: '120px' }}
           />
         </div>
-        
         {/* Send Button */}
         <button
           onClick={handleSend}

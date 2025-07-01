@@ -19,6 +19,9 @@ function App() {
   const [activeTab, setActiveTab] = useState('feed');
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [showSidebarMobile, setShowSidebarMobile] = useState(false);
+  const [chats, setChats] = useState([]);
+  const [loadingChats, setLoadingChats] = useState(false);
+  const [chatError, setChatError] = useState('');
 
   useEffect(() => {
     // Initialize theme
@@ -94,10 +97,40 @@ function App() {
   };
 
   // Handle starting a chat from user profile
-  const handleStartChat = (chatId) => {
+  const handleStartChat = async (chatId) => {
     setSelectedChat(chatId);
     setActiveTab('chats'); // Switch to chats tab
     setShowSidebarMobile(false);
+    
+    // Add the new chat to the sidebar list if it's not already there
+    try {
+      const chatExists = chats.find(chat => chat._id === chatId);
+      if (!chatExists) {
+        // Fetch the chat details to add to the sidebar
+        const response = await api.getChat(chatId);
+        if (response.success) {
+          const newChat = {
+            ...response.data.chat,
+            unreadCount: 0 // New chat has no unread messages
+          };
+          setChats(prevChats => [newChat, ...prevChats]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching new chat details:', error);
+      // If we can't fetch the chat details, still allow the chat to be selected
+      // The user can refresh to see it in the sidebar
+    }
+  };
+
+  // Handle chat deletion
+  const handleChatDeleted = (deletedChatId) => {
+    // Remove the deleted chat from the chats list
+    setChats(prevChats => prevChats.filter(chat => chat._id !== deletedChatId));
+    // Clear the selected chat if it was the deleted one
+    if (selectedChat === deletedChatId) {
+      setSelectedChat(null);
+    }
   };
 
   // Fetch unread notification count
@@ -151,6 +184,26 @@ function App() {
       socketService.off('new_message', handleIncomingMessage);
     };
   }, [user]);
+
+  const loadChats = async () => {
+    setLoadingChats(true);
+    setChatError('');
+    try {
+      const response = await api.getChats();
+      if (response.success) {
+        setChats(response.data.chats);
+      }
+    } catch (error) {
+      setChatError('Чат жагсаалтыг уншихад алдаа гарлаа');
+      console.error('Load chats error:', error);
+    } finally {
+      setLoadingChats(false);
+    }
+  };
+
+  useEffect(() => {
+    loadChats();
+  }, []);
 
   if (loading) {
     return (
@@ -215,10 +268,33 @@ function App() {
           <Sidebar 
             user={user}
             selectedChat={selectedChat} 
-            onChatSelect={(chatId) => {
-              setSelectedChat(chatId);
-              setActiveTab('chats');
-              setShowSidebarMobile(false);
+            onChatSelect={async (chatId) => {
+              try {
+                // First verify the chat exists
+                const chatResponse = await api.getChat(chatId);
+                if (chatResponse.success) {
+                  setSelectedChat(chatId);
+                  setActiveTab('chats');
+                  setShowSidebarMobile(false);
+                  // Mark chat as read and update unread count in state
+                  try {
+                    await api.markChatAsRead(chatId);
+                    setChats(prevChats => prevChats.map(chat =>
+                      chat._id === chatId ? { ...chat, unreadCount: 0 } : chat
+                    ));
+                  } catch (e) { /* ignore */ }
+                }
+              } catch (error) {
+                console.error('Chat not found or invalid:', error);
+                // Remove the invalid chat from the sidebar
+                setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
+                // Clear selected chat if it was the invalid one
+                if (selectedChat === chatId) {
+                  setSelectedChat(null);
+                }
+                // Optionally show a message to the user
+                alert('Энэ чат байхгүй байна. Чат жагсаалтаас хасагдлаа.');
+              }
             }}
             onLogout={handleLogout}
             isMobile={isMobile}
@@ -230,6 +306,11 @@ function App() {
             activeTab={activeTab}
             unreadNotificationCount={unreadNotificationCount}
             onClose={() => setShowSidebarMobile(false)}
+            chats={chats}
+            setChats={setChats}
+            loadChats={loadChats}
+            loadingChats={loadingChats}
+            chatError={chatError}
           />
         </div>
       )}
@@ -246,6 +327,7 @@ function App() {
             user={user}
             onBack={() => setSelectedChat(null)}
             isMobile={isMobile}
+            onChatDeleted={handleChatDeleted}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-secondary dark:text-secondary-dark">

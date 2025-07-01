@@ -210,6 +210,13 @@ router.get('/:id/messages', auth, async (req, res) => {
     .skip(skip)
     .limit(parseInt(limit));
 
+    // Ensure replyTo.sender is populated for all messages with a replyTo
+    for (const msg of messages) {
+      if (msg.replyTo && msg.replyTo.sender) {
+        await msg.populate({ path: 'replyTo.sender', select: 'name username avatar' });
+      }
+    }
+
     // Mark messages as read
     await Message.updateMany(
       {
@@ -316,6 +323,9 @@ router.post('/:id/messages', auth, [
     // Populate the message
     await message.populate('sender', 'name username avatar');
     await message.populate('replyTo', 'content.text sender');
+    if (message.replyTo && message.replyTo.sender) {
+      await message.populate({ path: 'replyTo.sender', select: 'name username avatar' });
+    }
 
     res.status(201).json({
       success: true,
@@ -412,6 +422,197 @@ router.delete('/:id/messages/:messageId', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Delete message error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/chats/:id/messages/:messageId/react
+// @desc    React to a message
+// @access  Private
+router.post('/:id/messages/:messageId/react', auth, [
+  body('emoji')
+    .notEmpty()
+    .withMessage('Эмодзи оруулна уу')
+    .isLength({ max: 10 })
+    .withMessage('Эмодзи хэт урт байна')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Оролтын алдаа',
+        errors: errors.array()
+      });
+    }
+
+    // Check if user is participant in the chat
+    const chat = await Chat.findOne({
+      _id: req.params.id,
+      participants: req.user._id,
+      isActive: true
+    });
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Чат олдсонгүй'
+      });
+    }
+
+    const message = await Message.findOne({
+      _id: req.params.messageId,
+      chat: req.params.id,
+      isDeleted: false
+    });
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Мессеж олдсонгүй'
+      });
+    }
+
+    const { emoji } = req.body;
+
+    // Add or remove reaction
+    await message.addReaction(req.user._id, emoji);
+
+    // Populate the message with reactions
+    await message.populate('reactions.user', 'name username avatar');
+
+    res.json({
+      success: true,
+      message: 'Реакц амжилттай нэмэгдлээ',
+      data: {
+        reactions: message.reactions
+      }
+    });
+  } catch (error) {
+    console.error('React to message error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/chats/:id/messages/:messageId/reply
+// @desc    Reply to a message
+// @access  Private
+router.post('/:id/messages/:messageId/reply', auth, [
+  body('content.text')
+    .notEmpty()
+    .withMessage('Хариу мессеж оруулна уу')
+    .isLength({ max: 2000 })
+    .withMessage('Мессеж 2000 тэмдэгтээс бага байх ёстой')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Оролтын алдаа',
+        errors: errors.array()
+      });
+    }
+
+    // Check if user is participant in the chat
+    const chat = await Chat.findOne({
+      _id: req.params.id,
+      participants: req.user._id,
+      isActive: true
+    });
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Чат олдсонгүй'
+      });
+    }
+
+    // Find the message being replied to
+    const parentMessage = await Message.findOne({
+      _id: req.params.messageId,
+      chat: req.params.id,
+      isDeleted: false
+    });
+
+    if (!parentMessage) {
+      return res.status(404).json({
+        success: false,
+        message: 'Хариулах мессеж олдсонгүй'
+      });
+    }
+
+    // Create the reply message
+    const replyMessage = new Message({
+      chat: req.params.id,
+      sender: req.user._id,
+      type: 'text',
+      content: req.body.content,
+      replyTo: parentMessage._id
+    });
+    await replyMessage.save();
+
+    // Add this reply to the parent message's replies array
+    parentMessage.replies.push(replyMessage._id);
+    await parentMessage.save();
+
+    // Populate the reply message
+    await replyMessage.populate('sender', 'name username avatar');
+    await replyMessage.populate('replyTo', 'content.text sender');
+    if (replyMessage.replyTo && replyMessage.replyTo.sender) {
+      await replyMessage.populate({ path: 'replyTo.sender', select: 'name username avatar' });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Хариу амжилттай илгээгдлээ',
+      data: {
+        message: replyMessage
+      }
+    });
+  } catch (error) {
+    console.error('Reply to message error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   DELETE /api/chats/:id
+// @desc    Delete a chat (soft delete)
+// @access  Private
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const chat = await Chat.findOne({
+      _id: req.params.id,
+      participants: req.user._id,
+      isActive: true
+    });
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Чат олдсонгүй'
+      });
+    }
+
+    // Soft delete the chat by setting isActive to false
+    chat.isActive = false;
+    await chat.save();
+
+    res.json({
+      success: true,
+      message: 'Чат амжилттай устгагдлаа'
+    });
+  } catch (error) {
+    console.error('Delete chat error:', error);
     res.status(500).json({
       success: false,
       message: 'Серверийн алдаа'

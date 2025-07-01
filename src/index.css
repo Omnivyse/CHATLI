@@ -57,6 +57,53 @@
   .voice-button {
     @apply p-2 rounded-full bg-primary dark:bg-primary-dark text-primary-dark dark:text-primary hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors;
   }
+
+  /* Message reaction styles */
+  .message-reactions {
+    @apply flex flex-col gap-1 mt-1;
+  }
+  
+  .reaction-badge {
+    @apply text-sm bg-muted dark:bg-muted-dark px-2 py-1 rounded-full select-none transition-all duration-200 hover:scale-105 flex-shrink-0 border border-border/50 dark:border-border-dark/50;
+  }
+  
+  .message-actions {
+    @apply flex flex-row gap-2 mt-1 flex-wrap;
+  }
+  
+  .message-action-button {
+    @apply p-1 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors text-secondary dark:text-secondary-dark flex-shrink-0;
+  }
+  
+  /* Show message actions on hover */
+  .chat-bubble:hover + div .message-action-button,
+  .chat-bubble:hover ~ div .message-action-button {
+    @apply opacity-100;
+  }
+  
+  /* Unsend button specific styling */
+  .message-action-button.text-red-500 {
+    @apply hover:bg-red-50 dark:hover:bg-red-900/20;
+  }
+  
+  .emoji-picker {
+    @apply relative;
+  }
+  
+  .emoji-picker-button {
+    @apply text-xl hover:scale-125 transition-transform cursor-pointer flex-shrink-0;
+  }
+
+  /* Responsive emoji picker positioning */
+  @media (max-width: 768px) {
+    .emoji-picker {
+      @apply fixed z-50;
+      bottom: 20px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      right: auto !important;
+    }
+  }
 }
 
 /* Custom scrollbar for webkit browsers */

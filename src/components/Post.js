@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import api from '../services/api';
 import { Heart, MessageCircle, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import PostModal from './PostModal';
@@ -10,20 +10,34 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
   const [showModal, setShowModal] = useState(false);
   const [liking, setLiking] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [localPost, setLocalPost] = useState(post);
   const videoRef = useRef(null);
-  const isOwner = post.author._id === user._id;
-  const isLiked = post.likes.includes(user._id);
+  const isOwner = localPost.author._id === user._id;
+  const isLiked = localPost.likes.includes(user._id);
   const [currentMedia, setCurrentMedia] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editContent, setEditContent] = useState(post.content);
+  const [editContent, setEditContent] = useState(localPost.content);
   const [editLoading, setEditLoading] = useState(false);
+
+  // Update local post when prop changes
+  useEffect(() => {
+    setLocalPost(post);
+  }, [post]);
 
   const handleLike = async () => {
     setLiking(true);
     try {
-      await api.likePost(post._id);
-      onPostUpdate && onPostUpdate();
+      const response = await api.likePost(localPost._id);
+      if (response.success) {
+        // Update local post state instead of refetching all posts
+        setLocalPost(prevPost => ({
+          ...prevPost,
+          likes: response.data.likes
+        }));
+      }
+    } catch (error) {
+      console.error('Like post error:', error);
     } finally {
       setLiking(false);
     }
@@ -31,13 +45,13 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
 
   const handleDeletePost = async () => {
     if (window.confirm('Постыг устгах уу?')) {
-      await api.deletePost(post._id);
+      await api.deletePost(localPost._id);
       onPostUpdate && onPostUpdate();
     }
   };
 
   const handleOpenProfile = () => {
-    console.log('DEBUG post.author:', post.author);
+    console.log('DEBUG post.author:', localPost.author);
     setShowProfile(true);
   };
 
@@ -49,7 +63,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
   };
 
   const handleMediaNavigation = (direction) => {
-    const mediaArray = Array.isArray(post.media) ? post.media : [];
+    const mediaArray = Array.isArray(localPost.media) ? localPost.media : [];
     if (mediaArray.length > 1) {
       if (direction === 'next') {
         setCurrentMedia((currentMedia + 1) % mediaArray.length);
@@ -63,8 +77,8 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
     <div className="bg-background dark:bg-background-dark rounded-lg shadow dark:shadow-white/15 p-4 z-auto border border-border dark:border-border-dark">
       <div className="flex items-center gap-3 mb-2">
         <div className="cursor-pointer" onClick={handleOpenProfile}>
-          {post.author.avatar ? (
-            <img src={post.author.avatar} alt={post.author.name} className="w-10 h-10 rounded-full object-cover" />
+          {localPost.author.avatar ? (
+            <img src={localPost.author.avatar} alt={localPost.author.name} className="w-10 h-10 rounded-full object-cover" />
           ) : (
             <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center">
               <MessageCircle className="w-6 h-6 text-secondary dark:text-secondary-dark" />
@@ -72,8 +86,8 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           )}
         </div>
         <div className="flex-1">
-          <div className="font-semibold cursor-pointer text-foreground dark:text-foreground-dark" onClick={handleOpenProfile}>{post.author.name}</div>
-          <div className="text-xs text-secondary dark:text-secondary-dark">{formatShortRelativeTime(post.createdAt)}</div>
+          <div className="font-semibold cursor-pointer text-foreground dark:text-foreground-dark" onClick={handleOpenProfile}>{localPost.author.name}</div>
+          <div className="text-xs text-secondary dark:text-secondary-dark">{formatShortRelativeTime(localPost.createdAt)}</div>
         </div>
         {isOwner && (
           <div className="relative">
@@ -88,7 +102,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
               <div className="absolute right-0 mt-2 w-32 bg-background dark:bg-background-dark border border-border dark:border-border-dark rounded shadow-lg z-50">
                 <button
                   className="block w-full text-left px-4 py-2 hover:bg-muted dark:hover:bg-muted-dark text-foreground dark:text-foreground-dark"
-                  onClick={() => { setMenuOpen(false); setEditModalOpen(true); setEditContent(post.content); }}
+                  onClick={() => { setMenuOpen(false); setEditModalOpen(true); setEditContent(localPost.content); }}
                 >Засах</button>
                 <button
                   className="block w-full text-left px-4 py-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20"
@@ -103,13 +117,13 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         className="mb-2 whitespace-pre-line cursor-pointer hover:bg-muted/50 dark:hover:bg-muted-dark/50 rounded transition text-foreground dark:text-foreground-dark"
         onClick={() => setShowModal(true)}
       >
-        {post.content}
+        {localPost.content}
       </div>
       {/* Media carousel for new posts */}
-      {Array.isArray(post.media) && post.media.length > 0 && !settingsModalOpen && (
+      {Array.isArray(localPost.media) && localPost.media.length > 0 && !settingsModalOpen && (
         <div className="relative w-full flex flex-col items-center mb-2">
           <div className="relative w-full flex items-center justify-center">
-            {post.media.length > 1 && (
+            {localPost.media.length > 1 && (
               <button 
                 type="button" 
                 onClick={(e) => { 
@@ -122,9 +136,9 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                 <ChevronLeft className="w-5 h-5" />
               </button>
             )}
-            {post.media[currentMedia].type === 'image' ? (
+            {localPost.media[currentMedia].type === 'image' ? (
               <img
-                src={post.media[currentMedia].url}
+                src={localPost.media[currentMedia].url}
                 alt="post"
                 className="max-h-64 rounded object-contain border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
                 onClick={() => setShowModal(true)}
@@ -132,7 +146,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
             ) : (
               <CustomVideoPlayer
                 ref={videoRef}
-                src={post.media[currentMedia].url}
+                src={localPost.media[currentMedia].url}
                 className="max-h-64 rounded w-full object-contain border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
                 onClick={handleOpenModal}
                 muted={true}
@@ -141,7 +155,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                 playPauseOnly={true}
               />
             )}
-            {post.media.length > 1 && (
+            {localPost.media.length > 1 && (
               <button 
                 type="button" 
                 onClick={(e) => { 
@@ -155,9 +169,9 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
               </button>
             )}
           </div>
-          {post.media.length > 1 && (
+          {localPost.media.length > 1 && (
             <div className="flex gap-1 mt-2 justify-center">
-              {post.media.map((_, idx) => (
+              {localPost.media.map((_, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -174,18 +188,18 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         </div>
       )}
       {/* Fallback for legacy posts with image/video fields */}
-      {(!post.media || post.media.length === 0) && post.image && !settingsModalOpen && (
+      {(!localPost.media || localPost.media.length === 0) && localPost.image && !settingsModalOpen && (
         <img
-          src={post.image}
+          src={localPost.image}
           alt="post"
           className="max-h-64 rounded mb-2 object-contain cursor-pointer hover:opacity-80 transition"
           onClick={() => setShowModal(true)}
         />
       )}
-      {(!post.media || post.media.length === 0) && post.video && !settingsModalOpen && (
+      {(!localPost.media || localPost.media.length === 0) && localPost.video && !settingsModalOpen && (
         <CustomVideoPlayer
           ref={videoRef}
-          src={post.video}
+          src={localPost.video}
           className="max-h-64 rounded mb-2 w-full cursor-pointer hover:opacity-80 transition"
           onClick={handleOpenModal}
           muted={true}
@@ -197,19 +211,19 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       <div className="flex items-center gap-4 mb-2">
         <button onClick={handleLike} disabled={liking} className={`flex items-center gap-1 ${isLiked ? 'text-red-500' : 'text-secondary dark:text-secondary-dark'}`}>
           <Heart fill={isLiked ? 'currentColor' : 'none'} className="w-5 h-5" />
-          <span>{post.likes.length}</span>
+          <span>{localPost.likes.length}</span>
         </button>
         <span
           className="flex items-center gap-1 text-secondary dark:text-secondary-dark cursor-pointer hover:text-primary dark:hover:text-primary-dark"
           onClick={() => setShowModal(true)}
         >
           <MessageCircle className="w-5 h-5" />
-          <span>{post.comments.length}</span>
+          <span>{localPost.comments.length}</span>
         </span>
       </div>
       {/* Comments are hidden by default */}
       {showModal && (
-        <PostModal postId={post._id} user={user} onClose={() => setShowModal(false)} onPostUpdate={onPostUpdate} settingsModalOpen={settingsModalOpen} />
+        <PostModal postId={localPost._id} user={user} onClose={() => setShowModal(false)} onPostUpdate={onPostUpdate} settingsModalOpen={settingsModalOpen} />
       )}
       {editModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9998]">
@@ -233,7 +247,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                 onClick={async () => {
                   setEditLoading(true);
                   try {
-                    await api.updatePost(post._id, { content: editContent });
+                    await api.updatePost(localPost._id, { content: editContent });
                     setEditModalOpen(false);
                     onPostUpdate && onPostUpdate();
                   } finally {
@@ -247,7 +261,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         </div>
       )}
       <UserProfileModal 
-        userId={post.author._id} 
+        userId={localPost.author._id} 
         currentUser={user} 
         onClose={() => setShowProfile(false)} 
         show={showProfile}

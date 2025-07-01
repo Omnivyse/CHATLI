@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MoreHorizontal, Phone, Video, Search, Loader2, X } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, Phone, Video, Search, Loader2, X, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import socketService from '../services/socket';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ChatSearch from './ChatSearch';
 
-const ChatWindow = ({ chatId, user, onBack, isMobile }) => {
+const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted }) => {
   const [chat, setChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,6 +16,11 @@ const ChatWindow = ({ chatId, user, onBack, isMobile }) => {
   const [showSearch, setShowSearch] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [reactionTarget, setReactionTarget] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadChat = async () => {
     try {
@@ -29,21 +34,33 @@ const ChatWindow = ({ chatId, user, onBack, isMobile }) => {
     }
   };
 
-  const loadMessages = async () => {
-    setLoading(true);
+  const loadMessages = async (pageToLoad = 1, prepend = false) => {
+    if (pageToLoad === 1) setLoading(true);
+    if (pageToLoad > 1) setLoadingMore(true);
     setError('');
-    
     try {
-      const response = await api.getMessages(chatId);
+      const response = await api.getMessages(chatId, pageToLoad);
       if (response.success) {
-        setMessages(response.data.messages);
+        const newMessages = response.data.messages;
+        setHasMore(response.data.pagination.hasMore);
+        setPage(pageToLoad);
+        setMessages(prev =>
+          prepend ? [...newMessages, ...prev] : newMessages
+        );
       }
     } catch (error) {
       console.error('Load messages error:', error);
       setError('Мессежүүдийг уншихад алдаа гарлаа');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  // For infinite scroll: load more messages (older) and prepend
+  const loadMoreMessages = async () => {
+    if (loadingMore || !hasMore) return;
+    await loadMessages(page + 1, true);
   };
 
   const handleNewMessage = (data) => {
@@ -98,18 +115,43 @@ const ChatWindow = ({ chatId, user, onBack, isMobile }) => {
   };
 
   const handleReact = async (messageId, emoji) => {
+    console.log('handleReact called:', { messageId, emoji, chatId });
     try {
       const response = await api.reactToMessage(chatId, messageId, emoji);
+      console.log('React response:', response);
       if (response.success) {
-        // Update the message's reactions in state
         setMessages(prevMsgs => prevMsgs.map(msg =>
-          msg._id === messageId
+          String(msg._id) === String(messageId)
             ? { ...msg, reactions: response.data.reactions }
             : msg
         ));
       }
     } catch (error) {
       console.error('React to message error:', error);
+    }
+  };
+
+  const handleMessageDelete = (messageId) => {
+    // Remove the deleted message from state
+    setMessages(prevMsgs => prevMsgs.filter(msg => msg._id !== messageId));
+  };
+
+  const handleDeleteChat = async () => {
+    setDeleting(true);
+    try {
+      const response = await api.deleteChat(chatId);
+      if (response.success) {
+        // Notify parent component that chat was deleted
+        if (onChatDeleted) {
+          onChatDeleted(chatId);
+        }
+      }
+    } catch (error) {
+      console.error('Delete chat error:', error);
+      setError('Чат устгахад алдаа гарлаа');
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -266,22 +308,30 @@ const ChatWindow = ({ chatId, user, onBack, isMobile }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors">
+          <button 
+            onClick={() => setShowSearch(true)}
+            className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
+            title="Мессеж хайх"
+          >
             <Search className="w-5 h-5" />
           </button>
-          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors">
+          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors" title="Дуудах">
             <Phone className="w-5 h-5" />
           </button>
-          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors">
+          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors" title="Видео дуудах">
             <Video className="w-5 h-5" />
           </button>
-          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors">
-            <MoreHorizontal className="w-5 h-5" />
+          <button 
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-red-500"
+            title="Чат устгах"
+          >
+            <Trash2 className="w-5 h-5" />
           </button>
         </div>
       </div>
       {/* Messages */}
-      <div className="flex-1 overflow-hidden bg-background dark:bg-background-dark px-2 py-4 md:px-8 md:py-6">
+      <div className="flex-1 flex flex-col overflow-hidden bg-background dark:bg-background-dark px-2 py-4 md:px-8 md:py-6">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="w-8 h-8 animate-spin text-secondary" />
@@ -295,34 +345,16 @@ const ChatWindow = ({ chatId, user, onBack, isMobile }) => {
             onReact={handleReact}
             reactionTarget={reactionTarget}
             setReactionTarget={setReactionTarget}
+            loadMore={loadMoreMessages}
+            loadingMore={loadingMore}
+            hasMore={hasMore}
+            onMessageDelete={handleMessageDelete}
           />
         )}
       </div>
       {/* Typing Indicator */}
       {getTypingIndicator()}
-      {/* Reply preview above input */}
-      {replyingTo && (
-        <div className="border-t border-border dark:border-border-dark bg-muted/50 dark:bg-muted-dark/50 px-4 py-3">
-          <div className="max-w-4xl mx-auto flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-primary dark:text-white">Хариулах:</span>
-                <span className="text-secondary truncate dark:text-white">{replyingTo.sender?.name}</span>
-              </div>
-              <div className="text-sm text-foreground dark:text-foreground-dark truncate mt-1">
-                {replyingTo.content.text}
-              </div>
-            </div>
-            <button 
-              onClick={handleCancelReply} 
-              className="flex-shrink-0 p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark text-secondary hover:text-primary transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-      {/* Input */}
+      {/* Input (reply preview is now handled in MessageInput) */}
       <div className="border-t border-border dark:border-border-dark bg-background dark:bg-background-dark shadow-lg">
         <MessageInput
           onSendMessage={handleSendMessage}
@@ -332,6 +364,49 @@ const ChatWindow = ({ chatId, user, onBack, isMobile }) => {
           onCancelReply={handleCancelReply}
         />
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background dark:bg-background-dark rounded-lg shadow-xl max-w-md w-full mx-4 p-6 border border-border dark:border-border-dark">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground dark:text-foreground-dark">Чат устгах</h3>
+                <p className="text-sm text-secondary dark:text-secondary-dark">Энэ үйлдлийг буцааж болохгүй</p>
+              </div>
+            </div>
+            <p className="text-sm text-foreground dark:text-foreground-dark mb-6">
+              Та энэ чатыг устгахдаа итгэлтэй байна уу? Бүх мессежүүд устгагдах болно.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-medium text-secondary dark:text-secondary-dark hover:text-foreground dark:hover:text-foreground-dark transition-colors disabled:opacity-50"
+              >
+                Болих
+              </button>
+              <button
+                onClick={handleDeleteChat}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Устгаж байна...
+                  </>
+                ) : (
+                  'Устгах'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

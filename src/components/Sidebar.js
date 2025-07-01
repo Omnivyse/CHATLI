@@ -20,11 +20,8 @@ import logo from '../assets/logo3.png';
 import UserSearchModal from './UserSearchModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfileSettings, onTabChange, activeTab, unreadNotificationCount, onClose }) => {
+const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfileSettings, onTabChange, activeTab, unreadNotificationCount, onClose, chats, setChats, loadChats, loadingChats, chatError }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [chats, setChats] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [showLogoProfile, setShowLogoProfile] = useState(false);
   const [shineKey, setShineKey] = useState(0);
   const [showSettingsSection, setShowSettingsSection] = useState(false);
@@ -34,8 +31,8 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
   const [isDark, setIsDark] = useState(getDomTheme() === 'dark');
 
   useEffect(() => {
-    loadChats();
-  }, []);
+    setIsPrivateProfile(user.privateProfile || false);
+  }, [user.privateProfile]);
 
   useEffect(() => {
     // Show logo for 3 seconds every minute
@@ -48,25 +45,26 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    setIsPrivateProfile(user.privateProfile || false);
-  }, [user.privateProfile]);
-
-  const loadChats = async () => {
-    setLoading(true);
-    setError('');
-    
+  const handlePrivateToggle = async () => {
+    setUpdatingPrivate(true);
+    setPrivateError('');
     try {
-      const response = await api.getChats();
+      const response = await api.updateProfile({ privateProfile: !isPrivateProfile });
       if (response.success) {
-        setChats(response.data.chats);
+        setIsPrivateProfile(response.data.user.privateProfile);
+      } else {
+        setPrivateError('Шинэчлэхэд алдаа гарлаа');
       }
-    } catch (error) {
-      setError('Чат жагсаалтыг уншихад алдаа гарлаа');
-      console.error('Load chats error:', error);
+    } catch (e) {
+      setPrivateError('Шинэчлэхэд алдаа гарлаа');
     } finally {
-      setLoading(false);
+      setUpdatingPrivate(false);
     }
+  };
+
+  const handleThemeToggle = () => {
+    const newTheme = toggleTheme();
+    setIsDark(newTheme === 'dark');
   };
 
   const filteredChats = chats.filter(chat => {
@@ -111,28 +109,6 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
     const isOwnMessage = sender?._id === user._id;
     
     return isOwnMessage ? `Та: ${chat.lastMessage.text}` : chat.lastMessage.text;
-  };
-
-  const handlePrivateToggle = async () => {
-    setUpdatingPrivate(true);
-    setPrivateError('');
-    try {
-      const response = await api.updateProfile({ privateProfile: !isPrivateProfile });
-      if (response.success) {
-        setIsPrivateProfile(response.data.user.privateProfile);
-      } else {
-        setPrivateError('Шинэчлэхэд алдаа гарлаа');
-      }
-    } catch (e) {
-      setPrivateError('Шинэчлэхэд алдаа гарлаа');
-    } finally {
-      setUpdatingPrivate(false);
-    }
-  };
-
-  const handleThemeToggle = () => {
-    const newTheme = toggleTheme();
-    setIsDark(newTheme === 'dark');
   };
 
   return (
@@ -318,13 +294,13 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
 
             {/* Chat List */}
             <div className="flex-1 overflow-y-auto">
-              {loading ? (
+              {loadingChats ? (
                 <div className="flex items-center justify-center p-4">
                   <Loader2 className="w-6 h-6 animate-spin text-secondary" />
                 </div>
-              ) : error ? (
+              ) : chatError ? (
                 <div className="p-4 text-center text-red-500">
-                  <p className="text-sm">{error}</p>
+                  <p className="text-sm">{chatError}</p>
                   <button 
                     onClick={loadChats}
                     className="mt-2 text-xs text-primary hover:underline"
@@ -361,9 +337,18 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
                           className="w-12 h-12 rounded-full object-cover"
                         />
                         {chat.type === 'direct' && (
-                          chat.participants.find(p => p._id !== user._id)?.status === 'online' && (
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-background"></div>
-                          )
+                          (() => {
+                            const otherParticipant = chat.participants.find(p => p._id !== user._id);
+                            const isOnline = otherParticipant?.status === 'online';
+                            return (
+                              <div className={cn(
+                                "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-background dark:border-background-dark",
+                                isOnline 
+                                  ? "bg-black dark:bg-white" 
+                                  : "bg-gray-400 dark:bg-gray-400"
+                              )}></div>
+                            );
+                          })()
                         )}
                       </div>
                       
