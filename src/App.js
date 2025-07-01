@@ -172,18 +172,46 @@ function App() {
     };
   }, []);
 
-  // Remove auto-switch to chat on incoming messages
+  // Listen for new messages and update sidebar
   useEffect(() => {
     if (!user) return;
     const handleIncomingMessage = (data) => {
-      // Only update unread counts or show notification, do not auto-switch tab
-      // Optionally, you can add a notification badge here
+      const { chatId, message } = data;
+      
+      // Update the chat list to show the new message as the last message
+      setChats(prevChats => {
+        const updatedChats = prevChats.map(chat => {
+          if (chat._id === chatId) {
+            const updatedChat = {
+              ...chat,
+              lastMessage: {
+                id: message._id,
+                text: message.content?.text || '',
+                sender: message.sender,
+                timestamp: message.createdAt,
+                isRead: false
+              },
+              // Increment unread count if user is not in this chat
+              unreadCount: selectedChat === chatId ? chat.unreadCount : chat.unreadCount + 1
+            };
+            return updatedChat;
+          }
+          return chat;
+        }).sort((a, b) => {
+          // Sort chats by lastMessage timestamp (newest first)
+          const aTime = new Date(a.lastMessage?.timestamp || a.createdAt);
+          const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
+          return bTime - aTime;
+        });
+        return updatedChats;
+      });
     };
+    
     socketService.on('new_message', handleIncomingMessage);
     return () => {
       socketService.off('new_message', handleIncomingMessage);
     };
-  }, [user]);
+  }, [user, selectedChat]);
 
   const loadChats = async () => {
     setLoadingChats(true);
@@ -204,6 +232,36 @@ function App() {
   useEffect(() => {
     loadChats();
   }, []);
+
+  // Function to manually update sidebar chat list when a message is sent
+  const updateChatListWithNewMessage = (chatId, message) => {
+    console.log('📝 Manually updating chat list with new message:', { chatId, message });
+    setChats(prevChats => {
+      const updatedChats = prevChats.map(chat => {
+        if (chat._id === chatId) {
+          console.log('✅ Found chat to update:', chat._id);
+          return {
+            ...chat,
+            lastMessage: {
+              id: message._id,
+              text: message.content?.text || '',
+              sender: message.sender,
+              timestamp: message.createdAt || new Date().toISOString(),
+              isRead: false
+            }
+          };
+        }
+        return chat;
+      }).sort((a, b) => {
+        // Sort chats by lastMessage timestamp (newest first)
+        const aTime = new Date(a.lastMessage?.timestamp || a.createdAt);
+        const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
+        return bTime - aTime;
+      });
+      console.log('📋 Updated chats:', updatedChats);
+      return updatedChats;
+    });
+  };
 
   if (loading) {
     return (
@@ -328,6 +386,7 @@ function App() {
             onBack={() => setSelectedChat(null)}
             isMobile={isMobile}
             onChatDeleted={handleChatDeleted}
+            updateChatListWithNewMessage={updateChatListWithNewMessage}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-secondary dark:text-secondary-dark">

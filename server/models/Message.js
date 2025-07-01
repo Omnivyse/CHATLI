@@ -120,11 +120,15 @@ messageSchema.methods.addReaction = function(userId, emoji) {
   );
   
   if (existingReaction) {
-    // Remove existing reaction
+    // Remove existing reaction (toggle off)
     this.reactions = this.reactions.filter(
       reaction => !(reaction.user.toString() === userId.toString() && reaction.emoji === emoji)
     );
   } else {
+    // Remove any existing reactions from this user first
+    this.reactions = this.reactions.filter(
+      reaction => reaction.user.toString() !== userId.toString()
+    );
     // Add new reaction
     this.reactions.push({ user: userId, emoji });
   }

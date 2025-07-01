@@ -110,33 +110,44 @@ const MessageBubble = ({ message, isOwnMessage, user, onReply, onReact, onDelete
               <p className="mongolian-text leading-relaxed pt-1">{message.content.text}</p>
               {/* Emoji picker anchored to bubble bottom right/left */}
               {reactionTarget === message._id && (
-                <>
-                  {/* Mobile backdrop */}
-                  <div className="md:hidden fixed inset-0 bg-black/20 z-40" onClick={() => setReactionTarget && setReactionTarget(null)} />
-                  <div className={`absolute z-50 ${isOwnMessage ? 'right-0' : 'left-0'} bottom-0 translate-y-full mt-2`}>
-                    <div className="bg-white dark:bg-background-dark border border-border dark:border-border-dark rounded-xl shadow-lg p-2 flex gap-1 min-w-[200px] justify-center">
-                      {quickReactions.map(emoji => (
-                        <button
+                <div className={`absolute z-50 ${isOwnMessage ? 'right-0' : 'left-0'} bottom-0 translate-y-full mt-2`}>
+                  <div className="bg-white dark:bg-background-dark border border-border dark:border-border-dark rounded-xl shadow-lg p-2 flex gap-1 min-w-[160px] justify-center">
+                    {quickReactions.map(emoji => {
+                      // Check if current user's reaction is this specific emoji
+                      const userCurrentReaction = message.reactions?.find(
+                        reaction => reaction.user?._id === user._id
+                      );
+                      const isUserCurrentReaction = userCurrentReaction?.emoji === emoji;
+                      
+                      return (
+                        <div
                           key={emoji}
-                          className="emoji-picker-button hover:scale-110 transition-transform"
-                          onClick={() => {
-                            console.log('Emoji clicked:', emoji, 'for message:', message._id);
-                            if (onReact) onReact(message._id, emoji);
-                            if (setReactionTarget) setReactionTarget(null);
+                          className={`text-lg p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer select-none transition-all ${
+                            isUserCurrentReaction ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-300 dark:ring-blue-600' : ''
+                          }`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (onReact) {
+                              onReact(message._id, emoji);
+                            }
+                            if (setReactionTarget) {
+                              setReactionTarget(null);
+                            }
                           }}
                         >
                           {emoji}
-                        </button>
-                      ))}
-                      <button 
-                        className="ml-2 text-secondary text-xs hover:text-primary dark:hover:text-primary-dark transition-colors p-1 rounded hover:bg-muted dark:hover:bg-muted-dark" 
-                        onClick={() => setReactionTarget && setReactionTarget(null)}
-                      >
-                        ×
-                      </button>
+                        </div>
+                      );
+                    })}
+                    <div 
+                      className="ml-1 text-secondary text-sm hover:text-primary dark:hover:text-primary-dark transition-colors p-1.5 rounded hover:bg-muted dark:hover:bg-muted-dark cursor-pointer" 
+                      onMouseDown={() => setReactionTarget && setReactionTarget(null)}
+                    >
+                      ×
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
             {/* Reactions absolutely positioned at bubble corner */}
@@ -163,7 +174,9 @@ const MessageBubble = ({ message, isOwnMessage, user, onReply, onReact, onDelete
               <MessageCircle className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setReactionTarget(message._id)}
+              onClick={() => {
+                setReactionTarget(message._id);
+              }}
               className="message-action-button"
               title="Реакц"
             >

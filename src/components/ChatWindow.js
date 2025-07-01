@@ -6,7 +6,7 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ChatSearch from './ChatSearch';
 
-const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted }) => {
+const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatListWithNewMessage }) => {
   const [chat, setChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -115,10 +115,8 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted }) => {
   };
 
   const handleReact = async (messageId, emoji) => {
-    console.log('handleReact called:', { messageId, emoji, chatId });
     try {
       const response = await api.reactToMessage(chatId, messageId, emoji);
-      console.log('React response:', response);
       if (response.success) {
         setMessages(prevMsgs => prevMsgs.map(msg =>
           String(msg._id) === String(messageId)
@@ -193,6 +191,11 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted }) => {
         socketService.sendMessage(chatId, newMessage);
         handleTypingStop();
         setReplyingTo(null); // Clear reply state
+        
+        // Manually update sidebar with new message
+        if (updateChatListWithNewMessage) {
+          updateChatListWithNewMessage(chatId, newMessage);
+        }
       }
     } catch (error) {
       console.error('Send message error:', error);
