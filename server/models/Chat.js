@@ -57,6 +57,13 @@ const chatSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  deletedBy: {
+    type: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    default: []
+  },
   pinnedMessages: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message'
@@ -117,6 +124,45 @@ chatSchema.methods.markAsRead = function(userId) {
   }
   
   return this;
+};
+
+// Method to soft delete chat for a user
+chatSchema.methods.deleteForUser = function(userId) {
+  const userIdString = userId.toString();
+  const isAlreadyDeleted = this.deletedBy.some(id => id.toString() === userIdString);
+  
+  if (!isAlreadyDeleted) {
+    this.deletedBy.push(userId);
+    console.log(`Soft deleting chat ${this._id} for user ${userIdString}`);
+    return this.save();
+  }
+  console.log(`Chat ${this._id} already deleted for user ${userIdString}`);
+  return Promise.resolve(this);
+};
+
+// Method to restore chat for a user
+chatSchema.methods.restoreForUser = function(userId) {
+  const userIdString = userId.toString();
+  const wasDeleted = this.deletedBy.some(id => id.toString() === userIdString);
+  
+  if (wasDeleted) {
+    this.deletedBy = this.deletedBy.filter(id => id.toString() !== userIdString);
+    console.log(`Restoring chat ${this._id} for user ${userIdString}`);
+    return this.save();
+  }
+  console.log(`Chat ${this._id} was not deleted for user ${userIdString}`);
+  return Promise.resolve(this);
+};
+
+// Method to check if chat is deleted for a user
+chatSchema.methods.isDeletedForUser = function(userId) {
+  if (!this.deletedBy || this.deletedBy.length === 0) {
+    return false;
+  }
+  const userIdString = userId.toString();
+  const isDeleted = this.deletedBy.some(id => id.toString() === userIdString);
+  console.log(`Chat ${this._id} deleted for user ${userIdString}:`, isDeleted);
+  return isDeleted;
 };
 
 module.exports = mongoose.model('Chat', chatSchema); 

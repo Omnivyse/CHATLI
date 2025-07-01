@@ -227,7 +227,7 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
                     className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
                     onClick={() => {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
-                      setTimeout(() => window.location.reload(), 400);
+                      if (typeof onTabChange === 'function') onTabChange('feed');
                     }}
                     title="Нүүр хуудас руу очих"
                   >

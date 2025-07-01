@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { initializeTheme } from './utils/themeUtils';
 import api from './services/api';
 import socketService from './services/socket';
@@ -69,6 +69,9 @@ function App() {
     if (token) {
       socketService.connect(token);
     }
+    // Clear any cached chat data and reload fresh
+    setChats([]);
+    setSelectedChat(null);
   };
 
   const handleLogout = async () => {
@@ -79,6 +82,7 @@ function App() {
     } finally {
       setUser(null);
       setSelectedChat(null);
+      setChats([]); // Clear chat data on logout
       socketService.disconnect();
     }
   };
@@ -180,6 +184,11 @@ function App() {
       
       // Update the chat list to show the new message as the last message
       setChats(prevChats => {
+        const chatExists = prevChats.find(chat => chat._id === chatId);
+        if (!chatExists) {
+          return prevChats; // Don't update if chat doesn't exist in local state
+        }
+        
         const updatedChats = prevChats.map(chat => {
           if (chat._id === chatId) {
             const updatedChat = {
@@ -203,6 +212,7 @@ function App() {
           const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
           return bTime - aTime;
         });
+        
         return updatedChats;
       });
     };
@@ -213,7 +223,8 @@ function App() {
     };
   }, [user, selectedChat]);
 
-  const loadChats = async () => {
+  const loadChats = useCallback(async () => {
+    if (!user) return; // Don't load chats if no user
     setLoadingChats(true);
     setChatError('');
     try {
@@ -227,19 +238,19 @@ function App() {
     } finally {
       setLoadingChats(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    loadChats();
-  }, []);
+    if (user) {
+      loadChats();
+    }
+  }, [user, loadChats]); // Reload chats when user changes (login/logout)
 
   // Function to manually update sidebar chat list when a message is sent
   const updateChatListWithNewMessage = (chatId, message) => {
-    console.log('📝 Manually updating chat list with new message:', { chatId, message });
     setChats(prevChats => {
       const updatedChats = prevChats.map(chat => {
         if (chat._id === chatId) {
-          console.log('✅ Found chat to update:', chat._id);
           return {
             ...chat,
             lastMessage: {
@@ -258,7 +269,6 @@ function App() {
         const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
         return bTime - aTime;
       });
-      console.log('📋 Updated chats:', updatedChats);
       return updatedChats;
     });
   };

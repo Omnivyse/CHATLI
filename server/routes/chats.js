@@ -12,21 +12,28 @@ const router = express.Router();
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
+    console.log(`📋 Getting chats for user: ${req.user._id}`);
+    
     const chats = await Chat.find({
       participants: req.user._id,
-      isActive: true
+      isActive: true,
+      deletedBy: { $ne: req.user._id }
     })
     .populate('participants', 'name username avatar status lastSeen')
     .populate('lastMessage.sender', 'name username avatar')
     .populate('lastMessage.id')
     .sort({ 'lastMessage.timestamp': -1 });
 
+    console.log(`📋 Found ${chats.length} chats for user ${req.user._id}`);
+    
     // Add unread count for each chat
     const chatsWithUnreadCount = chats.map(chat => {
       const unreadData = chat.unreadCounts.find(item => 
         item.user.toString() === req.user._id.toString()
       );
       const unreadCount = unreadData ? unreadData.count : 0;
+      
+      console.log(`📋 Chat ${chat._id}: deletedBy=[${chat.deletedBy}], unreadCount=${unreadCount}`);
       
       return {
         ...chat.toObject(),
@@ -88,10 +95,27 @@ router.post('/', auth, [
       });
 
       if (existingChat) {
-        return res.status(400).json({
-          success: false,
-          message: 'Чат аль хэдийн байна'
-        });
+        // If the chat was soft-deleted by the current user, restore it
+        if (existingChat.isDeletedForUser(req.user._id)) {
+          await existingChat.restoreForUser(req.user._id);
+          console.log(`🔄 Restored soft-deleted chat ${existingChat._id} for user ${req.user._id}`);
+          
+          // Populate the chat with user data
+          await existingChat.populate('participants', 'name username avatar status lastSeen');
+          
+          return res.status(200).json({
+            success: true,
+            message: 'Чат сэргээгдлээ',
+            data: {
+              chat: existingChat
+            }
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: 'Чат аль хэдийн байна'
+          });
+        }
       }
     }
 
@@ -295,6 +319,19 @@ router.post('/:id/messages', auth, [
       });
     }
 
+    // If user had deleted this chat, restore it
+    if (chat.isDeletedForUser(req.user._id)) {
+      await chat.restoreForUser(req.user._id);
+    }
+
+    // When someone sends a message, restore the chat for all participants who had deleted it
+    // This ensures that if someone sends you a message in a chat you deleted, it reappears in your sidebar
+    for (const participantId of chat.participants) {
+      if (participantId.toString() !== req.user._id.toString() && chat.isDeletedForUser(participantId)) {
+        await chat.restoreForUser(participantId);
+      }
+    }
+
     const { type = 'text', content, replyTo } = req.body;
 
     const messageData = {
@@ -463,6 +500,11 @@ router.post('/:id/messages/:messageId/react', auth, [
       });
     }
 
+    // If user had deleted this chat, restore it when they react to a message
+    if (chat.isDeletedForUser(req.user._id)) {
+      await chat.restoreForUser(req.user._id);
+    }
+
     const message = await Message.findOne({
       _id: req.params.messageId,
       chat: req.params.id,
@@ -534,6 +576,11 @@ router.post('/:id/messages/:messageId/reply', auth, [
       });
     }
 
+    // If user had deleted this chat, restore it when they reply to a message
+    if (chat.isDeletedForUser(req.user._id)) {
+      await chat.restoreForUser(req.user._id);
+    }
+
     // Find the message being replied to
     const parentMessage = await Message.findOne({
       _id: req.params.messageId,
@@ -586,10 +633,12 @@ router.post('/:id/messages/:messageId/reply', auth, [
 });
 
 // @route   DELETE /api/chats/:id
-// @desc    Delete a chat (soft delete)
+// @desc    Delete a chat (soft delete for current user only)
 // @access  Private
 router.delete('/:id', auth, async (req, res) => {
   try {
+    console.log(`🗑️ User ${req.user._id} requesting to delete chat ${req.params.id}`);
+    
     const chat = await Chat.findOne({
       _id: req.params.id,
       participants: req.user._id,
@@ -597,15 +646,19 @@ router.delete('/:id', auth, async (req, res) => {
     });
 
     if (!chat) {
+      console.log(`🗑️ Chat ${req.params.id} not found for user ${req.user._id}`);
       return res.status(404).json({
         success: false,
         message: 'Чат олдсонгүй'
       });
     }
 
-    // Soft delete the chat by setting isActive to false
-    chat.isActive = false;
-    await chat.save();
+    console.log(`🗑️ Chat ${req.params.id} found, participants: [${chat.participants}], deletedBy: [${chat.deletedBy}]`);
+
+    // Soft delete the chat for current user only
+    await chat.deleteForUser(req.user._id);
+    
+    console.log(`🗑️ Chat ${req.params.id} soft deleted for user ${req.user._id}`);
 
     res.json({
       success: true,
