@@ -171,7 +171,7 @@ const CopyrightModal = ({ isOpen, onClose }) => {
             </div>
             <button
               onClick={onClose}
-              className="px-6 py-2 text-sm bg-primary dark:bg-primary-dark text-primary-dark dark:text-foreground-dark rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors font-medium"
+              className="px-6 py-2 text-sm bg-primary dark:bg-primary-dark text-white dark:text-black rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors font-medium"
             >
               Хүлээн зөвшөөрөх
             </button>
