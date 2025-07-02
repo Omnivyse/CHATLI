@@ -140,14 +140,15 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
               <img
                 src={localPost.media[currentMedia].url}
                 alt="post"
-                className="max-h-64 rounded object-contain border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
+                className="max-h-80 w-auto mx-auto rounded object-contain border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
                 onClick={() => setShowModal(true)}
+                style={{ maxWidth: '100%' }}
               />
             ) : (
               <CustomVideoPlayer
                 ref={videoRef}
                 src={localPost.media[currentMedia].url}
-                className="max-h-64 rounded w-full object-contain border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
+                className="rounded border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
                 onClick={handleOpenModal}
                 muted={true}
                 hideControls={true}
@@ -192,15 +193,16 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         <img
           src={localPost.image}
           alt="post"
-          className="max-h-64 rounded mb-2 object-contain cursor-pointer hover:opacity-80 transition"
+          className="max-h-80 w-auto mx-auto rounded mb-2 object-contain cursor-pointer hover:opacity-80 transition"
           onClick={() => setShowModal(true)}
+          style={{ maxWidth: '100%' }}
         />
       )}
       {(!localPost.media || localPost.media.length === 0) && localPost.video && !settingsModalOpen && (
         <CustomVideoPlayer
           ref={videoRef}
           src={localPost.video}
-          className="max-h-64 rounded mb-2 w-full cursor-pointer hover:opacity-80 transition"
+          className="rounded mb-2 cursor-pointer hover:opacity-80 transition"
           onClick={handleOpenModal}
           muted={true}
           hideControls={true}

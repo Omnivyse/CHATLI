@@ -140,14 +140,16 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
                   <img 
                     src={media[currentMedia].url} 
                     alt="post" 
-                    className="max-h-48 rounded-xl object-contain border border-border dark:border-border-dark" 
+                    className="max-h-64 w-auto mx-auto rounded-xl object-contain border border-border dark:border-border-dark" 
+                    style={{ maxWidth: '100%' }}
                   />
                 ) : (
                   <CustomVideoPlayer 
                     src={media[currentMedia].url} 
-                    className="max-h-48 rounded-xl object-contain border border-border dark:border-border-dark" 
+                    className="rounded-xl border border-border dark:border-border-dark" 
                     muted={true} 
                     inModal={true}
+                    minimalControls={true}
                   />
                 )}
                 {media.length > 1 && (

@@ -21,6 +21,8 @@ const CustomVideoPlayer = forwardRef(({
   const [volume, setVolume] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [videoAspectRatio, setVideoAspectRatio] = useState(16/9); // Default to 16:9
+  const [isVertical, setIsVertical] = useState(false);
 
   useImperativeHandle(ref, () => ({
     pause: () => {
@@ -74,6 +76,11 @@ const CustomVideoPlayer = forwardRef(({
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
       setIsLoading(false);
+      
+      // Calculate aspect ratio and determine if vertical
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      setVideoAspectRatio(aspectRatio);
+      setIsVertical(aspectRatio < 1); // Vertical if width < height
     };
 
     const handleTimeUpdate = () => {
@@ -211,15 +218,54 @@ const CustomVideoPlayer = forwardRef(({
     );
   }
 
-  // Aspect ratio wrapper (16:9)
+  // Dynamic styling based on video orientation
+  const getContainerStyle = () => {
+    if (inModal) {
+      // In modal, allow more flexibility but still set reasonable limits
+      if (isVertical) {
+        return {
+          maxWidth: '400px',
+          maxHeight: '600px',
+          aspectRatio: videoAspectRatio,
+          margin: '0 auto'
+        };
+      } else {
+        return {
+          maxWidth: '100%',
+          maxHeight: '500px',
+          aspectRatio: videoAspectRatio
+        };
+      }
+    } else {
+      // In feed, constrain size more
+      if (isVertical) {
+        return {
+          maxWidth: '280px',
+          maxHeight: '400px',
+          aspectRatio: videoAspectRatio,
+          margin: '0 auto'
+        };
+      } else {
+        return {
+          maxWidth: '100%',
+          maxHeight: '320px',
+          aspectRatio: videoAspectRatio
+        };
+      }
+    }
+  };
+
+  // Dynamic container classes
+  const containerClasses = `relative w-full rounded-xl overflow-hidden bg-black z-auto ${className}`;
+
   return (
-    <div className={`relative w-full rounded-xl overflow-hidden bg-black z-auto ${className}`} style={{ aspectRatio: '16/9', maxWidth: '100%' }}>
+    <div className={containerClasses} style={getContainerStyle()}>
       <video
         ref={videoRef}
         src={src}
         loop={loop}
         muted={isMuted}
-        className="w-full h-full object-cover rounded-xl select-none"
+        className="w-full h-full object-contain rounded-xl select-none"
         onClick={handleVideoClick}
         onMouseEnter={() => !hideControls && !minimalControls && !inModal && setShowControls(true)}
         onMouseLeave={() => isPlaying && !hideControls && !minimalControls && !inModal && setShowControls(false)}

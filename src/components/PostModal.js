@@ -146,12 +146,13 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
                     <img
                       src={post.media[currentMedia].url}
                       alt="post"
-                      className="max-h-64 rounded object-contain border border-border dark:border-border-dark"
+                      className="max-h-96 w-auto mx-auto rounded object-contain border border-border dark:border-border-dark"
+                      style={{ maxWidth: '100%' }}
                     />
                   ) : (
                     <CustomVideoPlayer
                       src={post.media[currentMedia].url}
-                      className="max-h-64 rounded w-full object-contain border border-border dark:border-border-dark"
+                      className="rounded border border-border dark:border-border-dark"
                       autoPlay={true}
                       hideControls={false}
                       minimalControls={true}
@@ -192,7 +193,7 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
             )}
             {/* Fallback for legacy posts with image/video fields */}
             {(!post.media || post.media.length === 0) && post.image && !settingsModalOpen && (
-              <img src={post.image} alt="post" className="max-h-64 rounded mb-2 object-contain" />
+              <img src={post.image} alt="post" className="max-h-96 w-auto mx-auto rounded mb-2 object-contain" style={{ maxWidth: '100%' }} />
             )}
             {(!post.media || post.media.length === 0) && post.video && !settingsModalOpen && (
               <CustomVideoPlayer
@@ -201,7 +202,7 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
                 hideControls={false}
                 minimalControls={true}
                 inModal={true}
-                className="mb-2"
+                className="mb-2 rounded"
               />
             )}
             <div className="flex items-center gap-4 mb-2">
