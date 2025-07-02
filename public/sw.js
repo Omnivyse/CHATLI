@@ -1,14 +1,12 @@
-const CACHE_NAME = 'chatli-v1.0.0';
-const STATIC_CACHE_NAME = 'chatli-static-v1.0.0';
-const DYNAMIC_CACHE_NAME = 'chatli-dynamic-v1.0.0';
+const CACHE_NAME = 'chatli-v1.1.0';
+const STATIC_CACHE_NAME = 'chatli-static-v1.1.0';
+const DYNAMIC_CACHE_NAME = 'chatli-dynamic-v1.1.0';
 
-// Files to cache for offline functionality
+// Files to cache for offline functionality - using patterns instead of specific filenames
 const STATIC_FILES = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/img/logo.png',
-  '/manifest.json'
+  '/manifest.json',
+  '/img/logo.png'
 ];
 
 // API endpoints to cache
@@ -81,9 +79,11 @@ self.addEventListener('fetch', (event) => {
 
 async function handleRequest(request, url) {
   try {
-    // Strategy 1: Static files - Cache First
-    if (STATIC_FILES.some(file => url.pathname.endsWith(file))) {
-      return await cacheFirst(request, STATIC_CACHE_NAME);
+    // Strategy 1: Static build files (JS/CSS) - Network First with cache fallback
+    if (url.pathname.includes('/static/') || 
+        url.pathname.endsWith('.js') || 
+        url.pathname.endsWith('.css')) {
+      return await networkFirstWithFallback(request, DYNAMIC_CACHE_NAME);
     }
 
     // Strategy 2: API calls - Network First with cache fallback
@@ -95,13 +95,14 @@ async function handleRequest(request, url) {
     // Strategy 3: Images and media - Cache First
     if (request.destination === 'image' || 
         url.pathname.includes('/uploads/') ||
+        url.pathname.includes('/img/') ||
         url.hostname.includes('cloudinary.com')) {
       return await cacheFirst(request, DYNAMIC_CACHE_NAME);
     }
 
-    // Strategy 4: Navigation requests - Network First
+    // Strategy 4: Navigation requests - Network First with offline fallback
     if (request.mode === 'navigate') {
-      return await networkFirst(request, DYNAMIC_CACHE_NAME);
+      return await navigationHandler(request);
     }
 
     // Strategy 5: Everything else - Network First
@@ -112,13 +113,92 @@ async function handleRequest(request, url) {
     
     // Return offline page for navigation requests
     if (request.mode === 'navigate') {
-      return caches.match('/') || new Response(
-        '<h1>Офлайн байна</h1><p>Интернет холболтоо шалгана уу</p>',
+      return new Response(
+        `<!DOCTYPE html>
+        <html>
+        <head>
+          <title>Офлайн - CHATLI</title>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            .logo { width: 64px; height: 64px; margin: 20px auto; }
+          </style>
+        </head>
+        <body>
+          <img src="/img/logo.png" alt="CHATLI" class="logo" />
+          <h1>Офлайн байна</h1>
+          <p>Интернет холболтоо шалгаад дахин оролдоно уу</p>
+          <button onclick="window.location.reload()">Дахин ачаалах</button>
+        </body>
+        </html>`,
         { headers: { 'Content-Type': 'text/html' } }
       );
     }
     
     throw error;
+  }
+}
+
+// Navigation handler with proper fallback
+async function navigationHandler(request) {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(DYNAMIC_CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+    throw new Error('Network response not ok');
+  } catch (error) {
+    // Try to serve from cache
+    const cachedResponse = await caches.match('/');
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Fallback to basic HTML
+    return new Response(
+      `<!DOCTYPE html>
+      <html>
+      <head>
+        <title>CHATLI</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body>
+        <div id="root"></div>
+        <script>window.location.reload()</script>
+      </body>
+      </html>`,
+      { headers: { 'Content-Type': 'text/html' } }
+    );
+  }
+}
+
+// Network First with better fallback for build files
+async function networkFirstWithFallback(request, cacheName) {
+  try {
+    console.log('🌐 Network first (build file):', request.url);
+    const networkResponse = await fetch(request);
+    
+    if (networkResponse.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+    throw new Error('Network response not ok');
+  } catch (error) {
+    console.log('📦 Network failed, trying cache:', request.url);
+    const cachedResponse = await caches.match(request);
+    
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // For critical files, try to fetch without cache
+    console.log('🔄 Trying direct fetch:', request.url);
+    return fetch(request, { cache: 'no-cache' });
   }
 }
 
@@ -177,7 +257,6 @@ self.addEventListener('sync', (event) => {
 
 async function syncMessages() {
   try {
-    // Get pending messages from IndexedDB (would need implementation)
     console.log('📤 Syncing offline messages...');
     // Implementation would depend on your offline message storage
   } catch (error) {

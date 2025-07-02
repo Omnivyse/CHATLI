@@ -73,6 +73,44 @@
     <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
     
     <title>CHATLI - Messenger</title>
+    
+    <!-- Service Worker Cache Fix Script -->
+    <script>
+      // Fix for blank page issues due to stale service worker cache
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          // Check if page is blank (no content loaded)
+          setTimeout(function() {
+            const rootElement = document.getElementById('root');
+            if (rootElement && (!rootElement.children.length || rootElement.innerHTML.trim() === '')) {
+              console.log('🔧 Detected blank page, clearing service worker cache...');
+              
+              // Clear all caches
+              if ('caches' in window) {
+                caches.keys().then(function(cacheNames) {
+                  return Promise.all(
+                    cacheNames.map(function(cacheName) {
+                      console.log('🗑️ Deleting cache:', cacheName);
+                      return caches.delete(cacheName);
+                    })
+                  );
+                }).then(function() {
+                  console.log('✅ Cache cleared, reloading...');
+                  window.location.reload(true);
+                });
+              }
+              
+              // Unregister service worker
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                  registration.unregister();
+                }
+              });
+            }
+          }, 3000); // Wait 3 seconds to check if page loaded
+        });
+      }
+    </script>
   </head>
   <body>
     <noscript>
