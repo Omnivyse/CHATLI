@@ -135,6 +135,19 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/admin/login', authLimiter);
 
+// Performance monitoring middleware
+const performanceLogger = (req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 1000) { // Log slow requests (> 1 second)
+      console.warn(`⚠️ Slow request: ${req.method} ${req.path} - ${duration}ms`);
+    }
+  });
+  next();
+};
+
+app.use(performanceLogger);
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
@@ -159,9 +172,21 @@ app.get('/api/health', (req, res) => {
 
 // Socket.IO connection handling
 const connectedUsers = new Map();
+let connectionCount = 0;
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  connectionCount++;
+  console.log(`User connected: ${socket.id} (Total: ${connectionCount})`);
+  
+  // Log memory usage every 50 connections
+  if (connectionCount % 50 === 0) {
+    const memUsage = process.memoryUsage();
+    console.log(`📊 Memory usage with ${connectionCount} connections:`, {
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`
+    });
+  }
 
   // Authenticate user
   socket.on('authenticate', async (token) => {
@@ -257,7 +282,8 @@ io.on('connection', (socket) => {
 
   // Disconnect
   socket.on('disconnect', async () => {
-    console.log('User disconnected:', socket.id);
+    connectionCount--;
+    console.log(`User disconnected: ${socket.id} (Total: ${connectionCount})`);
     
     if (socket.userId) {
       connectedUsers.delete(socket.userId);
@@ -277,10 +303,17 @@ io.on('connection', (socket) => {
   });
 });
 
-// MongoDB connection
+// MongoDB connection with optimized settings
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  maxPoolSize: 20, // Maintain up to 20 socket connections
+  minPoolSize: 5,  // Maintain a minimum of 5 socket connections
+  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  bufferMaxEntries: 0, // Disable mongoose buffering
+  bufferCommands: false, // Disable mongoose buffering
 })
 .then(() => {
   console.log('MongoDB холбогдлоо');
