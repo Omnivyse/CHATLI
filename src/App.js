@@ -378,28 +378,13 @@ function App() {
                 <span className="font-medium">Буцах</span>
               </button>
               <span className="font-semibold text-lg">Чат</span>
-              <button
-                onClick={handleProfileSettings}
-                className="w-8 h-8 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center"
-              >
-                {user.avatar ? (
-                  <img 
-                    src={user.avatar} 
-                    alt={user.name}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <svg className="w-4 h-4 text-secondary dark:text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                )}
-              </button>
+              <div className="w-8 h-8"></div> {/* Spacer for balance */}
             </>
           ) : (
             // Regular header for feed and notifications
             <>
               <div className="flex items-center gap-2">
-                <img src={require('./assets/logo.png')} alt="CHATLI" className="w-8 h-8 rounded-full" />
+                <img src="/img/logo.png" alt="CHATLI" className="w-8 h-8 rounded-full" />
                 <span className="font-bold text-lg">CHATLI</span>
               </div>
               <div className="flex items-center gap-4">
@@ -410,22 +395,7 @@ function App() {
                   <span className="font-semibold text-lg">Мэдэгдэл</span>
                 )}
               </div>
-              <button
-                onClick={handleProfileSettings}
-                className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center"
-              >
-                {user.avatar ? (
-                  <img 
-                    src={user.avatar} 
-                    alt={user.name}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <svg className="w-5 h-5 text-secondary dark:text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                )}
-              </button>
+              <div className="w-10 h-10"></div> {/* Spacer for balance */}
             </>
           )}
         </div>
@@ -592,8 +562,7 @@ function App() {
               }`}
             >
               <svg className="w-6 h-6" fill={activeTab === 'feed' && !selectedChat ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m7 7 5 5 5-5" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m0 0V11a1 1 0 011-1h2a1 1 0 011 1v10m3 0a1 1 0 001-1V10M5 10l7-7 7 7" />
               </svg>
               <span className="text-xs font-medium">Фийд</span>
             </button>
@@ -611,7 +580,7 @@ function App() {
               }`}
             >
               <svg className="w-6 h-6" fill={activeTab === 'chats' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-1M15 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586" />
               </svg>
               <span className="text-xs font-medium">Чат</span>
               {chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0) > 0 && (
