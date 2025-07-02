@@ -31,28 +31,56 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
   };
 
   return (
-    <div className="max-w-xl mx-auto w-full p-4">
-      {/* Sticky New Post UI */}
-      <div className="sticky top-0 z-20 mb-6 bg-background dark:bg-background-dark/95 backdrop-blur-sm rounded-2xl shadow p-4 flex items-center gap-3 border border-border dark:border-border-dark">
-        <input
-          className="flex-1 bg-muted dark:bg-muted-dark rounded-full px-4 py-2 border border-border dark:border-border-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition placeholder:text-secondary dark:placeholder:text-secondary-dark text-base cursor-pointer"
-          placeholder="Юу бодож байна?"
-          onFocus={() => setShowModal(true)}
-          readOnly
-        />
-        <button
-          className="ml-2 px-6 py-2 bg-primary dark:bg-primary-dark text-primary-dark dark:text-primary rounded-full font-semibold hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition"
-          onClick={() => setShowModal(true)}
-        >
-          Постлох
-        </button>
-        <button
-          className="ml-2 p-2 bg-muted dark:bg-muted-dark text-primary dark:text-primary-dark rounded-full hover:bg-primary/10 dark:hover:bg-primary-dark/10 transition flex items-center justify-center"
-          title="Хэрэглэгч хайх"
-          onClick={() => setShowUserSearchModal(true)}
-        >
-          <SearchIcon className="w-5 h-5" />
-        </button>
+    <div className="max-w-xl mx-auto w-full px-2 sm:px-4 py-2 sm:py-4">
+      {/* Sticky New Post UI - Mobile Responsive */}
+      <div className="sticky top-0 z-20 mb-6 bg-background dark:bg-background-dark/95 backdrop-blur-sm rounded-2xl shadow p-3 sm:p-4 border border-border dark:border-border-dark">
+        {/* Mobile Layout - Stacked */}
+        <div className="flex flex-col gap-3 sm:hidden">
+          <input
+            className="w-full bg-muted dark:bg-muted-dark rounded-full px-4 py-2 border border-border dark:border-border-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition placeholder:text-secondary dark:placeholder:text-secondary-dark text-sm cursor-pointer"
+            placeholder="Юу бодож байна?"
+            onFocus={() => setShowModal(true)}
+            readOnly
+          />
+          <div className="flex gap-2">
+            <button
+              className="flex-1 px-4 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-full font-semibold hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition text-sm"
+              onClick={() => setShowModal(true)}
+            >
+              Постлох
+            </button>
+            <button
+              className="p-2 bg-muted dark:bg-muted-dark text-primary dark:text-primary-dark rounded-full hover:bg-primary/10 dark:hover:bg-primary-dark/10 transition flex items-center justify-center flex-shrink-0"
+              title="Хэрэглэгч хайх"
+              onClick={() => setShowUserSearchModal(true)}
+            >
+              <SearchIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Desktop Layout - Horizontal */}
+        <div className="hidden sm:flex items-center gap-3">
+          <input
+            className="flex-1 bg-muted dark:bg-muted-dark rounded-full px-4 py-2 border border-border dark:border-border-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition placeholder:text-secondary dark:placeholder:text-secondary-dark text-base cursor-pointer"
+            placeholder="Юу бодож байна?"
+            onFocus={() => setShowModal(true)}
+            readOnly
+          />
+          <button
+            className="px-6 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-full font-semibold hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition"
+            onClick={() => setShowModal(true)}
+          >
+            Постлох
+          </button>
+          <button
+            className="p-2 bg-muted dark:bg-muted-dark text-primary dark:text-primary-dark rounded-full hover:bg-primary/10 dark:hover:bg-primary-dark/10 transition flex items-center justify-center"
+            title="Хэрэглэгч хайх"
+            onClick={() => setShowUserSearchModal(true)}
+          >
+            <SearchIcon className="w-5 h-5" />
+          </button>
+        </div>
       </div>
       {showUserSearchModal && (
         <UserSearchModal 
