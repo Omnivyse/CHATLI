@@ -1,4 +1,4 @@
-# Mongolian Threads Chat App
+# Mongolian Frist Chat App
 
 A modern threaded chat application inspired by Instagram Threads, built with React, Node.js, Express, and MongoDB. Features a black and white minimalist design with full Mongolian language support.
 
