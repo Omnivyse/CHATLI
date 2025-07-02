@@ -291,7 +291,7 @@ function App() {
     <div className="flex h-screen bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark relative">
       {/* Mobile Header - Only shown on mobile when sidebar is hidden */}
       {isMobile && !showSidebarMobile && (activeTab === 'feed' || activeTab === 'notifications' || selectedChat) && (
-        <div className="fixed top-0 left-0 right-0 z-40 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark px-4 py-3 flex items-center justify-between">
+        <div className="fixed top-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => {
               setShowSidebarMobile(true);

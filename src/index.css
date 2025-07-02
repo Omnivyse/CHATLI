@@ -444,6 +444,23 @@
   width: 100%;
 }
 
+/* Z-index hierarchy for post components */
+.post-feed-sticky {
+  z-index: 20;
+}
+
+.video-player-controls {
+  z-index: 2;
+}
+
+.video-player-overlay {
+  z-index: 1;
+}
+
+.post-container {
+  z-index: auto;
+}
+
 /* Improved input focus states */
 input:focus,
 textarea:focus {

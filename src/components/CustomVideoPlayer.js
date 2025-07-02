@@ -277,7 +277,7 @@ const CustomVideoPlayer = forwardRef(({
 
       {/* Loading overlay */}
       {isLoading && (
-        <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center z-10">
+        <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center z-[1]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
       )}
@@ -286,7 +286,7 @@ const CustomVideoPlayer = forwardRef(({
       {playPauseOnly && !isLoading && (
         <button
           onClick={togglePlay}
-          className="absolute bottom-4 left-4 w-12 h-12 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-all z-10 cursor-pointer touch-button"
+          className="absolute bottom-4 left-4 w-12 h-12 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-all z-[2] cursor-pointer touch-button"
           style={{ pointerEvents: 'auto' }}
           type="button"
           title={isPlaying ? 'Зогсоох' : 'Тоглуулах'}
@@ -298,7 +298,7 @@ const CustomVideoPlayer = forwardRef(({
       {/* Minimal controls for modal (top right, small) */}
       {!playPauseOnly && minimalControls && !isLoading && (
         <>
-          <div className="absolute top-4 right-4 flex gap-2 pointer-events-none z-10">
+          <div className="absolute top-4 right-4 flex gap-2 pointer-events-none z-[2]">
             <button
               onClick={togglePlay}
               className="w-9 h-9 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-all video-controls-button pointer-events-auto cursor-pointer touch-button"
@@ -319,7 +319,7 @@ const CustomVideoPlayer = forwardRef(({
           </div>
           {/* Progress bar at the bottom (interactive) */}
           <div
-            className="absolute left-0 right-0 bottom-0 h-1 bg-black/30 cursor-pointer z-10"
+            className="absolute left-0 right-0 bottom-0 h-1 bg-black/30 cursor-pointer z-[1]"
             onClick={e => {
               if (!duration || !videoRef.current) return;
               const rect = e.currentTarget.getBoundingClientRect();
@@ -361,9 +361,9 @@ const CustomVideoPlayer = forwardRef(({
 
       {/* Controls overlay (hidden if hideControls or minimalControls) */}
       {!playPauseOnly && !hideControls && !minimalControls && (showControls || !isPlaying || inModal) && !isLoading && (
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-xl pointer-events-none z-10">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-xl pointer-events-none z-[1]">
           {/* Top controls */}
-          <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-auto z-10">
+          <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-auto z-[2]">
             <button
               onClick={toggleMute}
               className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button cursor-pointer touch-button"
@@ -383,10 +383,10 @@ const CustomVideoPlayer = forwardRef(({
           </div>
 
           {/* Bottom controls */}
-          <div className="absolute bottom-4 left-4 right-4 pointer-events-auto z-10">
+          <div className="absolute bottom-4 left-4 right-4 pointer-events-auto z-[2]">
             {/* Progress bar */}
             <div 
-              className="w-full h-1 bg-white/30 rounded-full cursor-pointer mb-3 video-progress-bar transition-all z-10"
+              className="w-full h-1 bg-white/30 rounded-full cursor-pointer mb-3 video-progress-bar transition-all"
               onClick={handleProgressClick}
               title="Прогресс барих"
             >
@@ -397,11 +397,11 @@ const CustomVideoPlayer = forwardRef(({
             </div>
 
             {/* Time and volume controls */}
-            <div className="flex items-center justify-between z-10">
-              <div className="flex items-center gap-4 z-10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
                 <button
                   onClick={togglePlay}
-                  className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button cursor-pointer touch-button z-10"
+                  className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all video-controls-button cursor-pointer touch-button"
                   type="button"
                   title={isPlaying ? 'Зогсоох' : 'Тоглуулах'}
                 >
@@ -413,7 +413,7 @@ const CustomVideoPlayer = forwardRef(({
               </div>
 
               {/* Volume slider */}
-              <div className="flex items-center gap-2 z-10">
+              <div className="flex items-center gap-2">
                 <Volume2 className="w-4 h-4 text-white cursor-default" />
                 <input
                   type="range"

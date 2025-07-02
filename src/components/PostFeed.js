@@ -33,7 +33,7 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
   return (
     <div className="max-w-xl mx-auto w-full p-4">
       {/* Sticky New Post UI */}
-      <div className="sticky top-0 z-10 mb-6 bg-background dark:bg-background-dark/95 backdrop-blur-sm rounded-2xl shadow p-4 flex items-center gap-3 border border-border dark:border-border-dark">
+      <div className="sticky top-0 z-20 mb-6 bg-background dark:bg-background-dark/95 backdrop-blur-sm rounded-2xl shadow p-4 flex items-center gap-3 border border-border dark:border-border-dark">
         <input
           className="flex-1 bg-muted dark:bg-muted-dark rounded-full px-4 py-2 border border-border dark:border-border-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition placeholder:text-secondary dark:placeholder:text-secondary-dark text-base cursor-pointer"
           placeholder="Юу бодож байна?"
