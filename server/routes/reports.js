@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-
-// In-memory storage for now (you should use a database)
-const reports = [];
+const Report = require('../models/Report');
 
 // Submit a report
 router.post('/submit', auth, async (req, res) => {
@@ -17,38 +15,28 @@ router.post('/submit', auth, async (req, res) => {
       });
     }
 
-    const report = {
-      id: Date.now().toString(),
-      userId: req.user.id,
+    const report = new Report({
+      reporterId: req.user.id,
       userName: req.user.name,
       userEmail: userEmail || req.user.email,
       category,
       description: description.trim(),
-      createdAt: new Date().toISOString(),
-      status: 'pending', // pending, reviewed, resolved
       priority: category === 'inappropriate_content' ? 'high' : 'normal'
-    };
+    });
 
-    // Store report (replace with database save)
-    reports.push(report);
-
-    // Here you would typically:
-    // 1. Save to database
-    // 2. Send email notification to admins
-    // 3. Log the report for monitoring
+    await report.save();
 
     console.log('New report received:', {
-      id: report.id,
+      id: report._id,
       category: report.category,
-      user: report.userName,
-      timestamp: report.createdAt
+      user: report.userName
     });
 
     res.json({
       success: true,
       message: 'Таны мэдээллийг хүлээн авлаа',
       data: {
-        reportId: report.id
+        reportId: report._id
       }
     });
 
@@ -69,10 +57,14 @@ router.get('/admin', auth, async (req, res) => {
     //   return res.status(403).json({ success: false, message: 'Access denied' });
     // }
 
+    const reports = await Report.find()
+      .populate('reporterId', 'username email')
+      .sort({ createdAt: -1 });
+
     res.json({
       success: true,
       data: {
-        reports: reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        reports
       }
     });
 
@@ -91,16 +83,18 @@ router.patch('/:reportId/status', auth, async (req, res) => {
     const { reportId } = req.params;
     const { status } = req.body;
 
-    const report = reports.find(r => r.id === reportId);
+    const report = await Report.findByIdAndUpdate(
+      reportId,
+      { status },
+      { new: true }
+    ).populate('reporterId', 'username email');
+
     if (!report) {
       return res.status(404).json({
         success: false,
         message: 'Мэдээлэл олдсонгүй'
       });
     }
-
-    report.status = status;
-    report.updatedAt = new Date().toISOString();
 
     res.json({
       success: true,

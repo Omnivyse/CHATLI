@@ -12,6 +12,9 @@ import WelcomeModal from './components/WelcomeModal';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import CopyrightModal from './components/CopyrightModal';
 import ReportModal from './components/ReportModal';
+import AdminDashboard from './components/AdminDashboard';
+import AdminPanel from './components/AdminPanel';
+import analyticsService from './services/analyticsService';
 import './index.css';
 
 function App() {
@@ -32,10 +35,15 @@ function App() {
   const [showCopyrightModal, setShowCopyrightModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
+
   useEffect(() => {
     // Initialize theme
     initializeTheme();
     setActiveTab('feed'); // Always show feed on load
+
+    // Initialize analytics
+    analyticsService.init();
 
     // Check if mobile
     const checkMobile = () => {
@@ -44,6 +52,13 @@ function App() {
 
     checkMobile();
     window.addEventListener('resize', checkMobile);
+
+    // Handle route changes
+    const handleRouteChange = () => {
+      setCurrentRoute(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handleRouteChange);
 
     // Check if user is already logged in
     const checkAuth = async () => {
@@ -67,12 +82,23 @@ function App() {
 
     checkAuth();
 
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('popstate', handleRouteChange);
+      analyticsService.stop();
+    };
   }, []);
 
   const handleLogin = (userData, loginInfo = {}) => {
     setUser(userData);
     setActiveTab('feed'); // Always show feed on login
+    
+    // Track login event
+    if (loginInfo.isNewUser) {
+      analyticsService.trackUserRegister();
+    } else {
+      analyticsService.trackUserLogin();
+    }
     
     // Always show welcome modal on login
     setIsNewUser(loginInfo.isNewUser || false);
@@ -90,6 +116,8 @@ function App() {
 
   const handleLogout = async () => {
     try {
+      // Track logout event
+      analyticsService.trackUserLogout();
       await api.logout();
     } catch (error) {
       console.error('Logout error:', error);
@@ -134,6 +162,8 @@ function App() {
   const handleShowReport = () => {
     setShowReportModal(true);
   };
+
+
 
   // Handle starting a chat from user profile
   const handleStartChat = async (chatId) => {
@@ -308,6 +338,11 @@ function App() {
     });
   };
 
+  // Check if accessing admin route
+  if (currentRoute === '/secret/admin') {
+    return <AdminPanel />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
@@ -480,6 +515,7 @@ function App() {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
       />
+
     </div>
   );
 }

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const reportSchema = new mongoose.Schema({
-  userId: {
+  reporterId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
@@ -35,7 +35,7 @@ const reportSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'reviewed', 'resolved', 'dismissed'],
+    enum: ['pending', 'reviewing', 'resolved', 'dismissed'],
     default: 'pending'
   },
   priority: {
@@ -47,9 +47,16 @@ const reportSchema = new mongoose.Schema({
     type: String,
     maxlength: 1000
   },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin'
+  },
+  reviewedAt: {
+    type: Date
+  },
   resolvedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Admin'
   },
   resolvedAt: {
     type: Date

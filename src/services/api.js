@@ -403,6 +403,169 @@ class ApiService {
       body: JSON.stringify({ status }),
     });
   }
+
+  // Admin endpoints
+  async adminLogin(credentials) {
+    const response = await this.request('/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+
+    if (response.token) {
+      // Store admin token separately
+      localStorage.setItem('adminToken', response.token);
+    }
+
+    return response;
+  }
+
+  async adminLogout() {
+    try {
+      await this.request('/admin/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        }
+      });
+    } catch (error) {
+      console.error('Admin logout error:', error);
+    } finally {
+      localStorage.removeItem('adminToken');
+    }
+  }
+
+  async verifyAdminToken() {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken) {
+      throw new Error('No admin token found');
+    }
+
+    const response = await fetch(`${this.baseURL}/admin/verify`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+
+    return response.json();
+  }
+
+  async getAdminStats() {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/stats`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async getAllUsersAdmin(page = 1, limit = 20, search = '') {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async deleteUserAdmin(userId) {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async getAdminReports(page = 1, limit = 20, status = '') {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/reports?page=${page}&limit=${limit}&status=${status}`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async updateAdminReportStatus(reportId, status, adminNotes = '') {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/reports/${reportId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status, adminNotes })
+    });
+    return response.json();
+  }
+
+  // Analytics endpoints
+  async getAnalyticsDailyStats(days = 7) {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/analytics/daily?days=${days}`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async getAnalyticsPopularPages(limit = 10) {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/analytics/pages?limit=${limit}`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async getAnalyticsUserActivity(days = 30) {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/analytics/activity?days=${days}`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async getAnalyticsDeviceStats(days = 7) {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/analytics/devices?days=${days}`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async getAnalyticsRealtime() {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/analytics/realtime`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    return response.json();
+  }
+
+  async trackAnalyticsEvent(eventData) {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/analytics/track`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(eventData)
+    });
+    return response.json();
+  }
 }
 
 const apiService = new ApiService();
