@@ -12,9 +12,11 @@ import WelcomeModal from './components/WelcomeModal';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import CopyrightModal from './components/CopyrightModal';
 import ReportModal from './components/ReportModal';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 import AdminPanel from './components/AdminPanel';
 import analyticsService from './services/analyticsService';
+import pwaService from './services/pwaService';
 import './index.css';
 
 function App() {
@@ -545,6 +547,9 @@ function App() {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
       />
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
 
     </div>
   );
