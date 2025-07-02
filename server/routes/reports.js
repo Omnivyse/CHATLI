@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { auth, optionalAuth } = require('../middleware/auth');
 const Report = require('../models/Report');
 
 // Submit a report

@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
-const auth = require('../middleware/auth');
+const { auth, optionalAuth } = require('../middleware/auth');
 const { uploadImage, uploadVideo } = require('../config/cloudinary');
 
 const router = express.Router();

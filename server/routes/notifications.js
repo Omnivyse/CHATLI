@@ -1,12 +1,17 @@
 const express = require('express');
 const Notification = require('../models/Notification');
-const auth = require('../middleware/auth');
+const { auth, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Get all notifications for the logged-in user (most recent first)
-router.get('/', auth, async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
+    // If no user is authenticated, return empty notifications
+    if (!req.user) {
+      return res.json({ success: true, data: { notifications: [] } });
+    }
+    
     const notifications = await Notification.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .populate('from', 'name avatar')

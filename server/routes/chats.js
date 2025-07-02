@@ -3,7 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const auth = require('../middleware/auth');
+const { auth, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 

@@ -46,4 +46,29 @@ const auth = async (req, res, next) => {
   }
 };
 
-module.exports = auth; 
+// Optional auth middleware - doesn't require token
+const optionalAuth = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId).select('-password');
+        if (user) {
+          req.user = user;
+        }
+      } catch (error) {
+        // Silently ignore token errors for optional auth
+        console.log('Optional auth token error (ignored):', error.message);
+      }
+    }
+    
+    next();
+  } catch (error) {
+    // Always continue for optional auth
+    next();
+  }
+};
+
+module.exports = { auth, optionalAuth }; 

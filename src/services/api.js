@@ -39,12 +39,24 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle auth errors gracefully
+        if (response.status === 401) {
+          // Clear invalid token
+          this.setToken(null);
+          // Don't throw error for optional auth endpoints
+          if (endpoint === '/notifications') {
+            return { success: true, data: { notifications: [] } };
+          }
+        }
         throw new Error(data.message || 'Серверийн алдаа');
       }
 
       return data;
     } catch (error) {
-      console.error('API Error:', error);
+      // Don't log 401 errors as they're expected for some routes
+      if (!error.message.includes('401') && !error.message.includes('Токен')) {
+        console.error('API Error:', error);
+      }
       throw error;
     }
   }
