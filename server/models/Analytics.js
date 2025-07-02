@@ -19,7 +19,13 @@ const analyticsSchema = new mongoose.Schema({
       'report_submitted',
       'user_search',
       'admin_login',
-      'error_occurred'
+      'error_occurred',
+      'button_click',
+      'form_submit',
+      'link_click',
+      'scroll',
+      'resize',
+      'api_call'
     ]
   },
   

@@ -17,9 +17,14 @@ router.post('/track', async (req, res) => {
                     req.socket.remoteAddress ||
                     (req.connection.socket ? req.connection.socket.remoteAddress : null);
 
-    // Process and save each event
+    // Process and save each event with better validation
     const analyticsPromises = events.map(async (eventData) => {
       try {
+        // Skip invalid events silently
+        if (!eventData.eventType || typeof eventData.eventType !== 'string') {
+          return null;
+        }
+
         const analytics = new Analytics({
           ...eventData,
           ipAddress: clientIP,
@@ -29,7 +34,11 @@ router.post('/track', async (req, res) => {
         
         return await analytics.save();
       } catch (error) {
-        console.error('Error saving analytics event:', error);
+        // Log validation errors but don't crash the server
+        console.warn('Skipping invalid analytics event:', {
+          eventType: eventData.eventType,
+          error: error.message
+        });
         return null;
       }
     });

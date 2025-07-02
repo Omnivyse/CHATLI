@@ -103,28 +103,28 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Rate limiting
+// Rate limiting - Relaxed for production
 const isProduction = process.env.NODE_ENV === 'production';
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100 : 10000,
+  max: isProduction ? 1000 : 10000, // Increased from 100 to 1000 for production
   message: {
     success: false,
     message: 'Хэт олон хүсэлт илгээгдлээ. Дахин оролдоно уу.'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting for health checks
-  skip: (req) => req.path === '/api/health'
+  // Skip rate limiting for health checks and analytics
+  skip: (req) => req.path === '/api/health' || req.path.includes('/analytics')
 });
 
-// Apply rate limiting to all API routes
+// Apply rate limiting to all API routes except analytics
 app.use('/api/', limiter);
 
 // Stricter rate limiting for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 5 : 50, // 5 attempts per 15 minutes in production
+  max: isProduction ? 50 : 100, // Increased from 5 to 50 for production
   message: {
     success: false,
     message: 'Хэт олон нэвтрэх оролдлого. 15 минутын дараа дахин оролдоно уу.'
