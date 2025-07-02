@@ -361,42 +361,72 @@ function App() {
     <div className="flex h-screen bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark relative">
       {/* Mobile Header - Only shown on mobile when sidebar is hidden */}
       {isMobile && !showSidebarMobile && (activeTab === 'feed' || activeTab === 'notifications' || selectedChat) && (
-        <div className="fixed top-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => {
-              setShowSidebarMobile(true);
-            }}
-            className="flex items-center gap-2 text-primary dark:text-primary-dark hover:text-primary/80 dark:hover:text-primary-dark/80"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-            <span className="font-medium">Цэс</span>
-          </button>
-          <div className="flex items-center gap-4">
-            {activeTab === 'feed' && (
-              <span className="font-semibold text-lg">Фийд</span>
-            )}
-            {activeTab === 'notifications' && (
-              <span className="font-semibold text-lg">Мэдэгдэл</span>
-            )}
-            {selectedChat && (
+        <div className="fixed top-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark px-4 py-3 flex items-center justify-between shadow-sm">
+          {selectedChat ? (
+            // Special header for chat mode with prominent back button
+            <>
+              <button
+                onClick={() => {
+                  setSelectedChat(null);
+                  setActiveTab('groups');
+                }}
+                className="flex items-center gap-2 text-primary dark:text-primary-dark hover:text-primary/80 dark:hover:text-primary-dark/80 bg-muted/50 dark:bg-muted-dark/50 px-3 py-2 rounded-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="font-medium">Буцах</span>
+              </button>
               <span className="font-semibold text-lg">Чат</span>
-            )}
-          </div>
-          <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center cursor-pointer" onClick={handleProfileSettings}>
-            {user.avatar ? (
-              <img 
-                src={user.avatar} 
-                alt={user.name}
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            ) : (
-              <svg className="w-5 h-5 text-secondary dark:text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            )}
-          </div>
+              <button
+                onClick={() => {
+                  setShowSidebarMobile(true);
+                }}
+                className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
+                title="Цэс"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            // Regular header for feed and notifications
+            <>
+              <button
+                onClick={() => {
+                  setShowSidebarMobile(true);
+                }}
+                className="flex items-center gap-2 text-primary dark:text-primary-dark hover:text-primary/80 dark:hover:text-primary-dark/80"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span className="font-medium">Цэс</span>
+              </button>
+              <div className="flex items-center gap-4">
+                {activeTab === 'feed' && (
+                  <span className="font-semibold text-lg">Фийд</span>
+                )}
+                {activeTab === 'notifications' && (
+                  <span className="font-semibold text-lg">Мэдэгдэл</span>
+                )}
+              </div>
+              <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center cursor-pointer" onClick={handleProfileSettings}>
+                {user.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={user.name}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <svg className="w-5 h-5 text-secondary dark:text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

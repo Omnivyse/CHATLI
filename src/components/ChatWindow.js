@@ -288,48 +288,53 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
   }
 
   return (
-    <div className="flex flex-col h-full bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark rounded-2xl shadow-lg overflow-hidden">
+    <div className={`flex flex-col h-full bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark rounded-2xl shadow-lg overflow-hidden ${isMobile ? 'mobile-chat-window' : ''}`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-background dark:bg-background-dark shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className={`flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-background dark:bg-background-dark shadow-sm border-b border-border dark:border-border-dark ${isMobile ? 'mobile-chat-header' : ''}`}>
+        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
           {isMobile && (
             <button
               onClick={onBack}
-              className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
+              className="mobile-back-button flex-shrink-0"
+              title="Буцах"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-foreground dark:text-foreground-dark" />
             </button>
           )}
           <img 
             src={getChatAvatar()} 
             alt={getChatTitle()}
-            className="w-12 h-12 rounded-full object-cover border-2 border-border dark:border-border-dark"
+            className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-border dark:border-border-dark flex-shrink-0"
           />
-          <div>
-            <h2 className="font-bold text-base">{getChatTitle()}</h2>
-            <p className="text-xs text-secondary">{getChatStatus()}</p>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-bold text-sm md:text-base truncate">{getChatTitle()}</h2>
+            <p className="text-xs text-secondary dark:text-secondary-dark">{getChatStatus()}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           <button 
             onClick={() => setShowSearch(true)}
             className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors"
             title="Мессеж хайх"
           >
-            <Search className="w-5 h-5" />
+            <Search className="w-4 h-4 md:w-5 md:h-5" />
           </button>
-          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors" title="Дуудах">
-            <Phone className="w-5 h-5" />
-          </button>
-          <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors" title="Видео дуудах">
-            <Video className="w-5 h-5" />
-          </button>
+          {!isMobile && (
+            <>
+              <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors" title="Дуудах">
+                <Phone className="w-5 h-5" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark transition-colors" title="Видео дуудах">
+                <Video className="w-5 h-5" />
+              </button>
+            </>
+          )}
           <button 
             onClick={() => setShowDeleteConfirm(true)}
             className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-red-500"
             title="Чат устгах"
           >
-            <Trash2 className="w-5 h-5" />
+            <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
           </button>
         </div>
       </div>
