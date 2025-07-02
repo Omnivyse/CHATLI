@@ -59,7 +59,7 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
   };
 
   return (
-    <div className="max-w-xl mx-auto w-full px-2 sm:px-4 py-2 sm:py-4">
+    <div className="max-w-xl mx-auto w-full px-2 sm:px-4 py-2 sm:py-4 pb-20 sm:pb-10">
       {/* Sticky New Post UI - Desktop Only */}
       {!isMobile && (
         <div className="sticky top-0 z-20 mb-6 bg-background dark:bg-background-dark/95 backdrop-blur-sm rounded-2xl shadow p-4 border border-border dark:border-border-dark">
