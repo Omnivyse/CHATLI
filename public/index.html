@@ -2,9 +2,11 @@
 <html lang="mn">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" type="image/png" href="/img/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <link rel="icon" type="image/png" href="/img/logo2.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
     <meta
       name="description"
       content="CHATLI - Real-time messenger with posts, media sharing, and social features. Mongolian language support."
@@ -18,22 +20,42 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="msapplication-TileColor" content="#000000" />
     <meta name="msapplication-tap-highlight" content="no" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="MobileOptimized" content="320" />
     
-    <!-- iOS Icons -->
-    <link rel="apple-touch-icon" href="/img/logo.png" />
-    <link rel="apple-touch-icon" sizes="152x152" href="/img/logo.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/img/logo.png" />
-    <link rel="apple-touch-icon" sizes="167x167" href="/img/logo.png" />
+    <!-- iOS Icons - All sizes for different devices -->
+    <link rel="apple-touch-icon" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="57x57" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="60x60" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/logo2.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/img/logo2.png" />
     
     <!-- Android/Chrome Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/img/logo.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/img/logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/logo2.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/logo2.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/img/logo2.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/logo2.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/img/logo2.png" />
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
     
     <!-- Preload critical resources -->
-    <link rel="preload" href="/img/logo.png" as="image" />
+    <link rel="preload" href="/img/logo2.png" as="image" />
+    
+    <!-- iOS Splash Screens -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/logo2.png">
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/logo2.png">
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/logo2.png">
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/img/logo2.png">
     
     <!-- Mongolian Font Support -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,11 +67,17 @@
     <meta name="format-detection" content="telephone=no" />
     <meta name="msapplication-config" content="none" />
     
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    
     <title>CHATLI - Messenger</title>
   </head>
   <body>
     <noscript>
       <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+        <img src="/img/logo2.png" alt="CHATLI" style="width: 64px; height: 64px; margin-bottom: 20px;" />
         <h1>JavaScript шаардлагатай</h1>
         <p>CHATLI ашиглахын тулд JavaScript-ийг идэвхжүүлнэ үү.</p>
       </div>

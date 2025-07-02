@@ -7,7 +7,7 @@ const STATIC_FILES = [
   '/',
   '/static/js/bundle.js',
   '/static/css/main.css',
-  '/img/logo.png',
+  '/img/logo2.png',
   '/manifest.json'
 ];
 
@@ -191,8 +191,8 @@ self.addEventListener('push', (event) => {
   
   const options = {
     body: event.data ? event.data.text() : 'Шинэ мессеж ирлээ!',
-    icon: '/img/logo.png',
-    badge: '/img/logo.png',
+    icon: '/img/logo2.png',
+    badge: '/img/logo2.png',
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
@@ -202,7 +202,7 @@ self.addEventListener('push', (event) => {
       {
         action: 'explore',
         title: 'Харах',
-        icon: '/img/logo.png'
+        icon: '/img/logo2.png'
       },
       {
         action: 'close',

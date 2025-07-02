@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Smartphone, Monitor, RefreshCw, Bell } from 'lucide-react';
+import { Download, X, Smartphone, Monitor, RefreshCw, Bell, HelpCircle } from 'lucide-react';
 import pwaService from '../services/pwaService';
+import MobileInstallGuide from './MobileInstallGuide';
 
 const PWAInstallPrompt = () => {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [installInstructions, setInstallInstructions] = useState(null);
@@ -64,6 +66,11 @@ const PWAInstallPrompt = () => {
     }
     
     setIsInstalling(false);
+  };
+
+  const handleShowGuide = () => {
+    setShowInstallGuide(true);
+    pwaService.trackPWAEvent('install_guide_opened');
   };
 
   const handleUpdate = async () => {
@@ -162,11 +169,18 @@ const PWAInstallPrompt = () => {
                     </span>
                   </div>
                   <div className="space-y-1">
-                    {installInstructions.instructions.map((instruction, index) => (
+                    {installInstructions.instructions.slice(0, 2).map((instruction, index) => (
                       <p key={index} className="text-xs text-secondary dark:text-secondary-dark">
                         {index + 1}. {instruction}
                       </p>
                     ))}
+                    <button
+                      onClick={handleShowGuide}
+                      className="text-xs text-primary dark:text-primary-dark hover:underline flex items-center gap-1 mt-1"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      Дэлгэрэнгүй заавар харах
+                    </button>
                   </div>
                 </div>
               )}
@@ -197,6 +211,19 @@ const PWAInstallPrompt = () => {
                   )}
                 </button>
               </div>
+
+              {/* Guide Button for platforms that don't support direct install */}
+              {!pwaService.isInstallable() && (
+                <div className="mt-3 pt-3 border-t border-border dark:border-border-dark">
+                  <button
+                    onClick={handleShowGuide}
+                    className="w-full py-2 px-4 bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark rounded-lg hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    Суулгах заавар харах
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -261,6 +288,12 @@ const PWAInstallPrompt = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Mobile Install Guide Modal */}
+      <MobileInstallGuide 
+        isOpen={showInstallGuide} 
+        onClose={() => setShowInstallGuide(false)} 
+      />
     </>
   );
 };
