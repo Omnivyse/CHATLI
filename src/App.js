@@ -16,7 +16,6 @@ import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 import AdminPanel from './components/AdminPanel';
 import analyticsService from './services/analyticsService';
-import pwaService from './services/pwaService';
 import './index.css';
 
 function App() {
@@ -27,7 +26,6 @@ function App() {
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('feed');
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [showSidebarMobile, setShowSidebarMobile] = useState(false);
   const [chats, setChats] = useState([]);
   const [loadingChats, setLoadingChats] = useState(false);
   const [chatError, setChatError] = useState('');
@@ -169,7 +167,6 @@ function App() {
   const handleStartChat = async (chatId) => {
     setSelectedChat(chatId);
     setActiveTab('chats'); // Switch to chats tab
-    setShowSidebarMobile(false);
     
     // Add the new chat to the sidebar list if it's not already there
     try {
@@ -387,7 +384,9 @@ function App() {
                 <img src="/img/logo.png" alt="CHATLI" className="w-8 h-8 rounded-full" />
                 <span className="font-bold text-lg">CHATLI</span>
               </div>
-              <div className="flex items-center gap-4">
+              
+              {/* Centered Tab Title */}
+              <div className="absolute left-1/2 transform -translate-x-1/2">
                 {activeTab === 'feed' && (
                   <span className="font-semibold text-lg">Фийд</span>
                 )}
@@ -395,7 +394,20 @@ function App() {
                   <span className="font-semibold text-lg">Мэдэгдэл</span>
                 )}
               </div>
-              <div className="w-10 h-10"></div> {/* Spacer for balance */}
+              
+              {/* User Search Button - Top Right */}
+              <button
+                onClick={() => {
+                  // Trigger user search modal
+                  window.dispatchEvent(new CustomEvent('openUserSearchModal'));
+                }}
+                className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center hover:bg-primary/10 dark:hover:bg-primary-dark/10 transition-colors"
+                title="Хэрэглэгч хайх"
+              >
+                <svg className="w-5 h-5 text-primary dark:text-primary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
             </>
           )}
         </div>
@@ -548,91 +560,122 @@ function App() {
       {/* Mobile Bottom Navigation - Like Threads/Instagram */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-t border-border dark:border-border-dark mobile-bottom-safe ios-safe-left ios-safe-right">
-          <div className="flex items-center justify-around py-2 px-4">
-            {/* Home/Feed */}
-            <button
-              onClick={() => {
-                setActiveTab('feed');
-                setSelectedChat(null);
-              }}
-              className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-colors min-w-0 ${
-                activeTab === 'feed' && !selectedChat
-                  ? 'text-primary dark:text-primary-dark bg-primary/10 dark:bg-primary-dark/10'
-                  : 'text-secondary dark:text-secondary-dark'
-              }`}
-            >
-              <svg className="w-6 h-6" fill={activeTab === 'feed' && !selectedChat ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m0 0V11a1 1 0 011-1h2a1 1 0 011 1v10m3 0a1 1 0 001-1V10M5 10l7-7 7 7" />
-              </svg>
-              <span className="text-xs font-medium">Фийд</span>
-            </button>
-
-            {/* Messages/Chats */}
-            <button
-              onClick={() => {
-                setActiveTab('chats');
-                setSelectedChat(null);
-              }}
-              className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-colors relative min-w-0 ${
-                activeTab === 'chats'
-                  ? 'text-primary dark:text-primary-dark bg-primary/10 dark:bg-primary-dark/10'
-                  : 'text-secondary dark:text-secondary-dark'
-              }`}
-            >
-              <svg className="w-6 h-6" fill={activeTab === 'chats' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-1M15 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586" />
-              </svg>
-              <span className="text-xs font-medium">Чат</span>
-              {chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0) > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                  {chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0)}
-                </span>
-              )}
-            </button>
-
-            {/* Notifications */}
-            <button
-              onClick={() => {
-                setActiveTab('notifications');
-                setSelectedChat(null);
-              }}
-              className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-colors relative min-w-0 ${
-                activeTab === 'notifications'
-                  ? 'text-primary dark:text-primary-dark bg-primary/10 dark:bg-primary-dark/10'
-                  : 'text-secondary dark:text-secondary-dark'
-              }`}
-            >
-              <svg className="w-6 h-6" fill={activeTab === 'notifications' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5-5 5-5h-5m-6 10v-2a6 6 0 10-12 0v2a2 2 0 002 2h8a2 2 0 002-2z" />
-              </svg>
-              <span className="text-xs font-medium">Мэдэгдэл</span>
-              {unreadNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                  {unreadNotificationCount}
-                </span>
-              )}
-            </button>
-
-            {/* Profile */}
-            <button
-              onClick={handleProfileSettings}
-              className="flex flex-col items-center gap-1 p-3 rounded-lg transition-colors min-w-0 text-secondary dark:text-secondary-dark"
-            >
-              <div className="w-6 h-6 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center">
-                {user.avatar ? (
-                  <img 
-                    src={user.avatar} 
-                    alt={user.name}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          <div className="flex items-center justify-center py-3 px-4">
+            <div className="flex items-center justify-around w-full max-w-sm mx-auto">
+              {/* Home/Feed */}
+              <button
+                onClick={() => {
+                  setActiveTab('feed');
+                  setSelectedChat(null);
+                }}
+                className={`flex items-center justify-center p-3 rounded-full transition-colors min-w-0 ${
+                  activeTab === 'feed' && !selectedChat
+                    ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
+                    : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  activeTab === 'feed' && !selectedChat 
+                    ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
+                    : 'bg-muted/50 dark:bg-muted-dark/50'
+                }`}>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                   </svg>
+                </div>
+              </button>
+
+              {/* Messages/Chats */}
+              <button
+                onClick={() => {
+                  setActiveTab('chats');
+                  setSelectedChat(null);
+                }}
+                className={`flex items-center justify-center p-3 rounded-full transition-colors relative min-w-0 ${
+                  activeTab === 'chats'
+                    ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
+                    : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  activeTab === 'chats' 
+                    ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
+                    : 'bg-muted/50 dark:bg-muted-dark/50'
+                }`}>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                  </svg>
+                </div>
+                {chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0)}
+                  </span>
                 )}
-              </div>
-              <span className="text-xs font-medium">Профайл</span>
-            </button>
+              </button>
+
+              {/* Create Post - Plus Icon */}
+              <button
+                onClick={() => {
+                  // This will trigger the NewPostModal from PostFeed
+                  window.dispatchEvent(new CustomEvent('openPostModal'));
+                }}
+                className="flex items-center justify-center p-3 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
+              >
+                <div className="w-8 h-8 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center border-2 border-current">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Notifications */}
+              <button
+                onClick={() => {
+                  setActiveTab('notifications');
+                  setSelectedChat(null);
+                }}
+                className={`flex items-center justify-center p-3 rounded-full transition-colors relative min-w-0 ${
+                  activeTab === 'notifications'
+                    ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
+                    : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  activeTab === 'notifications' 
+                    ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
+                    : 'bg-muted/50 dark:bg-muted-dark/50'
+                }`}>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                  </svg>
+                </div>
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Profile */}
+              <button
+                onClick={handleProfileSettings}
+                className="flex items-center justify-center p-3 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
+              >
+                <div className="w-8 h-8 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center overflow-hidden">
+                  {user.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                  )}
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}

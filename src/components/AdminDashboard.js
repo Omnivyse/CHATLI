@@ -134,14 +134,12 @@ const AdminDashboard = ({ isOpen, onClose }) => {
     }
   }, [loadUsers, loadReports, loadStats, loadAnalytics, loading]);
 
-  // Only load data when modal opens, not on every change
+  // Only load data when modal opens
   useEffect(() => {
     if (isOpen && !loading) {
       loadDashboardData();
     }
-  }, [isOpen]); // Remove loadDashboardData dependency to prevent loops
-
-
+  }, [isOpen, loadDashboardData, loading]);
 
   const handleDeleteUser = async (userId) => {
     if (deletingUser === userId) return; // Prevent multiple calls
@@ -199,8 +197,6 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
-
-
 
   const formatDuration = (seconds) => {
     if (seconds < 60) return `${seconds}ᶳ`;
