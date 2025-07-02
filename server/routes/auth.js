@@ -478,6 +478,29 @@ router.post('/users/:id/cancel-follow-request', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/auth/following
+// @desc    Get user's following list
+// @access  Private
+router.get('/following', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .populate('following', 'name username avatar status lastSeen')
+      .select('following');
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
+    }
+
+    res.json({ 
+      success: true, 
+      data: { following: user.following } 
+    });
+  } catch (error) {
+    console.error('Get following error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
 // Delete account endpoint
 router.delete('/delete-account', auth, async (req, res) => {
   try {

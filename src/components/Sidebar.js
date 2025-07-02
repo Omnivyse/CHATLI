@@ -9,15 +9,14 @@ import {
   User as UserIcon,
   Bell,
   Settings as SettingsIcon,
-  Moon,
-  Sun,
   ArrowLeft
 } from 'lucide-react';
 import { getDisplayDate } from '../utils/dateUtils';
 import { cn, toggleTheme, getDomTheme } from '../utils/themeUtils';
 import api from '../services/api';
 import logo from '../assets/logo3.png';
-import UserSearchModal from './UserSearchModal';
+
+
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfileSettings, onTabChange, activeTab, unreadNotificationCount, onClose, chats, setChats, loadChats, loadingChats, chatError }) => {
@@ -29,6 +28,10 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
   const [updatingPrivate, setUpdatingPrivate] = useState(false);
   const [privateError, setPrivateError] = useState('');
   const [isDark, setIsDark] = useState(getDomTheme() === 'dark');
+  const [showNewChatSection, setShowNewChatSection] = useState(false);
+  const [following, setFollowing] = useState([]);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [creatingChat, setCreatingChat] = useState(null);
 
   useEffect(() => {
     setIsPrivateProfile(user.privateProfile || false);
@@ -65,6 +68,65 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
   const handleThemeToggle = () => {
     const newTheme = toggleTheme();
     setIsDark(newTheme === 'dark');
+  };
+
+  const fetchFollowing = async () => {
+    setLoadingFollowing(true);
+    try {
+      const response = await api.getFollowing();
+      if (response.success) {
+        setFollowing(response.data.following);
+      }
+    } catch (error) {
+      console.error('Fetch following error:', error);
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  const handleNewChatClick = () => {
+    if (!showNewChatSection) {
+      fetchFollowing();
+    }
+    setShowNewChatSection(!showNewChatSection);
+  };
+
+  const handleStartChat = async (targetUser) => {
+    setCreatingChat(targetUser._id);
+    
+    try {
+      // Check if chat already exists
+      const existingChats = await api.getChats();
+      if (existingChats.success) {
+        const existingChat = existingChats.data.chats.find(chat => 
+          chat.type === 'direct' && 
+          chat.participants.some(p => p._id === targetUser._id)
+        );
+        
+        if (existingChat) {
+          // Chat already exists, just open it
+          onChatSelect(existingChat._id);
+          setShowNewChatSection(false);
+          return;
+        }
+      }
+
+      // Create new chat
+      const response = await api.createChat({
+        type: 'direct',
+        participants: [targetUser._id]
+      });
+      
+      if (response.success) {
+        onChatSelect(response.data.chat._id);
+        setShowNewChatSection(false);
+        loadChats(); // Refresh chat list
+      }
+    } catch (error) {
+      console.error('Create chat error:', error);
+    } finally {
+      setCreatingChat(null);
+    }
   };
 
   const filteredChats = chats.filter(chat => {
@@ -378,16 +440,109 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
               )}
             </div>
 
+            {/* New Chat Section - Expandable */}
+            <AnimatePresence>
+              {showNewChatSection && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="border-t border-border dark:border-border-dark overflow-hidden"
+                >
+                  <div className="p-4">
+                    <h3 className="text-sm font-medium text-foreground dark:text-foreground-dark mb-3">
+                      Дагагчид
+                    </h3>
+                    
+                    {loadingFollowing ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary dark:text-primary-dark" />
+                        <span className="ml-2 text-sm text-secondary dark:text-secondary-dark">
+                          Ачаалж байна...
+                        </span>
+                      </div>
+                    ) : following.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-secondary dark:text-secondary-dark">
+                          Та хэнийг ч дагаагүй байна
+                        </p>
+                        <p className="text-xs text-secondary dark:text-secondary-dark mt-1">
+                          Хэрэглэгчдийг дагаж чат эхлүүлээрэй
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto space-y-2">
+                        {following.map((followedUser) => (
+                          <div
+                            key={followedUser._id}
+                            onClick={() => handleStartChat(followedUser)}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted dark:hover:bg-muted-dark transition-colors cursor-pointer"
+                          >
+                            <div className="relative">
+                              {followedUser.avatar ? (
+                                <img
+                                  src={followedUser.avatar}
+                                  alt={followedUser.name}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center">
+                                  <UserIcon className="w-4 h-4 text-secondary dark:text-secondary-dark" />
+                                </div>
+                              )}
+                              {/* Online status indicator */}
+                              <div 
+                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-background dark:border-background-dark ${
+                                  followedUser.status === 'online' 
+                                    ? 'bg-black dark:bg-white' 
+                                    : 'bg-gray-400 dark:bg-gray-400'
+                                }`}
+                              />
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm text-foreground dark:text-foreground-dark truncate">
+                                {followedUser.name}
+                              </h4>
+                            </div>
+
+                            <div className="flex-shrink-0">
+                              {creatingChat === followedUser._id ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-primary dark:text-primary-dark" />
+                              ) : (
+                                <div className="w-4 h-4 rounded-full bg-primary dark:bg-primary-dark opacity-80"></div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* New Chat Button */}
             <div className="p-4 border-t border-border">
-              <button className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-primary text-primary-dark dark:bg-white dark:text-black rounded-full hover:bg-primary/90 dark:hover:bg-gray-100 transition-colors">
-                <Plus className="w-4 h-4 dark:text-black" />
-                <span className="text-sm font-medium">Шинэ чат</span>
+              <button 
+                onClick={handleNewChatClick}
+                className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full transition-colors ${
+                  showNewChatSection 
+                    ? 'bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark' 
+                    : 'bg-primary text-primary-dark dark:bg-white dark:text-black hover:bg-primary/90 dark:hover:bg-gray-100'
+                }`}
+              >
+                <Plus className={`w-4 h-4 transition-transform ${showNewChatSection ? 'rotate-45' : ''} ${showNewChatSection ? '' : 'dark:text-black'}`} />
+                <span className="text-sm font-medium">
+                  {showNewChatSection ? 'Хаах' : 'Шинэ чат'}
+                </span>
               </button>
             </div>
           </>
         )}
       </AnimatePresence>
+
     </div>
   );
 };

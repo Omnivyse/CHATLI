@@ -20,14 +20,14 @@ const Login = ({ onLogin }) => {
       if (mode === 'login') {
         const res = await api.login({ email, password });
         if (res.success) {
-          onLogin(res.data.user);
+          onLogin(res.data.user, { isNewUser: false });
         } else {
           setError(res.message || 'Нэвтрэхэд алдаа гарлаа');
         }
       } else {
         const res = await api.register({ name, username, email, password });
         if (res.success) {
-          onLogin(res.data.user);
+          onLogin(res.data.user, { isNewUser: true });
         } else {
           setError(res.message || 'Бүртгүүлэхэд алдаа гарлаа');
         }
@@ -55,7 +55,12 @@ const Login = ({ onLogin }) => {
           {/* do not change this text */}
           "CHATLI"
         </h1>
-        <p className="text-secondary mb-6 text-center">The First Mongolian Social Platform BETA-version</p>
+        <p className="text-secondary mb-4 text-center">The First Mongolian Social Platform</p>
+        <div className="mb-6 p-3 bg-orange-100/80 dark:bg-orange-900/20 rounded-lg border border-orange-200/50 dark:border-orange-700/30">
+          <p className="text-xs text-orange-800 dark:text-orange-200 text-center">
+            🚧 <strong>BETA хувилбар</strong> - Туршилтын горим
+          </p>
+        </div>
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           {mode === 'register' && (
             <>

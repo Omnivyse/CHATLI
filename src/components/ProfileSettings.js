@@ -9,11 +9,15 @@ import {
   Mail,
   Globe,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Info,
+  Shield,
+  Copyright,
+  Flag
 } from 'lucide-react';
 import api from '../services/api';
 
-const ProfileSettings = ({ user, onClose, onUpdate }) => {
+const ProfileSettings = ({ user, onClose, onUpdate, onShowWelcome, onShowPrivacy, onShowCopyright, onShowReport }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -340,6 +344,67 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
               </button>
             )}
           </div>
+
+          {/* Info and Legal Buttons */}
+          {!isEditing && (
+            <div className="mt-4 space-y-3">
+              {/* App Info Button */}
+              {onShowWelcome && (
+                <button
+                  onClick={() => {
+                    onShowWelcome();
+                    onClose();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  <Info className="w-4 h-4" />
+                  Апп-ийн мэдээлэл
+                </button>
+              )}
+
+              {/* Legal and Report Buttons Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {onShowPrivacy && (
+                  <button
+                    onClick={() => {
+                      onShowPrivacy();
+                      onClose();
+                    }}
+                    className="flex items-center justify-center gap-2 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Нууцлал
+                  </button>
+                )}
+
+                {onShowCopyright && (
+                  <button
+                    onClick={() => {
+                      onShowCopyright();
+                      onClose();
+                    }}
+                    className="flex items-center justify-center gap-2 py-2 px-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
+                  >
+                    <Copyright className="w-4 h-4" />
+                    Эрх
+                  </button>
+                )}
+
+                {onShowReport && (
+                  <button
+                    onClick={() => {
+                      onShowReport();
+                      onClose();
+                    }}
+                    className="flex items-center justify-center gap-2 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
+                  >
+                    <Flag className="w-4 h-4" />
+                    Мэдээлэх
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
 
 

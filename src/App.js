@@ -8,6 +8,10 @@ import ChatWindow from './components/ChatWindow';
 import ProfileSettings from './components/ProfileSettings';
 import PostFeed from './components/PostFeed';
 import NotificationFeed from './components/NotificationFeed';
+import WelcomeModal from './components/WelcomeModal';
+import PrivacyPolicyModal from './components/PrivacyPolicyModal';
+import CopyrightModal from './components/CopyrightModal';
+import ReportModal from './components/ReportModal';
 import './index.css';
 
 function App() {
@@ -22,6 +26,11 @@ function App() {
   const [chats, setChats] = useState([]);
   const [loadingChats, setLoadingChats] = useState(false);
   const [chatError, setChatError] = useState('');
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showCopyrightModal, setShowCopyrightModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     // Initialize theme
@@ -61,9 +70,14 @@ function App() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const handleLogin = (userData) => {
+  const handleLogin = (userData, loginInfo = {}) => {
     setUser(userData);
     setActiveTab('feed'); // Always show feed on login
+    
+    // Always show welcome modal on login
+    setIsNewUser(loginInfo.isNewUser || false);
+    setShowWelcomeModal(true);
+    
     // Connect to socket with token
     const token = localStorage.getItem('token');
     if (token) {
@@ -98,6 +112,27 @@ function App() {
 
   const handleProfileClose = () => {
     setShowProfileSettings(false);
+  };
+
+  const handleWelcomeClose = () => {
+    setShowWelcomeModal(false);
+  };
+
+  const handleShowWelcome = () => {
+    setIsNewUser(false); // Show as returning user when manually opened
+    setShowWelcomeModal(true);
+  };
+
+  const handleShowPrivacy = () => {
+    setShowPrivacyModal(true);
+  };
+
+  const handleShowCopyright = () => {
+    setShowCopyrightModal(true);
+  };
+
+  const handleShowReport = () => {
+    setShowReportModal(true);
   };
 
   // Handle starting a chat from user profile
@@ -414,8 +449,37 @@ function App() {
           user={user}
           onClose={handleProfileClose}
           onUpdate={handleProfileUpdate}
+          onShowWelcome={handleShowWelcome}
+          onShowPrivacy={handleShowPrivacy}
+          onShowCopyright={handleShowCopyright}
+          onShowReport={handleShowReport}
         />
       )}
+
+      {/* Welcome Modal */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={handleWelcomeClose}
+        isNewUser={isNewUser}
+      />
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
+
+      {/* Copyright Modal */}
+      <CopyrightModal
+        isOpen={showCopyrightModal}
+        onClose={() => setShowCopyrightModal(false)}
+      />
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      />
     </div>
   );
 }

@@ -18,6 +18,7 @@ const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chats');
 const postRoutes = require('./routes/posts');
 const notificationRoutes = require('./routes/notifications');
+const reportRoutes = require('./routes/reports');
 
 // Import models
 const User = require('./models/User');
@@ -62,6 +63,7 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/reports', reportRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

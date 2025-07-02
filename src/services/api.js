@@ -104,6 +104,10 @@ class ApiService {
     });
   }
 
+  async getFollowing() {
+    return this.request('/auth/following');
+  }
+
   // Chat endpoints
   async getChats() {
     return this.request('/chats');
@@ -379,6 +383,25 @@ class ApiService {
   // Search messages in chat
   async searchMessages(chatId, query) {
     return this.request(`/chats/${chatId}/messages/search?q=${encodeURIComponent(query)}`);
+  }
+
+  // Report endpoints
+  async submitReport(reportData) {
+    return this.request('/reports/submit', {
+      method: 'POST',
+      body: JSON.stringify(reportData),
+    });
+  }
+
+  async getReports() {
+    return this.request('/reports/admin');
+  }
+
+  async updateReportStatus(reportId, status) {
+    return this.request(`/reports/${reportId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   }
 }
 
