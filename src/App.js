@@ -461,7 +461,7 @@ function App() {
 
       {/* Main Content - Scrollable area with proper spacing */}
       <div className={`flex-1 flex flex-col bg-background dark:bg-background-dark ios-safe-left ios-safe-right mobile-scroll-container mobile-content-area ${
-        isMobile ? 'pt-20 pb-16 overflow-y-auto' : 'md:ml-80'
+        isMobile ? 'pt-20 pb-20 overflow-y-auto' : 'md:ml-80'
       }`}>
         {activeTab === 'feed' ? (
           <PostFeed user={user} onStartChat={handleStartChat} />
@@ -560,7 +560,7 @@ function App() {
       {/* Mobile Bottom Navigation - Like Threads/Instagram */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-t border-border dark:border-border-dark ios-safe-left ios-safe-right mobile-bottom-nav">
-          <div className="flex items-center justify-center py-1 px-3" style={{ paddingBottom: 'max(0.25rem, env(safe-area-inset-bottom))' }}>
+          <div className="flex items-center justify-center py-3 px-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             <div className="flex items-center justify-around w-full max-w-sm mx-auto">
               {/* Home/Feed */}
               <button
@@ -568,18 +568,18 @@ function App() {
                   setActiveTab('feed');
                   setSelectedChat(null);
                 }}
-                className={`flex items-center justify-center p-1.5 rounded-full transition-colors min-w-0 ${
+                className={`flex items-center justify-center p-2.5 rounded-full transition-colors min-w-0 ${
                   activeTab === 'feed' && !selectedChat
                     ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
                     : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                   activeTab === 'feed' && !selectedChat 
                     ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
                     : 'bg-muted/50 dark:bg-muted-dark/50'
                 }`}>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                   </svg>
                 </div>
@@ -591,23 +591,23 @@ function App() {
                   setActiveTab('chats');
                   setSelectedChat(null);
                 }}
-                className={`flex items-center justify-center p-1.5 rounded-full transition-colors relative min-w-0 ${
+                className={`flex items-center justify-center p-2.5 rounded-full transition-colors relative min-w-0 ${
                   activeTab === 'chats'
                     ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
                     : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                   activeTab === 'chats' 
                     ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
                     : 'bg-muted/50 dark:bg-muted-dark/50'
                 }`}>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
                   </svg>
                 </div>
                 {chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0) > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                     {chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0)}
                   </span>
                 )}
@@ -619,10 +619,10 @@ function App() {
                   // This will trigger the NewPostModal from PostFeed
                   window.dispatchEvent(new CustomEvent('openPostModal'));
                 }}
-                className="flex items-center justify-center p-1.5 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
+                className="flex items-center justify-center p-2.5 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
               >
-                <div className="w-6 h-6 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center border-2 border-current">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-8 h-8 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center border-2 border-current">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                   </svg>
                 </div>
@@ -634,23 +634,23 @@ function App() {
                   setActiveTab('notifications');
                   setSelectedChat(null);
                 }}
-                className={`flex items-center justify-center p-1.5 rounded-full transition-colors relative min-w-0 ${
+                className={`flex items-center justify-center p-2.5 rounded-full transition-colors relative min-w-0 ${
                   activeTab === 'notifications'
                     ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
                     : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                   activeTab === 'notifications' 
                     ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
                     : 'bg-muted/50 dark:bg-muted-dark/50'
                 }`}>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
                   </svg>
                 </div>
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                     {unreadNotificationCount}
                   </span>
                 )}
@@ -659,9 +659,9 @@ function App() {
               {/* Profile */}
               <button
                 onClick={handleProfileSettings}
-                className="flex items-center justify-center p-1.5 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
+                className="flex items-center justify-center p-2.5 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
               >
-                <div className="w-6 h-6 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center overflow-hidden">
+                <div className="w-8 h-8 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center overflow-hidden">
                   {user.avatar ? (
                     <img 
                       src={user.avatar} 
@@ -669,7 +669,7 @@ function App() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                     </svg>
                   )}
