@@ -131,7 +131,7 @@ const WelcomeModal = ({ isOpen, onClose, isNewUser = false }) => {
 
           <div className="bg-primary/10 dark:bg-primary-dark/10 rounded-lg p-3 md:p-4">
             <p className="text-xs md:text-sm font-medium text-primary dark:text-primary-dark">
-              Хувилбар 2.1.0 BETA - 2024 оны 12 сар
+              Хувилбар 2.1.0 BETA - 2025 оны 7 сар
             </p>
           </div>
         </div>
