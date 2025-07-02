@@ -559,8 +559,8 @@ function App() {
 
       {/* Mobile Bottom Navigation - Like Threads/Instagram */}
       {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-t border-border dark:border-border-dark mobile-bottom-safe ios-safe-left ios-safe-right">
-          <div className="flex items-center justify-center py-2 px-4">
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-t border-border dark:border-border-dark ios-safe-left ios-safe-right mobile-bottom-nav">
+          <div className="flex items-center justify-center py-1 px-3" style={{ paddingBottom: 'max(0.25rem, env(safe-area-inset-bottom))' }}>
             <div className="flex items-center justify-around w-full max-w-sm mx-auto">
               {/* Home/Feed */}
               <button
@@ -568,13 +568,13 @@ function App() {
                   setActiveTab('feed');
                   setSelectedChat(null);
                 }}
-                className={`flex items-center justify-center p-2 rounded-full transition-colors min-w-0 ${
+                className={`flex items-center justify-center p-1.5 rounded-full transition-colors min-w-0 ${
                   activeTab === 'feed' && !selectedChat
                     ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
                     : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
                 }`}
               >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
                   activeTab === 'feed' && !selectedChat 
                     ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
                     : 'bg-muted/50 dark:bg-muted-dark/50'
@@ -591,13 +591,13 @@ function App() {
                   setActiveTab('chats');
                   setSelectedChat(null);
                 }}
-                className={`flex items-center justify-center p-2 rounded-full transition-colors relative min-w-0 ${
+                className={`flex items-center justify-center p-1.5 rounded-full transition-colors relative min-w-0 ${
                   activeTab === 'chats'
                     ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
                     : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
                 }`}
               >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
                   activeTab === 'chats' 
                     ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
                     : 'bg-muted/50 dark:bg-muted-dark/50'
@@ -619,9 +619,9 @@ function App() {
                   // This will trigger the NewPostModal from PostFeed
                   window.dispatchEvent(new CustomEvent('openPostModal'));
                 }}
-                className="flex items-center justify-center p-2 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
+                className="flex items-center justify-center p-1.5 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
               >
-                <div className="w-7 h-7 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center border-2 border-current">
+                <div className="w-6 h-6 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center border-2 border-current">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                   </svg>
@@ -634,13 +634,13 @@ function App() {
                   setActiveTab('notifications');
                   setSelectedChat(null);
                 }}
-                className={`flex items-center justify-center p-2 rounded-full transition-colors relative min-w-0 ${
+                className={`flex items-center justify-center p-1.5 rounded-full transition-colors relative min-w-0 ${
                   activeTab === 'notifications'
                     ? 'text-primary dark:text-primary-dark bg-primary/15 dark:bg-primary-dark/15'
                     : 'text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark'
                 }`}
               >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
                   activeTab === 'notifications' 
                     ? 'bg-primary dark:bg-primary-dark text-white dark:text-black' 
                     : 'bg-muted/50 dark:bg-muted-dark/50'
@@ -659,9 +659,9 @@ function App() {
               {/* Profile */}
               <button
                 onClick={handleProfileSettings}
-                className="flex items-center justify-center p-2 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
+                className="flex items-center justify-center p-1.5 rounded-full transition-colors min-w-0 text-secondary dark:text-secondary-dark hover:text-primary dark:hover:text-primary-dark"
               >
-                <div className="w-7 h-7 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center overflow-hidden">
+                <div className="w-6 h-6 rounded-lg bg-muted/50 dark:bg-muted-dark/50 flex items-center justify-center overflow-hidden">
                   {user.avatar ? (
                     <img 
                       src={user.avatar} 
