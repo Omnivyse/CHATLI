@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Smartphone, Monitor, RefreshCw, Bell, HelpCircle } from 'lucide-react';
 import pwaService from '../services/pwaService';
-import MobileInstallGuide from './MobileInstallGuide';
+// import MobileInstallGuide from './MobileInstallGuide';
 
 const PWAInstallPrompt = () => {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -290,10 +290,10 @@ const PWAInstallPrompt = () => {
       </AnimatePresence>
 
       {/* Mobile Install Guide Modal */}
-      <MobileInstallGuide 
+      {/* <MobileInstallGuide 
         isOpen={showInstallGuide} 
         onClose={() => setShowInstallGuide(false)} 
-      />
+      /> */}
     </>
   );
 };

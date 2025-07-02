@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import { motion } from 'framer-motion';
-import logo from '../assets/logo.png';
+import logo from '../assets/logo2.png';
 
 const Login = ({ onLogin }) => {
   const [mode, setMode] = useState('login'); // 'login' or 'register'

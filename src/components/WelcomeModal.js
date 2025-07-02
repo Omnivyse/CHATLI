@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MessageCircle, Users, Image, Video, Bell, Shield, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import logo from '../assets/logo.png';
+import logo from '../assets/logo2.png';
 
 const WelcomeModal = ({ isOpen, onClose, isNewUser = false }) => {
   const [currentSlide, setCurrentSlide] = useState(0);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Eye, EyeOff, Lock } from 'lucide-react';
-import logo from '../assets/logo.png';
+import logo from '../assets/logo2.png';
 import apiService from '../services/api';
 
 const AdminLogin = ({ onAdminLogin }) => {
