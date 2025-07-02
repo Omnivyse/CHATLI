@@ -37,6 +37,41 @@
   .ios-safe-right {
     padding-right: max(0.5rem, env(safe-area-inset-right));
   }
+  
+  /* iOS scroll behavior improvements */
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  
+  /* Fix iOS scroll momentum */
+  .mobile-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+    will-change: scroll-position;
+  }
+  
+  /* Prevent iOS bounce at boundaries */
+  .mobile-content-area {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Additional iOS webkit fixes */
+  html {
+    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
+    position: fixed;
+    height: 100%;
+    width: 100%;
+  }
+  
+  body {
+    overflow: auto;
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+  }
 }
 
 /* iPhone Notch Specific Fixes */
@@ -78,6 +113,9 @@
   body {
     overflow-x: hidden;
     max-width: 100vw;
+    /* iOS scroll improvements */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
   
   /* Ensure proper box sizing */
@@ -91,6 +129,21 @@
     max-width: 100vw;
     padding-left: max(1rem, env(safe-area-inset-left));
     padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  
+  /* iOS-specific scroll improvements */
+  .mobile-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+  }
+  
+  /* Prevent bounce scrolling on iOS */
+  .ios-scroll-fix {
+    position: fixed;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

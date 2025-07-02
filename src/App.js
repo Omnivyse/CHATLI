@@ -460,8 +460,8 @@ function App() {
       )}
 
       {/* Main Content - Scrollable area with proper spacing */}
-      <div className={`flex-1 flex flex-col bg-background dark:bg-background-dark ios-safe-left ios-safe-right ${
-        isMobile ? 'pt-20 pb-20' : 'md:ml-80'
+      <div className={`flex-1 flex flex-col bg-background dark:bg-background-dark ios-safe-left ios-safe-right mobile-scroll-container mobile-content-area ${
+        isMobile ? 'pt-20 pb-20 overflow-y-auto' : 'md:ml-80'
       }`}>
         {activeTab === 'feed' ? (
           <PostFeed user={user} onStartChat={handleStartChat} />
