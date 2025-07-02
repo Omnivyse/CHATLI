@@ -363,7 +363,7 @@ function App() {
     <div className="flex h-screen bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark relative">
       {/* Mobile Header - Only shown on mobile when sidebar is hidden */}
       {isMobile && !showSidebarMobile && (activeTab === 'feed' || activeTab === 'notifications' || selectedChat) && (
-        <div className="fixed top-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="fixed top-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark mobile-header-safe ios-safe-top ios-safe-left ios-safe-right flex items-center justify-between shadow-sm px-4 py-3">
           {selectedChat ? (
             // Special header for chat mode with prominent back button
             <>
@@ -486,7 +486,7 @@ function App() {
       )}
 
       {/* Main Content - Scrollable area with proper spacing */}
-      <div className={`${isMobile && showSidebarMobile ? 'hidden' : 'block'} flex-1 flex flex-col bg-background dark:bg-background-dark ${isMobile ? 'pt-16' : 'md:ml-80'}`}>
+      <div className={`${isMobile && showSidebarMobile ? 'hidden' : 'block'} flex-1 flex flex-col bg-background dark:bg-background-dark ios-safe-left ios-safe-right mobile-bottom-safe ${isMobile ? 'pt-20' : 'md:ml-80'}`}>
         {activeTab === 'feed' ? (
           <PostFeed user={user} onStartChat={handleStartChat} />
         ) : activeTab === 'notifications' ? (
@@ -498,13 +498,13 @@ function App() {
             onBack={() => setSelectedChat(null)}
             isMobile={isMobile}
             onChatDeleted={handleChatDeleted}
-            updateChatListWithNewMessage={updateChatListWithNewMessage}
+            updateChatList={updateChatListWithNewMessage}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-secondary dark:text-secondary-dark">
+          <div className="flex-1 flex items-center justify-center text-secondary dark:text-secondary-dark p-8">
             <div className="text-center">
-              <h2 className="text-xl font-medium mb-2">Чат сонгоно уу</h2>
-              <p className="text-sm">Хэлэлцэх хүнээ сонгоно уу</p>
+              <h3 className="text-lg font-medium mb-2">Чат сонгоно уу</h3>
+              <p className="text-sm">Харилцахын тулд чат сонгоно уу</p>
             </div>
           </div>
         )}
