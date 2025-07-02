@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MessageCircle, Users, Image, Video, Bell, Shield, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import logo from '../assets/logo2.png';
+import logo from '../assets/logo.png';
 
 const WelcomeModal = ({ isOpen, onClose, isNewUser = false }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -299,7 +299,7 @@ const WelcomeModal = ({ isOpen, onClose, isNewUser = false }) => {
                   key={index}
                   onClick={() => goToSlide(index)}
                   className={`${
-                    isMobile ? 'w-3 h-3' : 'w-2 h-2'
+                    isMobile ? 'w-2 h-2' : 'w-1.5 h-1.5'
                   } rounded-full transition-colors touch-target ${
                     index === currentSlide
                       ? 'bg-primary dark:bg-primary-dark'
