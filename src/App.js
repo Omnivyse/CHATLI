@@ -12,7 +12,7 @@ import WelcomeModal from './components/WelcomeModal';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import CopyrightModal from './components/CopyrightModal';
 import ReportModal from './components/ReportModal';
-import AdminDashboard from './components/AdminDashboard';
+
 import AdminPanel from './components/AdminPanel';
 import analyticsService from './services/analyticsService';
 import './index.css';

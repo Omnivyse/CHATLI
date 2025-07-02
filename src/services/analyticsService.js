@@ -113,7 +113,7 @@ class AnalyticsService {
   }
 
   getBrowserVersion(userAgent, browser) {
-    const match = userAgent.match(new RegExp(`${browser}\/([\\d\\.]+)`));
+    const match = userAgent.match(new RegExp(`${browser}/([\\d.]+)`));
     return match ? match[1] : 'Unknown';
   }
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Flag, Bug, MessageSquare, User, Image, Video, Send, AlertTriangle } from 'lucide-react';
+import { X, Flag, Bug, MessageSquare, User, Image, Send, AlertTriangle } from 'lucide-react';
 import api from '../services/api';
 
 const ReportModal = ({ isOpen, onClose }) => {

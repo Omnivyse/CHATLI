@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  X, 
   Users, 
   UserCheck, 
-  UserX, 
   Flag, 
   Shield, 
   Trash2, 
   AlertTriangle,
   RefreshCw,
   Search,
-  Calendar,
   LogOut,
   BarChart3,
   Activity,
@@ -56,29 +53,7 @@ const AdminDashboard = ({ isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadDashboardData();
-    }
-  }, [isOpen]);
-
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        loadUsers(),
-        loadReports(),
-        loadStats(),
-        loadAnalytics()
-      ]);
-    } catch (error) {
-      console.error('Dashboard data loading error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const response = await apiService.getAllUsersAdmin();
       if (response.users) {
@@ -88,9 +63,9 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       console.error('Load users error:', error);
       setUsers([]);
     }
-  };
+  }, []);
 
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     try {
       const response = await apiService.getAdminReports();
       if (response.reports) {
@@ -100,9 +75,31 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       console.error('Load reports error:', error);
       setReports([]);
     }
-  };
+  }, []);
 
-  const loadStats = async () => {
+  const loadAnalytics = useCallback(async () => {
+    try {
+      const [dailyStats, popularPages, deviceStats, realtimeData] = await Promise.all([
+        apiService.getAnalyticsDailyStats(7),
+        apiService.getAnalyticsPopularPages(10),
+        apiService.getAnalyticsDeviceStats(7),
+        apiService.getAnalyticsRealtime()
+      ]);
+
+      setAnalyticsData({
+        dailyStats: dailyStats.dailyStats || [],
+        popularPages: popularPages.popularPages || [],
+        deviceStats: deviceStats.deviceStats || [],
+        browserStats: deviceStats.browserStats || [],
+        mobileStats: deviceStats.mobileStats || [],
+        realtimeData: realtimeData || {}
+      });
+    } catch (error) {
+      console.error('Load analytics error:', error);
+    }
+  }, []);
+
+  const loadStats = useCallback(async () => {
     try {
       const response = await apiService.getAdminStats();
       if (response) {
@@ -128,7 +125,31 @@ const AdminDashboard = ({ isOpen, onClose }) => {
         newUsersToday: newToday
       });
     }
-  };
+  }, [users, reports]);
+
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadUsers(),
+        loadReports(),
+        loadStats(),
+        loadAnalytics()
+      ]);
+    } catch (error) {
+      console.error('Dashboard data loading error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadUsers, loadReports, loadStats, loadAnalytics]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadDashboardData();
+    }
+  }, [isOpen, loadDashboardData]);
+
+
 
   const handleDeleteUser = async (userId) => {
     try {
@@ -180,27 +201,7 @@ const AdminDashboard = ({ isOpen, onClose }) => {
     }
   };
 
-  const loadAnalytics = async () => {
-    try {
-      const [dailyStats, popularPages, deviceStats, realtimeData] = await Promise.all([
-        apiService.getAnalyticsDailyStats(7),
-        apiService.getAnalyticsPopularPages(10),
-        apiService.getAnalyticsDeviceStats(7),
-        apiService.getAnalyticsRealtime()
-      ]);
 
-      setAnalyticsData({
-        dailyStats: dailyStats.dailyStats || [],
-        popularPages: popularPages.popularPages || [],
-        deviceStats: deviceStats.deviceStats || [],
-        browserStats: deviceStats.browserStats || [],
-        mobileStats: deviceStats.mobileStats || [],
-        realtimeData: realtimeData || {}
-      });
-    } catch (error) {
-      console.error('Load analytics error:', error);
-    }
-  };
 
   const formatDuration = (seconds) => {
     if (seconds < 60) return `${seconds}ᶳ`;
