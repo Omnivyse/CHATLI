@@ -52,6 +52,8 @@ const AdminDashboard = ({ isOpen, onClose }) => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [updatingReport, setUpdatingReport] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(null);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -103,31 +105,20 @@ const AdminDashboard = ({ isOpen, onClose }) => {
     try {
       const response = await apiService.getAdminStats();
       if (response) {
-        setStats(response);
+        setStats(prevStats => ({
+          ...prevStats,
+          ...response
+        }));
       }
     } catch (error) {
       console.error('Load stats error:', error);
-      // Fallback to calculating from local data
-      const total = users.length;
-      const online = users.filter(u => u.isOnline).length;
-      const offline = total - online;
-      const pending = reports.filter(r => r.status === 'pending').length;
-      const today = new Date().toDateString();
-      const newToday = users.filter(u => 
-        new Date(u.createdAt).toDateString() === today
-      ).length;
-
-      setStats({
-        totalUsers: total,
-        onlineUsers: online,
-        offlineUsers: offline,
-        pendingReports: pending,
-        newUsersToday: newToday
-      });
+      // Don't fallback to calculated stats to avoid infinite loops
     }
-  }, [users, reports]);
+  }, []); // Remove dependency on users and reports
 
   const loadDashboardData = useCallback(async () => {
+    if (loading) return; // Prevent multiple simultaneous loads
+    
     setLoading(true);
     try {
       await Promise.all([
@@ -141,19 +132,22 @@ const AdminDashboard = ({ isOpen, onClose }) => {
     } finally {
       setLoading(false);
     }
-  }, [loadUsers, loadReports, loadStats, loadAnalytics]);
+  }, [loadUsers, loadReports, loadStats, loadAnalytics, loading]);
 
+  // Only load data when modal opens, not on every change
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !loading) {
       loadDashboardData();
     }
-  }, [isOpen, loadDashboardData]);
+  }, [isOpen]); // Remove loadDashboardData dependency to prevent loops
 
 
 
   const handleDeleteUser = async (userId) => {
+    if (deletingUser === userId) return; // Prevent multiple calls
+    
     try {
-      setLoading(true);
+      setDeletingUser(userId);
       const response = await apiService.deleteUserAdmin(userId);
       if (response.message) {
         setUsers(users.filter(u => u._id !== userId));
@@ -164,22 +158,27 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       console.error('Delete user error:', error);
       alert('Хэрэглэгч устгахад алдаа гарлаа');
     } finally {
-      setLoading(false);
+      setDeletingUser(null);
     }
   };
 
   const handleUpdateReportStatus = async (reportId, status) => {
+    if (updatingReport === reportId) return; // Prevent multiple calls
+    
     try {
+      setUpdatingReport(reportId);
       const response = await apiService.updateAdminReportStatus(reportId, status);
       if (response.message) {
         setReports(reports.map(r => 
           r._id === reportId ? { ...r, status } : r
         ));
-        alert('Мэдээллийн төлөв шинэчлэгдлээ');
+        // Don't show alert for status updates to reduce spam
       }
     } catch (error) {
       console.error('Update report status error:', error);
       alert('Төлөв шинэчлэхэд алдаа гарлаа');
+    } finally {
+      setUpdatingReport(null);
     }
   };
 
@@ -416,10 +415,11 @@ const AdminDashboard = ({ isOpen, onClose }) => {
                 <div className="flex gap-3">
                   <button
                     onClick={loadDashboardData}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors"
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    Шинэчлэх
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    {loading ? 'Ачаалж байна...' : 'Шинэчлэх'}
                   </button>
                 </div>
               </div>
@@ -628,10 +628,15 @@ const AdminDashboard = ({ isOpen, onClose }) => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setShowDeleteConfirm(user._id)}
-                          className="p-2 rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 transition-colors"
+                          disabled={deletingUser === user._id}
+                          className="p-2 rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Хэрэглэгч устгах"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {deletingUser === user._id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -670,21 +675,24 @@ const AdminDashboard = ({ isOpen, onClose }) => {
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleUpdateReportStatus(report._id, 'reviewing')}
-                          className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded transition-colors"
+                          disabled={updatingReport === report._id}
+                          className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Шалгаж байна
+                          {updatingReport === report._id ? 'Шинэчилж байна...' : 'Шалгаж байна'}
                         </button>
                         <button
                           onClick={() => handleUpdateReportStatus(report._id, 'resolved')}
-                          className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400 rounded transition-colors"
+                          disabled={updatingReport === report._id}
+                          className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Шийдсэн
+                          {updatingReport === report._id ? 'Шинэчилж байна...' : 'Шийдсэн'}
                         </button>
                         <button
                           onClick={() => handleUpdateReportStatus(report._id, 'dismissed')}
-                          className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-900/40 text-gray-600 dark:text-gray-400 rounded transition-colors"
+                          disabled={updatingReport === report._id}
+                          className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-900/40 text-gray-600 dark:text-gray-400 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Татгалзсан
+                          {updatingReport === report._id ? 'Шинэчилж байна...' : 'Татгалзсан'}
                         </button>
                       </div>
                     </div>
@@ -727,15 +735,24 @@ const AdminDashboard = ({ isOpen, onClose }) => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowDeleteConfirm(null)}
-                    className="flex-1 py-2 px-4 bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark rounded-lg hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-colors"
+                    disabled={deletingUser}
+                    className="flex-1 py-2 px-4 bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark rounded-lg hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-colors disabled:opacity-50"
                   >
                     Цуцлах
                   </button>
                   <button
                     onClick={() => handleDeleteUser(showDeleteConfirm)}
-                    className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                    disabled={deletingUser}
+                    className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    Устгах
+                    {deletingUser ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Устгаж байна...
+                      </>
+                    ) : (
+                      'Устгах'
+                    )}
                   </button>
                 </div>
               </div>
