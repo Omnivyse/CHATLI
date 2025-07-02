@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, X, ChevronUp, ChevronDown } from 'lucide-react';
 import api from '../services/api';
 
@@ -8,7 +8,7 @@ const ChatSearch = ({ chatId, onClose, onMessageSelect }) => {
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
 
-  const handleSearch = async (searchQuery) => {
+  const handleSearch = useCallback(async (searchQuery) => {
     if (!searchQuery.trim()) {
       setResults([]);
       setCurrentIndex(-1);
@@ -28,7 +28,7 @@ const ChatSearch = ({ chatId, onClose, onMessageSelect }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [chatId]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -36,7 +36,7 @@ const ChatSearch = ({ chatId, onClose, onMessageSelect }) => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [query]);
+  }, [query, handleSearch]);
 
   const handleResultClick = (message) => {
     if (onMessageSelect) {

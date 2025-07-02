@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { MessageCircle, MoreHorizontal, Heart, Smile, Trash2 } from 'lucide-react';
+import { MessageCircle, Smile, Trash2 } from 'lucide-react';
 import { formatMongolianTime } from '../utils/dateUtils';
 
 const MessageBubble = ({ message, isOwnMessage, user, onReply, onReact, onDelete, reactionTarget, setReactionTarget }) => {
-  const [showOptions, setShowOptions] = useState(false);
-  const [showReactions, setShowReactions] = useState(false);
   const [showUnsendConfirm, setShowUnsendConfirm] = useState(false);
 
   // Close emoji picker when clicking outside
@@ -21,24 +19,7 @@ const MessageBubble = ({ message, isOwnMessage, user, onReply, onReact, onDelete
     }
   }, [reactionTarget, message._id, setReactionTarget]);
 
-  const handleReply = () => {
-    if (onReply) {
-      onReply(message);
-    }
-    setShowOptions(false);
-  };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content.text);
-    setShowOptions(false);
-  };
-
-  const handleDelete = () => {
-    if (onDelete) {
-      onDelete(message._id);
-    }
-    setShowOptions(false);
-  };
 
   const handleUnsend = () => {
     if (onDelete) {
@@ -47,13 +28,7 @@ const MessageBubble = ({ message, isOwnMessage, user, onReply, onReact, onDelete
     setShowUnsendConfirm(false);
   };
 
-  const handleReaction = (emoji) => {
-    console.log('Reaction clicked:', emoji, 'for message:', message._id);
-    if (onReact) {
-      onReact(message._id, emoji);
-    }
-    setShowReactions(false);
-  };
+
 
   const getReactionCounts = () => {
     if (!message.reactions || message.reactions.length === 0) return {};

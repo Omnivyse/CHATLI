@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MoreHorizontal, Phone, Video, Search, Loader2, X, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Phone, Video, Search, Loader2, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import socketService from '../services/socket';
 import MessageList from './MessageList';
@@ -22,7 +22,7 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const loadChat = async () => {
+  const loadChat = useCallback(async () => {
     try {
       const response = await api.getChat(chatId);
       if (response.success) {
@@ -32,9 +32,9 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
       console.error('Load chat error:', error);
       setError('Чат уншихад алдаа гарлаа');
     }
-  };
+  }, [chatId]);
 
-  const loadMessages = async (pageToLoad = 1, prepend = false) => {
+  const loadMessages = useCallback(async (pageToLoad = 1, prepend = false) => {
     if (pageToLoad === 1) setLoading(true);
     if (pageToLoad > 1) setLoadingMore(true);
     setError('');
@@ -55,7 +55,7 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [chatId]);
 
   // For infinite scroll: load more messages (older) and prepend
   const loadMoreMessages = async () => {
@@ -63,15 +63,15 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
     await loadMessages(page + 1, true);
   };
 
-  const handleNewMessage = (data) => {
+  const handleNewMessage = useCallback((data) => {
     if (data.chatId === chatId) {
       setMessages(prev => [...prev, data.message]);
       // Clear typing indicators when message is received
       setTypingUsers(new Set());
     }
-  };
+  }, [chatId]);
 
-  const handleUserTyping = (data) => {
+  const handleUserTyping = useCallback((data) => {
     if (data.chatId === chatId) {
       if (data.isTyping) {
         setTypingUsers(prev => new Set([...prev, data.userId]));
@@ -83,7 +83,7 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
         });
       }
     }
-  };
+  }, [chatId]);
 
   const handleTypingStart = () => {
     if (!isTyping) {
@@ -172,7 +172,7 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
         socketService.off('user_typing', handleUserTyping);
       };
     }
-  }, [chatId]);
+  }, [chatId, handleNewMessage, handleUserTyping, loadChat, loadMessages]);
 
   const handleSendMessage = async (text) => {
     try {

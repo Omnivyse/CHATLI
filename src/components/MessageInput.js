@@ -1,18 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
-  Smile, 
-  Mic, 
-  MicOff,
-  Paperclip,
   X
 } from 'lucide-react';
 
 const MessageInput = ({ onSendMessage, onTypingStart, onTypingStop, replyingTo, onCancelReply }) => {
   const [message, setMessage] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showImagePicker, setShowImagePicker] = useState(false);
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
@@ -66,19 +59,7 @@ const MessageInput = ({ onSendMessage, onTypingStart, onTypingStop, replyingTo, 
     }
   };
 
-  const handleVoiceToggle = () => {
-    setIsRecording(!isRecording);
-    // TODO: Implement voice recording functionality
-    console.log('Voice recording:', !isRecording);
-  };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // TODO: Implement image upload functionality
-      console.log('Image uploaded:', file);
-    }
-  };
 
   // Cleanup typing timeout on unmount
   useEffect(() => {
@@ -89,7 +70,7 @@ const MessageInput = ({ onSendMessage, onTypingStart, onTypingStop, replyingTo, 
     };
   }, []);
 
-  const emojis = ['😊', '😂', '❤️', '👍', '🎉', '🔥', '😎', '🤔', '😢', '😡'];
+
 
   return (
     <div className="border-t border-border dark:border-border-dark bg-background dark:bg-background-dark p-4">
