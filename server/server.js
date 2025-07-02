@@ -303,25 +303,47 @@ io.on('connection', (socket) => {
   });
 });
 
-// MongoDB connection with optimized settings
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  maxPoolSize: 20, // Maintain up to 20 socket connections
-  minPoolSize: 5,  // Maintain a minimum of 5 socket connections
-  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-  bufferMaxEntries: 0, // Disable mongoose buffering
-  bufferCommands: false, // Disable mongoose buffering
-})
-.then(() => {
-  console.log('MongoDB холбогдлоо');
-})
-.catch((error) => {
-  console.error('MongoDB холболтын алдаа:', error);
-  process.exit(1);
-});
+// MongoDB connection with simplified settings for Railway
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+    });
+    
+    console.log('MongoDB холбогдлоо');
+    console.log('Connected to MongoDB Atlas');
+    
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected');
+    });
+    
+    return conn;
+  } catch (error) {
+    console.error('MongoDB холболтын алдаа:', error.message);
+    console.error('Full error:', error);
+    
+    // Try fallback connection with minimal options
+    try {
+      console.log('Trying fallback connection...');
+      const fallbackConn = await mongoose.connect(process.env.MONGODB_URI);
+      console.log('MongoDB connected with fallback settings');
+      return fallbackConn;
+    } catch (fallbackError) {
+      console.error('Fallback connection failed:', fallbackError.message);
+      process.exit(1);
+    }
+  }
+};
+
+// Connect to MongoDB
+connectDB();
 
 // Error handling middleware
 app.use((error, req, res, next) => {
