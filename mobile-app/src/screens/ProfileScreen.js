@@ -5,12 +5,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
 
 const ProfileScreen = ({ navigation, user, onLogout }) => {
   const [loading, setLoading] = useState(false);
@@ -18,18 +17,17 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
   const handleLogout = () => {
     Alert.alert(
       'Гарах',
-      'Гарахдаа итгэлтэй байна уу?',
+      'Та гарахдаа итгэлтэй байна уу?',
       [
-        { text: 'Цуцлах', style: 'cancel' },
+        {
+          text: 'Болих',
+          style: 'cancel',
+        },
         {
           text: 'Гарах',
           style: 'destructive',
           onPress: () => {
-            Toast.show({
-              type: 'success',
-              text1: 'Амжилттай гарлаа',
-              text2: 'Дахин уулзая!',
-            });
+            setLoading(true);
             onLogout();
           },
         },
@@ -37,122 +35,119 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
     );
   };
 
-  const navigateToSettings = () => {
-    navigation.navigate('Settings', { user });
-  };
-
   const menuItems = [
     {
       icon: 'person-outline',
       title: 'Профайл засах',
-      subtitle: 'Нэр, зураг, био засах',
       onPress: () => {
-        Toast.show({
-          type: 'info',
-          text1: 'Удахгүй',
-          text2: 'Профайл засах боломж удахгүй нэмэгдэнэ',
-        });
+        // TODO: Navigate to edit profile
+        Alert.alert('Анхааруулга', 'Энэ функц удахгүй бэлэн болно');
       },
     },
     {
       icon: 'settings-outline',
       title: 'Тохиргоо',
-      subtitle: 'Апп-ийн тохиргоо',
-      onPress: navigateToSettings,
-    },
-    {
-      icon: 'notifications-outline',
-      title: 'Мэдэгдэл',
-      subtitle: 'Мэдэгдлийн тохиргоо',
       onPress: () => {
-        Toast.show({
-          type: 'info',
-          text1: 'Удахгүй',
-          text2: 'Мэдэгдлийн тохиргоо удахгүй нэмэгдэнэ',
-        });
-      },
-    },
-    {
-      icon: 'shield-outline',
-      title: 'Нууцлал',
-      subtitle: 'Нууцлалын тохиргоо',
-      onPress: () => {
-        Toast.show({
-          type: 'info',
-          text1: 'Удахгүй',
-          text2: 'Нууцлалын тохиргоо удахгүй нэмэгдэнэ',
-        });
+        // TODO: Navigate to settings
+        Alert.alert('Анхааруулга', 'Энэ функц удахгүй бэлэн болно');
       },
     },
     {
       icon: 'help-circle-outline',
       title: 'Тусламж',
-      subtitle: 'Асуулт хариулт',
       onPress: () => {
-        Toast.show({
-          type: 'info',
-          text1: 'Тусламж',
-          text2: 'CHATLI - Монголын анхны чат апп',
-        });
+        Alert.alert('Тусламж', 'CHATLI - Монголын анхны нийгмийн сүлжээ');
+      },
+    },
+    {
+      icon: 'information-circle-outline',
+      title: 'Аппын тухай',
+      onPress: () => {
+        Alert.alert('CHATLI', 'Хувилбар: 1.0.0\n\nМонголын анхны нийгмийн сүлжээ');
       },
     },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Профайл</Text>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Profile Info */}
+        <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             {user.avatar ? (
               <Image source={{ uri: user.avatar }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={40} color="#666666" />
+                <Text style={styles.avatarText}>
+                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                </Text>
               </View>
             )}
           </View>
+          
           <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
-          <Text style={styles.userUsername}>@{user.username}</Text>
+          <Text style={styles.userHandle}>@{user.username}</Text>
+          
+          {user.bio && (
+            <Text style={styles.userBio}>{user.bio}</Text>
+          )}
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{user.following?.length || 0}</Text>
+              <Text style={styles.statLabel}>Дагаж байна</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{user.followers?.length || 0}</Text>
+              <Text style={styles.statLabel}>Дагагч</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{user.postsCount || 0}</Text>
+              <Text style={styles.statLabel}>Пост</Text>
+            </View>
+          </View>
         </View>
 
         {/* Menu Items */}
-        <View style={styles.menuContainer}>
+        <View style={styles.menuSection}>
           {menuItems.map((item, index) => (
             <TouchableOpacity
               key={index}
               style={styles.menuItem}
               onPress={item.onPress}
             >
-              <View style={styles.menuIconContainer}>
-                <Ionicons name={item.icon} size={24} color="#000000" />
+              <View style={styles.menuItemLeft}>
+                <Ionicons name={item.icon} size={24} color="#666" />
+                <Text style={styles.menuItemText}>{item.title}</Text>
               </View>
-              <View style={styles.menuTextContainer}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+              <Ionicons name="chevron-forward" size={20} color="#ccc" />
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Logout Button */}
-        <View style={styles.logoutContainer}>
+        <View style={styles.logoutSection}>
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
             disabled={loading}
           >
-            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-            <Text style={styles.logoutText}>Гарах</Text>
+            <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+            <Text style={styles.logoutText}>
+              {loading ? 'Гарч байна...' : 'Гарах'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={styles.appInfoText}>CHATLI v1.0.0</Text>
-          <Text style={styles.appInfoText}>Монголын анхны чат апп</Text>
+          <Text style={styles.appInfoText}>Монголын анхны нийгмийн сүлжээ</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -164,14 +159,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  scrollView: {
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+    textAlign: 'center',
+  },
+  content: {
     flex: 1,
   },
-  profileHeader: {
+  profileSection: {
     alignItems: 'center',
     paddingVertical: 32,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: '#f8f8f8',
   },
   avatarContainer: {
     marginBottom: 16,
@@ -180,76 +188,97 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
+    backgroundColor: '#f0f0f0',
   },
   avatarPlaceholder: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: 'bold',
   },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000000',
+    color: '#000',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  userHandle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  userBio: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
     marginBottom: 4,
   },
-  userEmail: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 2,
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
   },
-  userUsername: {
-    fontSize: 14,
-    color: '#999999',
-  },
-  menuContainer: {
-    paddingTop: 16,
+  menuSection: {
+    paddingVertical: 20,
   },
   menuItem: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: '#f8f8f8',
   },
-  menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
+  menuItemLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
   },
-  menuTextContainer: {
-    flex: 1,
-  },
-  menuTitle: {
+  menuItemText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 2,
+    color: '#000',
+    marginLeft: 16,
   },
-  menuSubtitle: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  logoutContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  logoutSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 8,
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: '#ef4444',
-    backgroundColor: '#ffffff',
+    borderColor: '#fecaca',
   },
   logoutText: {
     fontSize: 16,
@@ -259,13 +288,14 @@ const styles = StyleSheet.create({
   },
   appInfo: {
     alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
   },
   appInfoText: {
     fontSize: 12,
-    color: '#cccccc',
-    marginBottom: 2,
+    color: '#999',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });
 

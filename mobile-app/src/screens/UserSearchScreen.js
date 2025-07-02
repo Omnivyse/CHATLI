@@ -2,205 +2,343 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TextInput,
   TouchableOpacity,
+  FlatList,
   StyleSheet,
-  ActivityIndicator,
   Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
-import apiService from '../services/api';
+import api from '../services/api';
 
 const UserSearchScreen = ({ navigation, user }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [following, setFollowing] = useState([]);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [creatingChat, setCreatingChat] = useState(null);
 
   useEffect(() => {
-    if (searchQuery.trim().length > 2) {
-      const timeoutId = setTimeout(() => {
-        searchUsers();
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery]);
+    fetchFollowing();
+  }, []);
 
-  const searchUsers = async () => {
-    if (!searchQuery.trim()) return;
-    
-    setLoading(true);
-    setError('');
-    
+  const fetchFollowing = async () => {
+    setLoadingFollowing(true);
     try {
-      const response = await apiService.searchUsers(searchQuery.trim());
+      const response = await api.getFollowing();
       if (response.success) {
-        setSearchResults(response.data.users || []);
+        setFollowing(response.data.following);
+      }
+    } catch (error) {
+      console.error('Fetch following error:', error);
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  const searchUsers = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.searchUsers(query);
+      if (response.success) {
+        // Filter out current user
+        const filteredUsers = response.data.users.filter(u => u._id !== user._id);
+        setSearchResults(filteredUsers);
       } else {
-        setError(response.message || 'Хэрэглэгч хайхад алдаа гарлаа');
+        setSearchResults([]);
       }
     } catch (error) {
       console.error('Search users error:', error);
-      setError('Сервертэй холбогдоход алдаа гарлаа');
+      setSearchResults([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const startChat = async (selectedUser) => {
-    try {
-      setLoading(true);
-      const response = await apiService.createChat({
-        participants: [selectedUser._id],
-        type: 'private'
-      });
+  const handleSearchChange = (text) => {
+    setSearchQuery(text);
+    
+    // Debounce search
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    const searchTimeout = setTimeout(() => {
+      searchUsers(text);
+    }, 500);
+  };
 
+  const handleStartChat = async (targetUser) => {
+    setCreatingChat(targetUser._id);
+    
+    try {
+      // Check if chat already exists
+      const existingChats = await api.getChats();
+      if (existingChats.success) {
+        const existingChat = existingChats.data.chats.find(chat => 
+          chat.type === 'direct' && 
+          chat.participants.some(p => p._id === targetUser._id)
+        );
+        
+        if (existingChat) {
+          // Chat already exists, navigate to it
+          navigation.navigate('Chat', {
+            chatId: existingChat._id,
+            chatTitle: targetUser.name
+          });
+          return;
+        }
+      }
+
+      // Create new chat
+      const response = await api.createChat({
+        type: 'direct',
+        participants: [targetUser._id]
+      });
+      
       if (response.success) {
-        const chat = response.data.chat;
         navigation.navigate('Chat', {
-          chatId: chat._id,
-          chatTitle: selectedUser.name,
-          user: user
+          chatId: response.data.chat._id,
+          chatTitle: targetUser.name
         });
-        Toast.show({
-          type: 'success',
-          text1: 'Амжилттай',
-          text2: `${selectedUser.name}-тай чат эхэллээ`,
-        });
+      } else {
+        Alert.alert('Алдаа', 'Чат үүсгэхэд алдаа гарлаа');
       }
     } catch (error) {
       console.error('Create chat error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Алдаа',
-        text2: 'Чат үүсгэхэд алдаа гарлаа',
-      });
+      Alert.alert('Алдаа', 'Чат үүсгэхэд алдаа гарлаа');
     } finally {
-      setLoading(false);
+      setCreatingChat(null);
     }
   };
 
-  const renderUserItem = ({ item: searchedUser }) => (
-    <TouchableOpacity
-      style={styles.userItem}
-      onPress={() => startChat(searchedUser)}
-      disabled={loading}
-    >
-      <View style={styles.avatarContainer}>
-        {searchedUser.avatar ? (
-          <Image source={{ uri: searchedUser.avatar }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={24} color="#666666" />
+  const handleFollowUser = async (targetUser) => {
+    try {
+      const response = await api.followUser(targetUser._id);
+      if (response.success) {
+        // Update following list
+        setFollowing(prev => [...prev, targetUser]);
+        
+        // Update search results to show followed status
+        setSearchResults(prev => 
+          prev.map(user => 
+            user._id === targetUser._id 
+              ? { ...user, isFollowing: true }
+              : user
+          )
+        );
+      } else {
+        Alert.alert('Алдаа', 'Дагахад алдаа гарлаа');
+      }
+    } catch (error) {
+      console.error('Follow user error:', error);
+      Alert.alert('Алдаа', 'Дагахад алдаа гарлаа');
+    }
+  };
+
+  const renderUserItem = ({ item: targetUser }) => {
+    const isLoading = creatingChat === targetUser._id;
+    const isFollowing = following.some(f => f._id === targetUser._id) || targetUser.isFollowing;
+
+    return (
+      <View style={styles.userItem}>
+        <Image
+          source={{ 
+            uri: targetUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+          }}
+          style={styles.avatar}
+        />
+        
+        <View style={styles.userInfo}>
+          <Text style={styles.userName} numberOfLines={1}>
+            {targetUser.name}
+          </Text>
+          <Text style={styles.userUsername} numberOfLines={1}>
+            @{targetUser.username}
+          </Text>
+          {targetUser.bio && (
+            <Text style={styles.userBio} numberOfLines={2}>
+              {targetUser.bio}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.actionButtons}>
+          {!isFollowing && (
+            <TouchableOpacity
+              style={styles.followButton}
+              onPress={() => handleFollowUser(targetUser)}
+            >
+              <Text style={styles.followButtonText}>Дагах</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity
+            style={[styles.chatButton, isLoading && styles.chatButtonDisabled]}
+            onPress={() => handleStartChat(targetUser)}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="chatbubble" size={16} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderFollowingItem = ({ item: targetUser }) => {
+    const isLoading = creatingChat === targetUser._id;
+
+    return (
+      <TouchableOpacity
+        style={styles.followingItem}
+        onPress={() => handleStartChat(targetUser)}
+        disabled={isLoading}
+      >
+        <Image
+          source={{ 
+            uri: targetUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+          }}
+          style={styles.followingAvatar}
+        />
+        
+        <View style={styles.followingInfo}>
+          <Text style={styles.followingName} numberOfLines={1}>
+            {targetUser.name}
+          </Text>
+          <View style={[
+            styles.onlineIndicator,
+            { backgroundColor: targetUser.status === 'online' ? '#000' : '#999' }
+          ]} />
+        </View>
+
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="small" color="#000" />
           </View>
         )}
-      </View>
-      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{searchedUser.name}</Text>
-        <Text style={styles.userUsername}>@{searchedUser.username}</Text>
-        {searchedUser.bio && (
-          <Text style={styles.userBio} numberOfLines={1}>
-            {searchedUser.bio}
-          </Text>
-        )}
-      </View>
-      <View style={styles.actionContainer}>
-        <Ionicons name="chatbubble-outline" size={20} color="#000000" />
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderEmptyState = () => {
-    if (searchQuery.trim().length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={64} color="#cccccc" />
-          <Text style={styles.emptyTitle}>Хэрэглэгч хайх</Text>
-          <Text style={styles.emptySubtitle}>
-            Нэр эсвэл хэрэглэгчийн нэрээр хайна уу
-          </Text>
-        </View>
-      );
-    }
-
-    if (searchQuery.trim().length > 0 && searchResults.length === 0 && !loading) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="person-outline" size={64} color="#cccccc" />
-          <Text style={styles.emptyTitle}>Хэрэглэгч олдсонгүй</Text>
-          <Text style={styles.emptySubtitle}>
-            "{searchQuery}" гэсэн хайлтад тохирох хэрэглэгч олдсонгүй
-          </Text>
-        </View>
-      );
-    }
-
-    return null;
-  };
-
-  const renderError = () => (
-    <View style={styles.errorContainer}>
-      <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-      <Text style={styles.errorTitle}>Алдаа гарлаа</Text>
-      <Text style={styles.errorMessage}>{error}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={searchUsers}>
-        <Text style={styles.retryButtonText}>Дахин оролдох</Text>
       </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Search Header */}
-      <View style={styles.searchHeader}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={20} color="#666666" style={styles.searchIcon} />
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Хэрэглэгч хайх</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      {/* Search Input */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Хэрэглэгч хайх..."
-            placeholderTextColor="#999999"
+            placeholder="Нэр, имэйл хайх..."
+            placeholderTextColor="#666"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
+            autoCapitalize="none"
             autoFocus
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => setSearchQuery('')}
+          {searchQuery ? (
+            <TouchableOpacity 
+              onPress={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+              }}
+              style={styles.clearSearch}
             >
-              <Ionicons name="close-circle" size={20} color="#cccccc" />
+              <Ionicons name="close" size={20} color="#666" />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </View>
 
-      {/* Results */}
-      <View style={styles.resultsContainer}>
-        {loading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000000" />
-            <Text style={styles.loadingText}>Хайж байна...</Text>
+      {/* Content */}
+      {searchQuery ? (
+        // Search Results
+        <View style={styles.content}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <View style={styles.loadingSpinner}>
+                <ActivityIndicator size="large" color="#000000" />
+              </View>
+            </View>
+          ) : searchResults.length === 0 && searchQuery ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search" size={64} color="#ccc" />
+              <Text style={styles.emptyTitle}>Хэрэглэгч олдсонгүй</Text>
+              <Text style={styles.emptySubtitle}>
+                Өөр нэрээр хайж үзээрэй
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={searchResults}
+              renderItem={renderUserItem}
+              keyExtractor={(item) => item._id}
+              style={styles.resultsList}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      ) : (
+        // Following List
+        <View style={styles.content}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Дагагчид</Text>
+            <Text style={styles.sectionSubtitle}>
+              Дагасан хүмүүстэйгээ чат эхлүүлээрэй
+            </Text>
           </View>
-        )}
 
-        {error && !loading && renderError()}
-
-        {!loading && !error && (
-          <FlatList
-            data={searchResults}
-            renderItem={renderUserItem}
-            keyExtractor={(item) => item._id}
-            ListEmptyComponent={renderEmptyState}
-            contentContainerStyle={searchResults.length === 0 ? styles.emptyList : undefined}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </View>
+          {loadingFollowing ? (
+            <View style={styles.loadingContainer}>
+              <View style={styles.loadingSpinner}>
+                <ActivityIndicator size="large" color="#000000" />
+              </View>
+            </View>
+          ) : following.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyTitle}>Дагагч байхгүй</Text>
+              <Text style={styles.emptySubtitle}>
+                Хэрэглэгчдийг хайж дагаарай
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={following}
+              renderItem={renderFollowingItem}
+              keyExtractor={(item) => item._id}
+              numColumns={2}
+              style={styles.followingList}
+              columnWrapperStyle={styles.followingRow}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -210,19 +348,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  searchHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: '#f0f0f0',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  placeholder: {
+    width: 40,
   },
   searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
     borderRadius: 20,
     paddingHorizontal: 16,
-    height: 40,
+    paddingVertical: 12,
   },
   searchIcon: {
     marginRight: 8,
@@ -230,118 +393,185 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000000',
+    color: '#000',
   },
-  clearButton: {
+  clearSearch: {
     marginLeft: 8,
+    padding: 4,
   },
-  resultsContainer: {
+  content: {
     flex: 1,
+  },
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ef4444',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  emptyList: {
-    flex: 1,
+  loadingSpinner: {
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 40,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333333',
+    color: '#000',
+    textAlign: 'center',
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#666666',
+    color: '#666',
     textAlign: 'center',
+    lineHeight: 20,
+  },
+  resultsList: {
+    flex: 1,
   },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  avatarContainer: {
-    marginRight: 12,
+    borderBottomColor: '#f8f8f8',
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    marginRight: 12,
   },
   userInfo: {
     flex: 1,
+    marginRight: 12,
   },
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
+    color: '#000',
     marginBottom: 2,
   },
   userUsername: {
     fontSize: 14,
-    color: '#666666',
-    marginBottom: 2,
+    color: '#666',
+    marginBottom: 4,
   },
   userBio: {
     fontSize: 12,
-    color: '#999999',
+    color: '#999',
+    lineHeight: 16,
   },
-  actionContainer: {
-    padding: 8,
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  followButton: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  followButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#000',
+  },
+  chatButton: {
+    backgroundColor: '#000',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatButtonDisabled: {
+    backgroundColor: '#666',
+  },
+  followingList: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  followingRow: {
+    justifyContent: 'space-between',
+  },
+  followingItem: {
+    width: '48%',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  followingAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 12,
+  },
+  followingInfo: {
+    alignItems: 'center',
+    position: 'relative',
+  },
+  followingName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#f8f8f8',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
   },
 });
 

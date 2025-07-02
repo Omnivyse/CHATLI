@@ -186,6 +186,7 @@ class ApiService {
   }
 
   async getMessages(chatId, page = 1, limit = 50) {
+    // Note: Getting messages automatically marks them as read on the backend
     return this.request(`/chats/${chatId}/messages?page=${page}&limit=${limit}`);
   }
 
@@ -215,10 +216,10 @@ class ApiService {
     });
   }
 
+  // This endpoint doesn't exist on the backend - messages are marked as read automatically when fetched
   async markChatAsRead(chatId) {
-    return this.request(`/chats/${chatId}/read`, {
-      method: 'POST',
-    });
+    // Just return success since the backend handles this automatically when getting messages
+    return { success: true };
   }
 
   // Post endpoints
@@ -287,7 +288,24 @@ class ApiService {
     });
   }
 
+  async getFollowing() {
+    return this.request('/auth/following');
+  }
+
   // File upload for React Native
+  async uploadFile(formData) {
+    const response = await fetch(`${this.baseURL}/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+      body: formData,
+    });
+    
+    return response.json();
+  }
+
   async uploadFiles(files) {
     const formData = new FormData();
     

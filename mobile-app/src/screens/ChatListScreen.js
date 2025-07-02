@@ -2,113 +2,102 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
+  FlatList,
   StyleSheet,
+  TextInput,
+  Image,
   RefreshControl,
   ActivityIndicator,
-  Image,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import Toast from 'react-native-toast-message';
-
-import apiService from '../services/api';
+import api from '../services/api';
 import socketService from '../services/socket';
-import { formatDistanceToNow } from 'date-fns';
-import { mn } from 'date-fns/locale';
+import { useFocusEffect } from '@react-navigation/native';
 
 const ChatListScreen = ({ navigation, user }) => {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
 
-  // Load chats when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      loadChats();
-      
-      // Listen for new messages
-      socketService.on('new_message', handleNewMessage);
-      socketService.on('chat_updated', handleChatUpdated);
-      
-      return () => {
-        socketService.off('new_message', handleNewMessage);
-        socketService.off('chat_updated', handleChatUpdated);
-      };
-    }, [])
-  );
-
-  const loadChats = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    
-    setError('');
-    
+  const loadChats = useCallback(async () => {
     try {
-      const response = await apiService.getChats();
+      setError('');
+      const response = await api.getChats();
       if (response.success) {
         setChats(response.data.chats);
       } else {
-        setError(response.message || 'Чат татахад алдаа гарлаа');
+        setError('Чат жагсаалтыг уншихад алдаа гарлаа');
       }
     } catch (error) {
       console.error('Load chats error:', error);
-      setError('Сервертэй холбогдоход алдаа гарлаа');
+      setError('Чат жагсаалтыг уншихад алдаа гарлаа');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const handleNewMessage = useCallback((data) => {
-    // Update chat list with new message
-    setChats(prevChats => {
-      const updatedChats = prevChats.map(chat => {
-        if (chat._id === data.chatId) {
-          return {
-            ...chat,
-            lastMessage: {
-              text: data.message.content.text || '',
-              sender: data.message.sender,
-              timestamp: data.message.createdAt,
-            },
-            unreadCount: chat.unreadCount + 1,
-          };
-        }
-        return chat;
-      });
-      
-      // Sort chats by last message timestamp
-      return updatedChats.sort((a, b) => 
-        new Date(b.lastMessage?.timestamp || 0) - new Date(a.lastMessage?.timestamp || 0)
-      );
-    });
   }, []);
 
-  const handleChatUpdated = useCallback((data) => {
-    // Refresh chat list when chat is updated
+  useEffect(() => {
     loadChats();
+  }, [loadChats]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadChats();
+    }, [])
+  );
+
+  // Listen for new messages to update chat list
+  useEffect(() => {
+    const handleIncomingMessage = (data) => {
+      const { chatId, message } = data;
+      
+      setChats(prevChats => {
+        const chatExists = prevChats.find(chat => chat._id === chatId);
+        if (!chatExists) {
+          return prevChats;
+        }
+        
+        const updatedChats = prevChats.map(chat => {
+          if (chat._id === chatId) {
+            return {
+              ...chat,
+              lastMessage: {
+                id: message._id,
+                text: message.content?.text || '',
+                sender: message.sender,
+                timestamp: message.createdAt,
+                isRead: false
+              },
+              unreadCount: chat.unreadCount + 1
+            };
+          }
+          return chat;
+        }).sort((a, b) => {
+          const aTime = new Date(a.lastMessage?.timestamp || a.createdAt);
+          const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
+          return bTime - aTime;
+        });
+        
+        return updatedChats;
+      });
+    };
+    
+    socketService.on('new_message', handleIncomingMessage);
+    return () => {
+      socketService.off('new_message', handleIncomingMessage);
+    };
   }, []);
 
-  const handleRefresh = () => {
-    loadChats(true);
-  };
-
-  const navigateToChat = (chat) => {
-    const chatTitle = getChatTitle(chat);
-    navigation.navigate('Chat', { 
-      chatId: chat._id, 
-      chatTitle,
-      user 
-    });
-  };
-
-  const navigateToUserSearch = () => {
-    navigation.navigate('UserSearch', { user });
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadChats();
   };
 
   const getChatTitle = (chat) => {
@@ -138,81 +127,105 @@ const ChatListScreen = ({ navigation, user }) => {
     return isOwnMessage ? `Та: ${chat.lastMessage.text}` : chat.lastMessage.text;
   };
 
-  const getLastMessageTime = (chat) => {
-    if (!chat.lastMessage?.timestamp) return '';
+  const getDisplayDate = (timestamp) => {
+    if (!timestamp) return '';
     
-    try {
-      return formatDistanceToNow(new Date(chat.lastMessage.timestamp), {
-        addSuffix: true,
-        locale: mn
-      });
-    } catch (error) {
-      return '';
-    }
-  };
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
-  const handleDeleteChat = (chat) => {
-    Alert.alert(
-      'Чат устгах',
-      `"${getChatTitle(chat)}" чатыг устгахдаа итгэлтэй байна уу?`,
-      [
-        { text: 'Цуцлах', style: 'cancel' },
-        {
-          text: 'Устгах',
-          style: 'destructive',
-          onPress: () => deleteChat(chat._id),
-        },
-      ]
-    );
-  };
-
-  const deleteChat = async (chatId) => {
-    try {
-      const response = await apiService.deleteChat(chatId);
-      if (response.success) {
-        setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
-        Toast.show({
-          type: 'success',
-          text1: 'Амжилттай',
-          text2: 'Чат устгагдлаа',
-        });
-      }
-    } catch (error) {
-      console.error('Delete chat error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Алдаа',
-        text2: 'Чат устгахад алдаа гарлаа',
+    if (diffInMinutes < 1) {
+      return 'одоо';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}м`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}ц`;
+    } else if (diffInDays === 1) {
+      return 'өчигдөр';
+    } else if (diffInDays < 7) {
+      return `${diffInDays} өдөр`;
+    } else {
+      return date.toLocaleDateString('mn-MN', { 
+        month: 'short', 
+        day: 'numeric' 
       });
     }
   };
+
+  const handleChatPress = async (chat) => {
+    try {
+      // Mark chat as read
+      await api.markChatAsRead(chat._id);
+      
+      // Update local state to clear unread count
+      setChats(prevChats => 
+        prevChats.map(c => 
+          c._id === chat._id ? { ...c, unreadCount: 0 } : c
+        )
+      );
+
+      // Navigate to chat screen
+      navigation.navigate('Chat', { 
+        chatId: chat._id,
+        chatTitle: getChatTitle(chat)
+      });
+    } catch (error) {
+      console.error('Error opening chat:', error);
+      Alert.alert('Алдаа', 'Чатыг нээхэд алдаа гарлаа');
+    }
+  };
+
+  const filteredChats = chats.filter(chat => {
+    if (!searchQuery) return true;
+    
+    const title = getChatTitle(chat).toLowerCase();
+    return title.includes(searchQuery.toLowerCase());
+  });
 
   const renderChatItem = ({ item: chat }) => (
     <TouchableOpacity
       style={styles.chatItem}
-      onPress={() => navigateToChat(chat)}
-      onLongPress={() => handleDeleteChat(chat)}
+      onPress={() => handleChatPress(chat)}
+      activeOpacity={0.7}
     >
-      <Image source={{ uri: getChatAvatar(chat) }} style={styles.avatar} />
+      <View style={styles.avatarContainer}>
+        <Image 
+          source={{ uri: getChatAvatar(chat) }}
+          style={styles.avatar}
+        />
+        {chat.type === 'direct' && (() => {
+          const otherParticipant = chat.participants.find(p => p._id !== user._id);
+          const isOnline = otherParticipant?.status === 'online';
+          return (
+            <View style={[
+              styles.onlineIndicator,
+              { backgroundColor: isOnline ? '#000' : '#999' }
+            ]} />
+          );
+        })()}
+      </View>
       
-      <View style={styles.chatContent}>
+      <View style={styles.chatInfo}>
         <View style={styles.chatHeader}>
           <Text style={styles.chatTitle} numberOfLines={1}>
             {getChatTitle(chat)}
           </Text>
-          <Text style={styles.timestamp}>
-            {getLastMessageTime(chat)}
+          <Text style={styles.chatTime}>
+            {getDisplayDate(chat.lastMessage?.timestamp)}
           </Text>
         </View>
         
-        <View style={styles.messageContainer}>
+        <View style={styles.chatFooter}>
           <Text style={styles.lastMessage} numberOfLines={1}>
             {getLastMessageText(chat)}
           </Text>
           {chat.unreadCount > 0 && (
             <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>
-                {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+              <Text style={styles.unreadCount}>
+                {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
               </Text>
             </View>
           )}
@@ -221,71 +234,100 @@ const ChatListScreen = ({ navigation, user }) => {
     </TouchableOpacity>
   );
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="chatbubbles-outline" size={64} color="#cccccc" />
-      <Text style={styles.emptyTitle}>Чат байхгүй байна</Text>
-      <Text style={styles.emptySubtitle}>
-        Шинэ чат эхлүүлэхийн тулд доорх товчийг дарна уу
-      </Text>
-      <TouchableOpacity style={styles.newChatButton} onPress={navigateToUserSearch}>
-        <Ionicons name="add" size={20} color="#ffffff" />
-        <Text style={styles.newChatButtonText}>Шинэ чат</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderError = () => (
-    <View style={styles.errorContainer}>
-      <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-      <Text style={styles.errorTitle}>Алдаа гарлаа</Text>
-      <Text style={styles.errorMessage}>{error}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={() => loadChats()}>
-        <Text style={styles.retryButtonText}>Дахин оролдох</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  if (loading && !refreshing) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000000" />
-          <Text style={styles.loadingText}>Чат ачаалж байна...</Text>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Чат</Text>
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error && !refreshing) {
-    return (
-      <SafeAreaView style={styles.container}>
-        {renderError()}
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingSpinner}>
+            <ActivityIndicator size="large" color="#000000" />
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Чат</Text>
-        <TouchableOpacity style={styles.newChatIconButton} onPress={navigateToUserSearch}>
-          <Ionicons name="person-add-outline" size={24} color="#000000" />
+        <TouchableOpacity 
+          style={styles.newChatButton}
+          onPress={() => navigation.navigate('UserSearch')}
+        >
+          <Ionicons name="add" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
+      {/* Search */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Чат хайх..."
+            placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity 
+              onPress={() => setSearchQuery('')}
+              style={styles.clearSearch}
+            >
+              <Ionicons name="close" size={20} color="#666" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
       {/* Chat List */}
-      <FlatList
-        data={chats}
-        renderItem={renderChatItem}
-        keyExtractor={(item) => item._id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={chats.length === 0 ? styles.emptyList : undefined}
-      />
+      {error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={loadChats}
+          >
+            <Text style={styles.retryButtonText}>Дахин оролдох</Text>
+          </TouchableOpacity>
+        </View>
+      ) : filteredChats.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
+          <Text style={styles.emptyTitle}>
+            {searchQuery ? 'Чат олдсонгүй' : 'Чат байхгүй байна'}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {searchQuery 
+              ? 'Өөр нэрээр хайж үзээрэй' 
+              : 'Шинэ чат эхлүүлэхийн тулд + товчийг дарна уу'
+            }
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredChats}
+          renderItem={renderChatItem}
+          keyExtractor={(item) => item._id}
+          style={styles.chatList}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#000']}
+              tintColor="#000"
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -299,110 +341,85 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: '#f1f5f9',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#000000',
-  },
-  newChatIconButton: {
-    padding: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ef4444',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  emptyList: {
-    flex: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333333',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 24,
+    color: '#0f172a',
   },
   newChatButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#000000',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  newChatButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#0f172a',
+  },
+  clearSearch: {
     marginLeft: 8,
+    padding: 4,
+  },
+  chatList: {
+    flex: 1,
   },
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: '#f8fafc',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 16,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f5f5f5',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f8fafc',
   },
-  chatContent: {
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  chatInfo: {
     flex: 1,
-    marginLeft: 12,
   },
   chatHeader: {
     flexDirection: 'row',
@@ -411,24 +428,26 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   chatTitle: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
+    color: '#0f172a',
+    flex: 1,
+    marginRight: 8,
   },
-  timestamp: {
+  chatTime: {
     fontSize: 12,
-    color: '#666666',
+    color: '#64748b',
   },
-  messageContainer: {
+  chatFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   lastMessage: {
-    flex: 1,
     fontSize: 14,
-    color: '#666666',
+    color: '#64748b',
+    flex: 1,
+    marginRight: 8,
   },
   unreadBadge: {
     backgroundColor: '#000000',
@@ -438,12 +457,72 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
-    marginLeft: 8,
   },
-  unreadText: {
+  unreadCount: {
     color: '#ffffff',
     fontSize: 12,
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingSpinner: {
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ef4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

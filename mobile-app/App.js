@@ -28,6 +28,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 
 // Components
 import LoadingScreen from './src/components/LoadingScreen';
+import CustomSplashScreen from './src/components/SplashScreen';
 
 // Ignore specific warnings for React Native
 LogBox.ignoreLogs([
@@ -59,53 +60,71 @@ function MainTabNavigator({ user, onLogout }) {
             iconName = focused ? 'person' : 'person-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <View style={{ 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              flex: 1,
+              width: '100%',
+              paddingVertical: 4
+            }}>
+              <Ionicons 
+                name={iconName} 
+                size={28} 
+                color={color}
+                style={{
+                  textAlign: 'center',
+                  textAlignVertical: 'center'
+                }}
+              />
+            </View>
+          );
         },
         tabBarActiveTintColor: '#000000',
-        tabBarInactiveTintColor: '#666666',
+        tabBarInactiveTintColor: '#64748b',
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
-          borderTopColor: '#e5e5e5',
-          paddingVertical: 5,
-          height: 60,
+          borderTopColor: '#f1f5f9',
+          paddingTop: 8,
+          paddingBottom: 8,
+          height: 72,
+          shadowColor: '#000000',
+          shadowOffset: {
+            width: 0,
+            height: -1,
+          },
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+          elevation: 5,
         },
-        headerStyle: {
-          backgroundColor: '#ffffff',
-          borderBottomWidth: 1,
-          borderBottomColor: '#e5e5e5',
+        tabBarLabelStyle: {
+          display: 'none',
         },
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          color: '#000000',
+        tabBarItemStyle: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: 44, // Minimum touch target
+          paddingHorizontal: 12,
+          paddingVertical: 8,
         },
+        headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="Feed" 
-        options={{ title: 'Фийд' }}
-      >
+            <Tab.Screen name="Feed">
         {(props) => <PostFeedScreen {...props} user={user} />}
       </Tab.Screen>
       
-      <Tab.Screen 
-        name="Chats" 
-        options={{ title: 'Чат' }}
-      >
+      <Tab.Screen name="Chats">
         {(props) => <ChatListScreen {...props} user={user} />}
       </Tab.Screen>
       
-      <Tab.Screen 
-        name="Notifications" 
-        options={{ title: 'Мэдэгдэл' }}
-      >
+      <Tab.Screen name="Notifications">
         {(props) => <NotificationScreen {...props} user={user} />}
       </Tab.Screen>
       
-      <Tab.Screen 
-        name="Profile" 
-        options={{ title: 'Профайл' }}
-      >
+      <Tab.Screen name="Profile">
         {(props) => <ProfileScreen {...props} user={user} onLogout={onLogout} />}
       </Tab.Screen>
     </Tab.Navigator>
@@ -147,40 +166,58 @@ function AuthStackNavigator({ onLogin }) {
 
 function MainStackNavigator({ user, onLogout }) {
   return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="MainTabs" 
-        options={{ headerShown: false }}
-      >
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: '#fff' },
+      }}
+    >
+      <Stack.Screen name="MainTabs">
         {(props) => <MainTabNavigator {...props} user={user} onLogout={onLogout} />}
       </Stack.Screen>
       
       <Stack.Screen 
-        name="Chat" 
-        component={ChatScreen}
-        options={({ route }) => ({ 
-          title: route.params?.chatTitle || 'Чат',
+        name="Chat"
+        options={{
+          headerShown: true,
+          headerTitle: '',
           headerBackTitleVisible: false,
-        })}
-      />
+          headerStyle: {
+            backgroundColor: '#fff',
+            shadowOpacity: 0,
+            elevation: 0,
+          },
+        }}
+      >
+        {(props) => <ChatScreen {...props} user={user} />}
+      </Stack.Screen>
       
       <Stack.Screen 
-        name="CreatePost" 
-        component={CreatePostScreen}
-        options={{ 
+        name="UserSearch"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      >
+        {(props) => <UserSearchScreen {...props} user={user} />}
+      </Stack.Screen>
+      
+      <Stack.Screen 
+        name="CreatePost"
+        options={{
+          headerShown: true,
           title: 'Шинэ пост',
           headerBackTitleVisible: false,
+          headerStyle: {
+            backgroundColor: '#fff',
+            shadowOpacity: 0,
+            elevation: 0,
+          },
+          presentation: 'modal',
         }}
-      />
-      
-      <Stack.Screen 
-        name="UserSearch" 
-        component={UserSearchScreen}
-        options={{ 
-          title: 'Хэрэглэгч хайх',
-          headerBackTitleVisible: false,
-        }}
-      />
+      >
+        {(props) => <CreatePostScreen {...props} user={user} />}
+      </Stack.Screen>
       
       <Stack.Screen 
         name="Settings" 
@@ -198,6 +235,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [appIsReady, setAppIsReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     async function prepare() {
@@ -274,6 +312,10 @@ export default function App() {
     }
   };
 
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
+
   if (!appIsReady || loading) {
     return <LoadingScreen />;
   }
@@ -289,6 +331,11 @@ export default function App() {
         )}
       </NavigationContainer>
       <Toast />
+      
+      {/* Splash Screen Overlay */}
+      {showSplash && (
+        <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
+      )}
     </>
   );
 } 

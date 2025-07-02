@@ -5,200 +5,282 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
   Alert,
-  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Dimensions,
+  Animated
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
-import apiService from '../services/api';
+import { LinearGradient } from 'expo-linear-gradient';
+import api from '../services/api';
 
-const LoginScreen = ({ navigation, onLogin }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+const { width, height } = Dimensions.get('window');
+
+const LoginScreen = ({ onLogin }) => {
+  const [mode, setMode] = useState('login'); // 'login' or 'register'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [error, setError] = useState('');
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    
-    // Clear field error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }));
-    }
-  };
+  // Animated blob values
+  const blob1Anim = new Animated.Value(0);
+  const blob2Anim = new Animated.Value(0);
 
-  const validateForm = () => {
-    const newErrors = {};
+  React.useEffect(() => {
+    // Start blob animations
+    const animateBlobs = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blob1Anim, {
+            toValue: 1,
+            duration: 4000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blob1Anim, {
+            toValue: 0,
+            duration: 4000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Имэйл оруулна уу';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Зөв имэйл оруулна уу';
-    }
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blob2Anim, {
+            toValue: 1,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blob2Anim, {
+            toValue: 0,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
 
-    if (!formData.password) {
-      newErrors.password = 'Нууц үг оруулна уу';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой';
-    }
+    animateBlobs();
+  }, []);
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleLogin = async () => {
-    if (!validateForm()) {
+  const handleSubmit = async () => {
+    if (!email || !password || (mode === 'register' && (!name || !username))) {
+      setError('Бүх талбарыг бөглөнө үү');
       return;
     }
 
     setLoading(true);
+    setError('');
     try {
-      const response = await apiService.login(formData);
-      
-      if (response.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Амжилттай нэвтэрлээ',
-          text2: `Тавтай морил, ${response.data.user.name}!`,
-        });
-        
-        onLogin(response.data.user, { isNewUser: false });
+      if (mode === 'login') {
+        const res = await api.login({ email, password });
+        if (res.success) {
+          onLogin(res.data.user, { isNewUser: false });
+        } else {
+          setError(res.message || 'Нэвтрэхэд алдаа гарлаа');
+        }
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Нэвтрэх алдаа',
-          text2: response.message || 'Имэйл эсвэл нууц үг буруу байна',
-        });
+        const res = await api.register({ name, username, email, password });
+        if (res.success) {
+          onLogin(res.data.user, { isNewUser: true });
+        } else {
+          setError(res.message || 'Бүртгүүлэхэд алдаа гарлаа');
+        }
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Алдаа гарлаа',
-        text2: error.message || 'Серверийн алдаа гарлаа',
-      });
+    } catch (e) {
+      setError(e.message || (mode === 'login' ? 'Нэвтрэхэд алдаа гарлаа' : 'Бүртгүүлэхэд алдаа гарлаа'));
     } finally {
       setLoading(false);
     }
   };
 
-  const navigateToRegister = () => {
-    navigation.navigate('Register');
-  };
+  const blob1Transform = blob1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.8, 1.2],
+  });
+
+  const blob2Transform = blob2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1.2, 0.8],
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
+    <View style={styles.container}>
+      {/* Animated Background */}
+      <LinearGradient
+        colors={['#000000', '#1f1f1f', '#ffffff']}
+        style={styles.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      
+      {/* Animated Blobs */}
+      <Animated.View 
+        style={[
+          styles.blob1, 
+          { 
+            transform: [{ scale: blob1Transform }] 
+          }
+        ]} 
+      />
+      <Animated.View 
+        style={[
+          styles.blob2, 
+          { 
+            transform: [{ scale: blob2Transform }] 
+          }
+        ]} 
+      />
+
+      <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
+        <ScrollView 
           contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
+          <View style={styles.formContainer}>
+            {/* Logo */}
+            <View style={styles.logoContainer}>
+              <View style={styles.logoPlaceholder}>
+                <Text style={styles.logoText}>C</Text>
+              </View>
+            </View>
+            
+            {/* Title */}
             <Text style={styles.title}>CHATLI</Text>
-            <Text style={styles.subtitle}>Нэвтрэх</Text>
-          </View>
+            <Text style={styles.subtitle}>The First Mongolian Social Platform</Text>
+            
+            {/* Beta Badge */}
+            <View style={styles.betaBadge}>
+              <Text style={styles.betaText}>
+                🚧 <Text style={styles.betaBold}>BETA хувилбар</Text> - Туршилтын горим
+              </Text>
+            </View>
 
-          {/* Login Form */}
-          <View style={styles.form}>
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Имэйл</Text>
-              <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
-                <Ionicons name="mail-outline" size={20} color="#666666" style={styles.inputIcon} />
+            {/* Form */}
+            <View style={styles.form}>
+              {mode === 'register' && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Профайл нэр"
+                      placeholderTextColor="#666"
+                      value={name}
+                      onChangeText={setName}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Нэр"
+                      placeholderTextColor="#666"
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                </>
+              )}
+              
+              <View style={styles.inputContainer}>
                 <TextInput
-                  style={styles.textInput}
-                  placeholder="your@email.com"
-                  placeholderTextColor="#999999"
-                  value={formData.email}
-                  onChangeText={(value) => handleInputChange('email', value)}
+                  style={styles.input}
+                  placeholder="Имэйл"
+                  placeholderTextColor="#666"
+                  value={email}
+                  onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!loading}
+                  autoComplete="email"
                 />
               </View>
-              {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-            </View>
-
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг</Text>
-              <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-                <Ionicons name="lock-closed-outline" size={20} color="#666666" style={styles.inputIcon} />
+              
+              <View style={styles.inputContainer}>
                 <TextInput
-                  style={styles.textInput}
-                  placeholder="Нууц үгээ оруулна уу"
-                  placeholderTextColor="#999999"
-                  value={formData.password}
-                  onChangeText={(value) => handleInputChange('password', value)}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!loading}
+                  style={styles.input}
+                  placeholder="Нууц үг"
+                  placeholderTextColor="#666"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoComplete="password"
                 />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.passwordToggle}
-                  disabled={loading}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color="#666666"
-                  />
-                </TouchableOpacity>
               </View>
-              {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
-            </View>
-
-            {/* Login Button */}
-            <TouchableOpacity
-              style={[styles.loginButton, loading && styles.buttonDisabled]}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.loginButtonText}>Нэвтрэх</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Register Link */}
-            <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>Бүртгэл байхгүй байна уу? </Text>
-              <TouchableOpacity onPress={navigateToRegister} disabled={loading}>
-                <Text style={styles.registerLink}>Бүртгүүлэх</Text>
+              
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : null}
+              
+              <TouchableOpacity
+                style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+                onPress={handleSubmit}
+                disabled={loading}
+              >
+                <Text style={styles.submitButtonText}>
+                  {loading 
+                    ? (mode === 'login' ? 'Нэвтэрч байна...' : 'Бүртгүүлж байна...') 
+                    : (mode === 'login' ? 'Нэвтрэх' : 'Бүртгүүлэх')
+                  }
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.switchModeButton}
+                onPress={() => {
+                  setMode(mode === 'login' ? 'register' : 'login');
+                  setError('');
+                }}
+              >
+                <Text style={styles.switchModeText}>
+                  {mode === 'login' ? 'Бүртгэл үүсгэх' : 'Буцах'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    position: 'relative',
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  blob1: {
+    position: 'absolute',
+    top: -100,
+    left: -100,
+    width: 200,
+    height: 200,
+    backgroundColor: 'rgba(128, 128, 128, 0.3)',
+    borderRadius: 100,
+  },
+  blob2: {
+    position: 'absolute',
+    bottom: -100,
+    right: -100,
+    width: 200,
+    height: 200,
+    backgroundColor: 'rgba(192, 192, 192, 0.3)',
+    borderRadius: 100,
   },
   keyboardView: {
     flex: 1,
@@ -206,92 +288,120 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
-  },
-  header: {
     alignItems: 'center',
-    marginBottom: 48,
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  formContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  logoContainer: {
+    marginBottom: 16,
+  },
+  logoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoText: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: 'bold',
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000000',
+    fontWeight: '800',
+    color: '#000',
     marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 2,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#666666',
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  betaBadge: {
+    backgroundColor: 'rgba(255, 165, 0, 0.2)',
+    borderColor: 'rgba(255, 165, 0, 0.3)',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 24,
+  },
+  betaText: {
+    fontSize: 12,
+    color: '#cc6600',
+    textAlign: 'center',
+  },
+  betaBold: {
+    fontWeight: 'bold',
   },
   form: {
     width: '100%',
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  label: {
+  input: {
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 8,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#ffffff',
-  },
-  inputError: {
-    borderColor: '#ef4444',
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#000000',
-  },
-  passwordToggle: {
-    padding: 4,
+    color: '#000',
+    backgroundColor: 'transparent',
   },
   errorText: {
-    fontSize: 14,
     color: '#ef4444',
-    marginTop: 4,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
   },
-  loginButton: {
-    backgroundColor: '#000000',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+  submitButton: {
+    backgroundColor: '#000',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     marginTop: 8,
     marginBottom: 24,
   },
-  buttonDisabled: {
-    backgroundColor: '#999999',
+  submitButtonDisabled: {
+    backgroundColor: '#666',
   },
-  loginButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  switchModeButton: {
+    paddingVertical: 8,
   },
-  registerText: {
+  switchModeText: {
+    color: '#666',
     fontSize: 14,
-    color: '#666666',
-  },
-  registerLink: {
-    fontSize: 14,
-    color: '#000000',
-    fontWeight: '600',
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });
 
