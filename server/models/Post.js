@@ -19,7 +19,14 @@ const postSchema = new mongoose.Schema({
       url: {
         type: String,
         required: true
-      }
+      },
+      publicId: {
+        type: String // Cloudinary public ID for deletion
+      },
+      width: Number,
+      height: Number,
+      format: String,
+      size: Number
     }
   ],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

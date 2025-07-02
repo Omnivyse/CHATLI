@@ -5,7 +5,13 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketIo = require('socket.io');
-require('dotenv').config({ path: './config.env' });
+require('dotenv').config({ path: require('path').join(__dirname, 'config.env') });
+
+// Debug environment loading
+console.log('Environment variables loaded:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('Cloudinary Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME);
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -55,6 +61,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/upload', require('./routes/upload'));
 
 // Health check
 app.get('/api/health', (req, res) => {

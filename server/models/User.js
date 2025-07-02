@@ -32,6 +32,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  avatarPublicId: {
+    type: String // Cloudinary public ID for avatar deletion
+  },
   bio: {
     type: String,
     trim: true,
@@ -69,6 +72,9 @@ const userSchema = new mongoose.Schema({
   coverImage: {
     type: String,
     default: ''
+  },
+  coverImagePublicId: {
+    type: String // Cloudinary public ID for cover image deletion
   },
   privateProfile: {
     type: Boolean,

@@ -11,48 +11,50 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
   const [error, setError] = useState('');
   const textareaRef = useRef(null);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
-    const newMedia = [];
-    let loaded = 0;
-    let hasError = false;
-
+    
     // Validate file sizes and types
     for (const file of files) {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        setError(`${file.name} файлын хэмжээ 10MB-аас бага байх ёстой`);
-        hasError = true;
-        break;
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit (Cloudinary can handle larger files)
+        setError(`${file.name} файлын хэмжээ 50MB-аас бага байх ёстой`);
+        return;
       }
       
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
         setError(`${file.name} файлын төрөл зөвхөн зураг эсвэл видео байх ёстой`);
-        hasError = true;
-        break;
+        return;
       }
     }
 
-    if (hasError) return;
+    setError('');
+    setCreating(true); // Show loading state while uploading
 
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newMedia.push({
-          type: file.type.startsWith('video') ? 'video' : 'image',
-          url: reader.result,
-          name: file.name
-        });
-        loaded++;
-        if (loaded === files.length) {
-          setMedia(prev => [...prev, ...newMedia]);
-          setError('');
-        }
-      };
-      reader.onerror = () => {
-        setError(`${file.name} файл уншихад алдаа гарлаа`);
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const response = await api.uploadFiles(files);
+      
+      if (response.success) {
+        const newMedia = response.data.map(item => ({
+          type: item.type,
+          url: item.url,
+          publicId: item.publicId,
+          width: item.width,
+          height: item.height,
+          format: item.format,
+          size: item.size
+        }));
+        
+        setMedia(prev => [...prev, ...newMedia]);
+        setError('');
+      } else {
+        setError(response.message || 'Файл байршуулахад алдаа гарлаа');
+      }
+    } catch (error) {
+      console.error('File upload error:', error);
+      setError('Файл байршуулахад алдаа гарлаа');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleRemoveMedia = (idx) => {
@@ -187,10 +189,19 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
             </div>
           )}
           <div className="flex items-center gap-3 justify-between">
-            <label className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-muted dark:bg-muted-dark rounded-lg hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition border border-border dark:border-border-dark touch-button">
+            <label className={`flex items-center gap-2 px-3 py-2 bg-muted dark:bg-muted-dark rounded-lg transition border border-border dark:border-border-dark touch-button ${creating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/80 dark:hover:bg-muted-dark/80'}`}>
               <ImageIcon className="w-5 h-5 text-primary dark:text-primary-dark" />
-              <span className="text-sm text-secondary dark:text-secondary-dark">Файл оруулах</span>
-              <input type="file" accept="image/*,video/*" multiple onChange={handleFileChange} className="hidden" />
+              <span className="text-sm text-secondary dark:text-secondary-dark">
+                {creating ? 'Байршуулж байна...' : 'Файл оруулах'}
+              </span>
+              <input 
+                type="file" 
+                accept="image/*,video/*" 
+                multiple 
+                onChange={handleFileChange} 
+                disabled={creating}
+                className="hidden" 
+              />
             </label>
             <button
               type="submit"

@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
@@ -474,6 +475,115 @@ router.post('/users/:id/cancel-follow-request', auth, async (req, res) => {
   } catch (error) {
     console.error('Cancel follow request error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
+// Delete account endpoint
+router.delete('/delete-account', auth, async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Нууц үг шаардлагатай' 
+      });
+    }
+
+    // Get user with password
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Хэрэглэгч олдсонгүй' 
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Нууц үг буруу байна' 
+      });
+    }
+
+    // Delete user's posts and associated media
+    const Post = require('../models/Post');
+    const Chat = require('../models/Chat');
+    const Notification = require('../models/Notification');
+    const { deleteFile } = require('../config/cloudinary');
+
+    // Delete user's posts and their media from Cloudinary
+    const userPosts = await Post.find({ author: user._id });
+    for (const post of userPosts) {
+      // Delete media from Cloudinary
+      if (post.media && post.media.length > 0) {
+        for (const mediaItem of post.media) {
+          if (mediaItem.publicId) {
+            try {
+              await deleteFile(mediaItem.publicId);
+            } catch (error) {
+              console.error('Error deleting media from Cloudinary:', error);
+            }
+          }
+        }
+      }
+    }
+    
+    // Delete all user's posts
+    await Post.deleteMany({ author: user._id });
+
+    // Remove user from all chats
+    await Chat.updateMany(
+      { participants: user._id },
+      { $pull: { participants: user._id } }
+    );
+
+    // Delete empty chats (chats with less than 2 participants)
+    await Chat.deleteMany({ 
+      $expr: { $lt: [{ $size: '$participants' }, 2] } 
+    });
+
+    // Delete notifications related to this user
+    await Notification.deleteMany({
+      $or: [
+        { from: user._id },
+        { to: user._id }
+      ]
+    });
+
+    // Delete user's avatar and cover image from Cloudinary
+    if (user.avatarPublicId) {
+      try {
+        await deleteFile(user.avatarPublicId);
+      } catch (error) {
+        console.error('Error deleting avatar from Cloudinary:', error);
+      }
+    }
+    
+    if (user.coverImagePublicId) {
+      try {
+        await deleteFile(user.coverImagePublicId);
+      } catch (error) {
+        console.error('Error deleting cover image from Cloudinary:', error);
+      }
+    }
+
+    // Finally, delete the user
+    await User.findByIdAndDelete(user._id);
+
+    res.json({ 
+      success: true, 
+      message: 'Акаунт амжилттай устгагдлаа' 
+    });
+
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Серверийн алдаа' 
+    });
   }
 });
 

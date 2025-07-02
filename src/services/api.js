@@ -97,6 +97,13 @@ class ApiService {
     });
   }
 
+  async deleteAccount(password) {
+    return this.request('/auth/delete-account', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+    });
+  }
+
   // Chat endpoints
   async getChats() {
     return this.request('/chats');
@@ -140,6 +147,51 @@ class ApiService {
   // Health check
   async healthCheck() {
     return this.request('/health');
+  }
+
+  // File Upload endpoints
+  async uploadFiles(files) {
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    const response = await fetch(`${this.baseURL}/upload/multiple`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    });
+    return response.json();
+  }
+
+  async uploadSingleFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${this.baseURL}/upload/single`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    });
+    return response.json();
+  }
+
+  async uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(`${this.baseURL}/upload/avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    });
+    return response.json();
   }
 
   // Post endpoints

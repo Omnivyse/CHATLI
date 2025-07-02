@@ -5,14 +5,13 @@ import {
   Save, 
   X, 
   Loader2,
-  Moon,
-  Sun,
   User,
   Mail,
-  Globe
+  Globe,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import api from '../services/api';
-import { toggleTheme, getDomTheme } from '../utils/themeUtils';
 
 const ProfileSettings = ({ user, onClose, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -21,19 +20,20 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
   const [success, setSuccess] = useState('');
   const fileInputRef = useRef(null);
   const coverInputRef = useRef(null);
-  const [isDark, setIsDark] = useState(getDomTheme() === 'dark');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
   
   const [formData, setFormData] = useState({
     name: user.name || '',
     bio: user.bio || '',
     avatar: user.avatar || '',
-    coverImage: user.coverImage || ''
+    avatarPublicId: user.avatarPublicId || '',
+    coverImage: user.coverImage || '',
+    coverImagePublicId: user.coverImagePublicId || ''
   });
 
-  const handleThemeToggle = () => {
-    const newTheme = toggleTheme();
-    setIsDark(newTheme === 'dark');
-  };
+
 
   const handleInputChange = (e) => {
     setFormData({
@@ -44,31 +44,57 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
     setSuccess('');
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({
-          ...formData,
-          avatar: reader.result // base64 string
-        });
-      };
-      reader.readAsDataURL(file);
+      setLoading(true);
+      setError('');
+      
+      try {
+        const response = await api.uploadAvatar(file);
+        
+        if (response.success) {
+          setFormData({
+            ...formData,
+            avatar: response.data.url,
+            avatarPublicId: response.data.publicId
+          });
+        } else {
+          setError(response.message || 'Зураг байршуулахад алдаа гарлаа');
+        }
+      } catch (error) {
+        console.error('Avatar upload error:', error);
+        setError('Зураг байршуулахад алдаа гарлаа');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleCoverImageUpload = (e) => {
+  const handleCoverImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({
-          ...formData,
-          coverImage: reader.result // base64 string
-        });
-      };
-      reader.readAsDataURL(file);
+      setLoading(true);
+      setError('');
+      
+      try {
+        const response = await api.uploadSingleFile(file);
+        
+        if (response.success) {
+          setFormData({
+            ...formData,
+            coverImage: response.data.url,
+            coverImagePublicId: response.data.publicId
+          });
+        } else {
+          setError(response.message || 'Ковер зураг байршуулахад алдаа гарлаа');
+        }
+      } catch (error) {
+        console.error('Cover image upload error:', error);
+        setError('Ковер зураг байршуулахад алдаа гарлаа');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -101,6 +127,39 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
     setIsEditing(false);
     setError('');
     setSuccess('');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      setError('Нууц үгээ оруулна уу');
+      return;
+    }
+
+    setDeleting(true);
+    setError('');
+    
+    try {
+      const response = await api.deleteAccount(deletePassword);
+      if (response.success) {
+        // Clear local storage and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        alert('Таны акаунт амжилттай устгагдлаа');
+        window.location.href = '/'; // Redirect to login page
+      } else {
+        setError(response.message || 'Акаунт устгахад алдаа гарлаа');
+      }
+    } catch (error) {
+      setError(error.message || 'Акаунт устгахад алдаа гарлаа');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDeletePassword('');
+    setError('');
   };
 
   return (
@@ -281,7 +340,95 @@ const ProfileSettings = ({ user, onClose, onUpdate }) => {
               </button>
             )}
           </div>
+
+
+
+          {/* Danger Zone */}
+          <div className="border-t border-red-200 dark:border-red-800 pt-6 mt-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+                Аюултай бүс
+              </h3>
+              <p className="text-sm text-secondary dark:text-secondary-dark">
+                Акаунт устгасан тохиолдолд бүх мэдээлэл бүрмөсөн устах болно.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              Акаунт устгах
+            </button>
+          </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+            <div className="bg-background dark:bg-background-dark rounded-lg shadow-xl max-w-md w-full p-6 border border-border dark:border-border-dark">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground dark:text-foreground-dark">
+                    Акаунт устгах
+                  </h3>
+                  <p className="text-sm text-secondary dark:text-secondary-dark">
+                    Энэ үйлдлийг буцаах боломжгүй
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-foreground dark:text-foreground-dark mb-4">
+                  Та өөрийн акаунтыг устгахыг хүсэж байна. Энэ нь таны бүх пост, мессеж, зураг, видео болон бусад мэдээллийг бүрмөсөн устгах болно.
+                </p>
+                <p className="text-sm text-red-600 dark:text-red-400 mb-4 font-medium">
+                  Баталгаажуулахын тулд нууц үгээ оруулна уу:
+                </p>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Нууц үг"
+                  className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-lg bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark focus:outline-none focus:ring-2 focus:ring-red-500"
+                  autoFocus
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                  <p className="text-red-500 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelDelete}
+                  disabled={deleting}
+                  className="flex-1 py-2 px-4 bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark rounded-lg hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-colors disabled:opacity-50"
+                >
+                  Цуцлах
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleting || !deletePassword.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {deleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  {deleting ? 'Устгаж байна...' : 'Акаунт устгах'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
