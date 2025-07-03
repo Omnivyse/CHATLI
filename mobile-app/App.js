@@ -20,6 +20,7 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import PostFeedScreen from './src/screens/PostFeedScreen';
+import ClipsScreen from './src/screens/ClipsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
 import UserSearchScreen from './src/screens/UserSearchScreen';
@@ -52,6 +53,8 @@ function MainTabNavigator({ user, onLogout }) {
 
           if (route.name === 'Feed') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Clips') {
+            iconName = focused ? 'film' : 'film-outline';
           } else if (route.name === 'Chats') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Notifications') {
@@ -112,8 +115,12 @@ function MainTabNavigator({ user, onLogout }) {
         headerShown: false,
       })}
     >
-            <Tab.Screen name="Feed">
+      <Tab.Screen name="Feed">
         {(props) => <PostFeedScreen {...props} user={user} />}
+      </Tab.Screen>
+      
+      <Tab.Screen name="Clips">
+        {(props) => <ClipsScreen {...props} user={user} />}
       </Tab.Screen>
       
       <Tab.Screen name="Chats">
@@ -149,14 +156,14 @@ function AuthStackNavigator({ onLogin }) {
     >
       <Stack.Screen 
         name="Login" 
-        options={{ title: 'Нэвтрэх' }}
+        options={{ headerShown: false }}
       >
         {(props) => <LoginScreen {...props} onLogin={onLogin} />}
       </Stack.Screen>
       
       <Stack.Screen 
         name="Register" 
-        options={{ title: 'Бүртгүүлэх' }}
+        options={{ headerShown: false }}
       >
         {(props) => <RegisterScreen {...props} onLogin={onLogin} />}
       </Stack.Screen>
@@ -205,14 +212,7 @@ function MainStackNavigator({ user, onLogout }) {
       <Stack.Screen 
         name="CreatePost"
         options={{
-          headerShown: true,
-          title: 'Шинэ пост',
-          headerBackTitleVisible: false,
-          headerStyle: {
-            backgroundColor: '#fff',
-            shadowOpacity: 0,
-            elevation: 0,
-          },
+          headerShown: false,
           presentation: 'modal',
         }}
       >

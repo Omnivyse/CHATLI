@@ -148,14 +148,57 @@ const LoginScreen = ({ onLogin }) => {
           <View style={styles.formContainer}>
             {/* Logo */}
             <View style={styles.logoContainer}>
-              <View style={styles.logoPlaceholder}>
-                <Text style={styles.logoText}>C</Text>
-              </View>
+              <Image
+                source={require('../../assets/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
             
             {/* Title */}
             <Text style={styles.title}>CHATLI</Text>
-            <Text style={styles.subtitle}>The First Mongolian Social Platform</Text>
+            
+            {/* Mode Selection Buttons */}
+            <View style={styles.modeSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  styles.loginButton,
+                  mode === 'login' && styles.activeLoginButton
+                ]}
+                onPress={() => {
+                  setMode('login');
+                  setError('');
+                }}
+              >
+                <Text style={[
+                  styles.modeButtonText,
+                  mode === 'login' && styles.activeModeButtonText
+                ]}>
+                  Нэвтрэх
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  styles.registerButton,
+                  mode === 'register' && styles.activeRegisterButton
+                ]}
+                onPress={() => {
+                  setMode('register');
+                  setError('');
+                }}
+              >
+                <Text style={[
+                  styles.modeButtonText,
+                  styles.registerButtonText,
+                  mode === 'register' && styles.activeRegisterButtonText
+                ]}>
+                  Бүртгүүлэх
+                </Text>
+              </TouchableOpacity>
+            </View>
             
             {/* Beta Badge */}
             <View style={styles.betaBadge}>
@@ -221,7 +264,11 @@ const LoginScreen = ({ onLogin }) => {
               ) : null}
               
               <TouchableOpacity
-                style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+                style={[
+                  styles.submitButton, 
+                  mode === 'register' && styles.submitButtonRegister,
+                  loading && styles.submitButtonDisabled
+                ]}
                 onPress={handleSubmit}
                 disabled={loading}
               >
@@ -230,18 +277,6 @@ const LoginScreen = ({ onLogin }) => {
                     ? (mode === 'login' ? 'Нэвтэрч байна...' : 'Бүртгүүлж байна...') 
                     : (mode === 'login' ? 'Нэвтрэх' : 'Бүртгүүлэх')
                   }
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.switchModeButton}
-                onPress={() => {
-                  setMode(mode === 'login' ? 'register' : 'login');
-                  setError('');
-                }}
-              >
-                <Text style={styles.switchModeText}>
-                  {mode === 'login' ? 'Бүртгэл үүсгэх' : 'Буцах'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -311,32 +346,74 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: 16,
   },
-  logoPlaceholder: {
+  logo: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
     color: '#000',
-    marginBottom: 8,
+    marginBottom: 32,
     textAlign: 'center',
     letterSpacing: 2,
   },
-  subtitle: {
-    fontSize: 14,
+  modeSelector: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+    padding: 4,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  loginButton: {
+    backgroundColor: 'transparent',
+  },
+  activeLoginButton: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  registerButton: {
+    backgroundColor: 'transparent',
+  },
+  activeRegisterButton: {
+    backgroundColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#666',
-    marginBottom: 16,
-    textAlign: 'center',
+  },
+  activeModeButtonText: {
+    color: '#000',
+  },
+  registerButtonText: {
+    color: '#666',
+  },
+  activeRegisterButtonText: {
+    color: '#fff',
   },
   betaBadge: {
     backgroundColor: 'rgba(255, 165, 0, 0.2)',
@@ -345,7 +422,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   betaText: {
     fontSize: 12,
@@ -379,29 +456,40 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#000',
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    marginTop: 8,
+    marginTop: 16,
     marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  submitButtonRegister: {
+    backgroundColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
   submitButtonDisabled: {
     backgroundColor: '#666',
+    shadowOpacity: 0.1,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-  },
-  switchModeButton: {
-    paddingVertical: 8,
-  },
-  switchModeText: {
-    color: '#666',
-    fontSize: 14,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
   },
 });
 

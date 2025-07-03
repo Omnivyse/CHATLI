@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,6 +75,44 @@ const CreatePostScreen = ({ navigation, user }) => {
     } catch (error) {
       console.error('Error selecting media:', error);
       Alert.alert('Алдаа', 'Медиа файл сонгоход алдаа гарлаа');
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      // Request camera permission
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Зөвшөөрөл', 'Зураг авахын тулд камерын зөвшөөрөл шаардлагатай.');
+        return;
+      }
+
+      // Launch camera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets?.length > 0) {
+        const asset = result.assets[0];
+        
+        const newMedia = {
+          id: Date.now().toString(),
+          uri: asset.uri,
+          type: asset.type,
+          width: asset.width,
+          height: asset.height,
+          thumbnail: null,
+        };
+
+        setSelectedMedia(prev => [...prev, newMedia]);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Алдаа', 'Зураг авахад алдаа гарлаа');
     }
   };
 
@@ -188,10 +228,8 @@ const CreatePostScreen = ({ navigation, user }) => {
           onPress={() => navigation.goBack()}
           disabled={loading}
         >
-          <Text style={styles.cancelButtonText}>Болих</Text>
+          <Ionicons name="close" size={24} color="#666" />
         </TouchableOpacity>
-        
-        <Text style={styles.headerTitle}>Шинэ пост</Text>
         
         <TouchableOpacity
           style={[
@@ -209,87 +247,108 @@ const CreatePostScreen = ({ navigation, user }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* User Info */}
-        <View style={styles.userSection}>
-          <Image
-            source={{
-              uri: user.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-            }}
-            style={styles.userAvatar}
-          />
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userHandle}>@{user.username}</Text>
+            <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
+      >
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* User Info */}
+          <View style={styles.userSection}>
+            <Image
+              source={{
+                uri: user.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+              }}
+              style={styles.userAvatar}
+            />
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{user.name}</Text>
+              <Text style={styles.userHandle}>@{user.username}</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Content Input */}
-        <View style={styles.inputSection}>
-          <TextInput
-            style={styles.contentInput}
-            placeholder="Юу бодож байна?"
-            placeholderTextColor="#666"
-            value={content}
-            onChangeText={setContent}
-            multiline
-            textAlignVertical="top"
-            maxLength={2000}
-            editable={!loading}
-          />
+          {/* Content Input */}
+          <View style={styles.inputSection}>
+            <TextInput
+              style={styles.contentInput}
+              placeholder="Юу бодож байна?"
+              placeholderTextColor="#666"
+              value={content}
+              onChangeText={setContent}
+              multiline
+              textAlignVertical="top"
+              maxLength={2000}
+              editable={!loading}
+            />
+            
+            {/* Character Count */}
+            <View style={styles.characterCount}>
+              <Text style={[
+                styles.characterCountText,
+                content.length > 1800 && styles.characterCountWarning,
+                content.length >= 2000 && styles.characterCountError
+              ]}>
+                {content.length}/2000
+              </Text>
+            </View>
+          </View>
+
+          {/* Media Preview */}
+          {selectedMedia.length > 0 && (
+            <View style={styles.mediaSection}>
+              <Text style={styles.mediaSectionTitle}>Медиа файлууд</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.mediaScroll}
+              >
+                {selectedMedia.map(renderMediaItem)}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Upload Progress */}
+          {uploadingMedia && (
+            <View style={styles.uploadProgress}>
+              <ActivityIndicator size="small" color="#000" />
+              <Text style={styles.uploadProgressText}>Медиа файл байршуулж байна...</Text>
+            </View>
+          )}
+        </ScrollView>
+
+                {/* Bottom Actions */}
+        <View style={styles.bottomActions}>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleSelectMedia}
+              disabled={loading || selectedMedia.length >= 4}
+            >
+              <Ionicons name="image" size={22} color="#000" />
+              <Text style={styles.actionButtonText}>Медиа</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleTakePhoto}
+              disabled={loading || selectedMedia.length >= 4}
+            >
+              <Ionicons name="camera" size={22} color="#000" />
+              <Text style={styles.actionButtonText}>Камер</Text>
+            </TouchableOpacity>
+          </View>
           
-          {/* Character Count */}
-          <View style={styles.characterCount}>
-            <Text style={[
-              styles.characterCountText,
-              content.length > 1800 && styles.characterCountWarning,
-              content.length >= 2000 && styles.characterCountError
-            ]}>
-              {content.length}/2000
+          <View style={styles.mediaCount}>
+            <Text style={styles.mediaCountText}>
+              {selectedMedia.length}/4
             </Text>
           </View>
         </View>
-
-        {/* Media Preview */}
-        {selectedMedia.length > 0 && (
-          <View style={styles.mediaSection}>
-            <Text style={styles.mediaSectionTitle}>Медиа файлууд</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.mediaScroll}
-            >
-              {selectedMedia.map(renderMediaItem)}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Upload Progress */}
-        {uploadingMedia && (
-          <View style={styles.uploadProgress}>
-            <ActivityIndicator size="small" color="#000" />
-            <Text style={styles.uploadProgressText}>Медиа файл байршуулж байна...</Text>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
-        <TouchableOpacity
-          style={styles.mediaButton}
-          onPress={handleSelectMedia}
-          disabled={loading || selectedMedia.length >= 4}
-        >
-          <Ionicons name="image" size={24} color="#000" />
-          <Text style={styles.mediaButtonText}>Медиа</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.mediaCount}>
-          <Text style={styles.mediaCountText}>
-            {selectedMedia.length}/4
-          </Text>
-        </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -303,23 +362,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
   cancelButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
+    padding: 8,
+    borderRadius: 20,
   },
   postButton: {
     backgroundColor: '#000',
@@ -337,16 +387,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  keyboardView: {
+    flex: 1,
+  },
   content: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 4,
   },
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8f8f8',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   userAvatar: {
     width: 48,
@@ -369,19 +424,21 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   inputSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   contentInput: {
     fontSize: 18,
     color: '#000',
     lineHeight: 24,
-    minHeight: 120,
+    minHeight: 100,
     textAlignVertical: 'top',
+    marginTop: 0,
   },
   characterCount: {
     alignItems: 'flex-end',
-    marginTop: 8,
+    marginTop: 2,
   },
   characterCountText: {
     fontSize: 12,
@@ -394,17 +451,17 @@ const styles = StyleSheet.create({
     color: '#ff3b30',
   },
   mediaSection: {
-    paddingVertical: 16,
+    paddingVertical: 4,
   },
   mediaSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
-    marginBottom: 12,
-    paddingHorizontal: 20,
+    marginBottom: 2,
+    paddingHorizontal: 16,
   },
   mediaScroll: {
-    paddingLeft: 20,
+    paddingLeft: 16,
   },
   mediaItem: {
     position: 'relative',
@@ -438,10 +495,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
     backgroundColor: '#f8f8f8',
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     borderRadius: 8,
   },
   uploadProgressText: {
@@ -453,25 +510,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     backgroundColor: '#ffffff',
   },
-  mediaButton: {
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 12,
   },
-  mediaButtonText: {
-    fontSize: 14,
+  actionButtonText: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#000',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   mediaCount: {
     backgroundColor: '#f0f0f0',
