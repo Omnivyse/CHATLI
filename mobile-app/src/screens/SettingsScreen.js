@@ -11,10 +11,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { useTheme } from '../contexts/ThemeContext';
 
 const SettingsScreen = ({ navigation, user, onLogout }) => {
+  const { theme, toggleTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [autoDownload, setAutoDownload] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -33,11 +34,11 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
         {
           icon: 'moon-outline',
           title: 'Харанхуй горим',
-          subtitle: 'Удахгүй нэмэгдэнэ',
+          subtitle: 'Хар болон цагаан горим',
           type: 'switch',
-          value: darkMode,
-          onToggle: setDarkMode,
-          disabled: true,
+          value: theme === 'dark',
+          onToggle: toggleTheme,
+          disabled: false,
         },
         {
           icon: 'volume-high-outline',
@@ -216,7 +217,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, theme === 'dark' && { backgroundColor: '#111' }]}>
       <ScrollView style={styles.scrollView}>
         {settingsSections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>

@@ -9,6 +9,7 @@ import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { ThemeProvider } from './src/contexts/ThemeContext';
 
 // Services
 import apiService from './src/services/api';
@@ -356,7 +357,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <ThemeProvider>
       <NavigationContainer>
         <StatusBar style="dark" backgroundColor="#ffffff" />
         {user ? (
@@ -371,7 +372,7 @@ export default function App() {
       {showSplash && (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
       )}
-    </>
+    </ThemeProvider>
   );
 }
 
