@@ -9,16 +9,29 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import api from '../services/api';
 
-const { width, height } = Dimensions.get('window');
+const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
+
+const GAP = 8; // px between videos
+const ASPECT_RATIO = 9 / 16;
+const VIDEO_BOX_WIDTH = windowWidth;
+const VIDEO_BOX_HEIGHT = VIDEO_BOX_WIDTH / ASPECT_RATIO;
+const GAP_BETWEEN_VIDEOS = 100;
 
 const ClipsScreen = ({ navigation, user }) => {
+  const insets = useSafeAreaInsets();
+  const TAB_BAR_HEIGHT = 72; // matches App.js tabBarStyle height
+  const CLIP_CONTAINER_HEIGHT = windowHeight - TAB_BAR_HEIGHT - insets.bottom;
+  const ITEM_HEIGHT = CLIP_CONTAINER_HEIGHT + GAP;
+
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -164,33 +177,42 @@ const ClipsScreen = ({ navigation, user }) => {
     return Math.abs(hash % 100) + 10; // 10-109x multiplier for more realistic views
   };
 
-
+  // Utility to always return a string for any value
+  const safeText = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string' || typeof val === 'number') return String(val);
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return '';
+    }
+  };
 
   const renderClipItem = ({ item, index }) => {
-    const media = item.media[0]; // Use first media item
+    const media = item.media[0];
     const isLiked = item.likes.includes(user._id);
-
+    // Center the 9:16 box vertically
+    const verticalPadding = Math.max(0, (CLIP_CONTAINER_HEIGHT - VIDEO_BOX_HEIGHT) / 2);
+    // Add gap below except for last item
+    const isLast = index === posts.length - 1;
     return (
-      <View style={styles.clipContainer}>
-        {/* Video Content */}
-        <TouchableOpacity
-          style={styles.videoContainer}
-          activeOpacity={1}
-          onPress={() => handleVideoTap(item._id)}
-          onLongPress={() => handleLongPress(item._id)}
-          onPressOut={() => handlePressOut(item._id)}
-          delayLongPress={500}
-        >
+      <View style={[styles.clipContainer, { height: CLIP_CONTAINER_HEIGHT, marginBottom: isLast ? 0 : GAP_BETWEEN_VIDEOS }]}> {/* Add gap below except last */}
+        {/* Transparent Text to prevent RN error */}
+        <Text style={{opacity: 0, height: 0}}> </Text>
+        {/* Black space above */}
+        {verticalPadding > 0 && <View style={{ height: verticalPadding, width: '100%', backgroundColor: '#000' }} />}
+        {/* 9:16 Video Box */}
+        <View style={styles.videoBox}>
           <Video
             ref={(ref) => {
               videoRefs.current[item._id] = ref;
             }}
             source={{ uri: media.url }}
-            style={styles.media}
+            style={styles.video}
             shouldPlay={index === currentIndex && !pausedVideos[item._id]}
             isLooping
             isMuted={false}
-            resizeMode="cover"
+            resizeMode="contain"
             onError={(error) => {
               console.error('Video error:', error);
             }}
@@ -211,156 +233,97 @@ const ClipsScreen = ({ navigation, user }) => {
               </View>
             </View>
           )}
-        </TouchableOpacity>
-
-        {/* Top Gradient Overlay */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.4)', 'transparent']}
-          style={styles.topGradientOverlay}
-        />
-
-        {/* Bottom Gradient Overlay */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']}
-          style={styles.bottomGradientOverlay}
-        />
-
-        {/* Content Overlay */}
-        <View style={styles.contentOverlay}>
-          {/* Right Side Actions */}
-          <View style={styles.rightActions}>
-            {/* Like Button */}
-            <TouchableOpacity
-              style={[styles.actionButton, isLiked && styles.likedButton]}
-              onPress={() => handleLike(item._id)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.actionIconContainer}>
-                <Ionicons
-                  name={isLiked ? 'heart' : 'heart-outline'}
-                  size={28}
-                  color={isLiked ? '#ff3040' : '#ffffff'}
-                />
-              </View>
-              <Text style={[styles.actionText, isLiked && styles.likedText]}>
-                {formatViewCount(item.likes.length)}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Comment Button */}
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => {
-                Alert.alert('Сэтгэгдэл', 'Сэтгэгдэл функц удахгүй нэмэгдэнэ');
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="chatbubble-outline" size={26} color="#ffffff" />
-              </View>
-              <Text style={styles.actionText}>{formatViewCount(item.comments.length)}</Text>
-            </TouchableOpacity>
-
-            {/* More Options */}
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => {
-                Alert.alert(
-                  'Нэмэлт сонголт', 
-                  'Энэ клип дээр юу хийх вэ?',
-                  [
-                    { text: 'Хадгалах', onPress: () => console.log('Save pressed') },
-                    { text: 'Репорт', onPress: () => console.log('Report pressed') },
-                    { text: 'Болих', style: 'cancel' }
-                  ]
-                );
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="ellipsis-horizontal" size={26} color="#ffffff" />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Bottom Info */}
-          <View style={styles.bottomInfo}>
-            {/* User Info */}
-            <View style={styles.userInfoContainer}>
-              <View style={styles.userInfo}>
-                <View style={styles.avatarContainer}>
-                  <Image
-                    source={{
-                      uri: item.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-                    }}
-                    style={styles.userAvatar}
-                  />
-                  <View style={styles.liveIndicator} />
-                </View>
-                <View style={styles.userDetails}>
-                  <View style={styles.userNameRow}>
-                    <Text style={styles.userName}>@{item.author.username}</Text>
-                  </View>
-                  <View style={styles.metaInfo}>
-                    <Text style={styles.timeAgo}>{formatTimeAgo(item.createdAt)}</Text>
-                    <Text style={styles.dot}>•</Text>
-                    <Text style={styles.viewCount}>{formatViewCount(item.likes.length * getViewMultiplier(item._id))} үзсэн</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Follow Button - Only show for other users */}
-              {item.author._id !== user._id && (
-                <TouchableOpacity style={styles.followButton} activeOpacity={0.8}>
-                  <Text style={styles.followButtonText}>Дагах</Text>
-                </TouchableOpacity>
-              )}
+          {/* Overlays: SafeAreaView for icons and info, positioned absolutely over the 9:16 box */}
+          <SafeAreaView style={styles.overlaySafeArea} pointerEvents="box-none">
+            {/* Top Watermark */}
+            <View style={styles.watermark}>
+              <Text style={styles.watermarkText}>CHATLI clips</Text>
             </View>
-
-            {/* Post Content */}
-            {item.content && (
-              <View style={styles.contentContainer}>
-                <Text style={styles.postContent} numberOfLines={2}>
-                  {item.content}
+            {/* Right Side Actions (centered vertically in 9:16 box) */}
+            <View style={[styles.rightActionsFixed, { top: VIDEO_BOX_HEIGHT / 2 - 90 }]}> {/* 90 = half the icon stack height */}
+              <TouchableOpacity
+                style={[styles.actionButton, isLiked && styles.likedButton]}
+                onPress={() => handleLike(item._id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.actionIconContainer}>
+                  <Ionicons
+                    name={isLiked ? 'heart' : 'heart-outline'}
+                    size={28}
+                    color={isLiked ? '#ff3040' : '#ffffff'}
+                  />
+                </View>
+                <Text style={[styles.actionText, isLiked && styles.likedText]}>
+                  {safeText(formatViewCount(item.likes?.length))}
                 </Text>
-                <TouchableOpacity activeOpacity={0.7}>
-                  <Text style={styles.seeMore}>дэлгэрэнгүй</Text>
-                </TouchableOpacity>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => {
+                  Alert.alert('Сэтгэгдэл', 'Сэтгэгдэл функц удахгүй нэмэгдэнэ');
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.actionIconContainer}>
+                  <Ionicons name="chatbubble-outline" size={26} color="#ffffff" />
+                </View>
+                <Text style={styles.actionText}>{safeText(formatViewCount(item.comments?.length))}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => {
+                  Alert.alert(
+                    'Нэмэлт сонголт', 
+                    'Энэ клип дээр юу хийх вэ?',
+                    [
+                      { text: 'Хадгалах', onPress: () => console.log('Save pressed') },
+                      { text: 'Репорт', onPress: () => console.log('Report pressed') },
+                      { text: 'Болих', style: 'cancel' }
+                    ]
+                  );
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.actionIconContainer}>
+                  <Ionicons name="ellipsis-horizontal" size={26} color="#ffffff" />
+                </View>
+              </TouchableOpacity>
+            </View>
+            {/* Bottom Left: Publisher Info & Description (just above nav) */}
+            <View style={[styles.bottomInfoFixed, { bottom: TAB_BAR_HEIGHT + insets.bottom + 16 }]}> {/* 16px padding above nav */}
+              <View style={styles.publisherRow}>
+                <Image
+                  source={{ uri: item.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' }}
+                  style={styles.userAvatar}
+                />
+                <View style={styles.publisherDetails}>
+                  <View style={styles.publisherNameRow}>
+                    <Text style={styles.userName}>{safeText(item.author?.name) || '@'}</Text>
+                    <Text style={styles.dot}>•</Text>
+                    <Text style={styles.timeAgo}>{safeText(formatTimeAgo(item.createdAt))}</Text>
+                    <Text style={styles.dot}>•</Text>
+                    <Text style={styles.viewCount}>{safeText(formatViewCount(item.likes?.length))} үзсэн</Text>
+                  </View>
+                  <Text style={styles.postContent}>{safeText(item.content)}</Text>
+                </View>
               </View>
-            )}
-
-
-          </View>
+              <TouchableOpacity style={styles.followButton}>
+                <Text style={styles.followButtonText}>Дагах</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         </View>
-
-
-
-        {/* CHATLI Watermark */}
-        <View style={styles.watermark}>
-          <Text style={styles.watermarkText}>CHATLI clips</Text>
-        </View>
-
-        {/* Video Progress Bar */}
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBarBackground}>
-            <View 
-              style={[
-                styles.progressBar, 
-                { width: `${(videoProgress[item._id] || 0) * 100}%` }
-              ]} 
-            />
-          </View>
-        </View>
+        {/* Brighter gap below */}
+        {!isLast && <View style={{ height: GAP_BETWEEN_VIDEOS, width: '100%', backgroundColor: 'transparent' }} />}
       </View>
     );
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
-          <Text style={styles.loadingText}>Видео клипууд ачаалж байна...</Text>
+      <SafeAreaView style={styles.rootContainer}>
+        <View style={[styles.loadingContainer, { backgroundColor: '#000' }]}>
+          <ActivityIndicator size="large" color="#fff" />
         </View>
       </SafeAreaView>
     );
@@ -368,7 +331,7 @@ const ClipsScreen = ({ navigation, user }) => {
 
   if (posts.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.rootContainer}>
         <View style={styles.emptyContainer}>
           <Ionicons name="videocam-outline" size={64} color="#ccc" />
           <Text style={styles.emptyText}>Видео клип олдсонгүй</Text>
@@ -379,35 +342,32 @@ const ClipsScreen = ({ navigation, user }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.rootContainer}>
+      <Text style={{opacity: 0, height: 0}}> </Text>
+      <StatusBar style="light" />
       <FlatList
         ref={flatListRef}
         data={posts}
+        keyExtractor={item => (item && item._id ? String(item._id) : Math.random().toString())}
         renderItem={renderClipItem}
-        keyExtractor={(item) => item._id}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        getItemLayout={(data, index) => ({
-          length: height,
-          offset: height * index,
-          index,
-        })}
-        snapToInterval={height}
-        snapToAlignment="start"
-        decelerationRate="fast"
-        bounces={false}
-        scrollEventThrottle={16}
+        initialNumToRender={2}
+        windowSize={3}
+        style={{ flex: 1, backgroundColor: '#000' }}
+        contentContainerStyle={{ flexGrow: 1, backgroundColor: '#000', paddingBottom: 0, marginBottom: 0 }}
+        snapToInterval={CLIP_CONTAINER_HEIGHT}
+        decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
+        getItemLayout={(data, index) => ({ length: CLIP_CONTAINER_HEIGHT, offset: CLIP_CONTAINER_HEIGHT * index, index })}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  rootContainer: {
     flex: 1,
     backgroundColor: '#000',
   },
@@ -416,12 +376,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
-  },
-  loadingText: {
-    color: '#fff',
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '500',
   },
   emptyContainer: {
     flex: 1,
@@ -441,65 +395,150 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   clipContainer: {
-    width: width,
-    height: height,
+    width: windowWidth,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
   },
-  videoContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
+  videoBox: {
+    width: VIDEO_BOX_WIDTH,
+    height: VIDEO_BOX_HEIGHT,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
-  media: {
-    width: '100%',
-    height: '100%',
+  video: {
+    width: VIDEO_BOX_WIDTH,
+    height: VIDEO_BOX_HEIGHT,
+    backgroundColor: '#000',
   },
   playPauseOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 10,
   },
   playIcon: {
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 35,
-    width: 70,
-    height: 70,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  topGradientOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-  },
-  bottomGradientOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-  },
-  contentOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  overlaySafeArea: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
     justifyContent: 'space-between',
+    width: '100%',
   },
-  rightActions: {
+  watermark: {
     position: 'absolute',
-    right: 12,
-    top: '50%',
-    transform: [{ translateY: -80 }],
+    top: 50,
+    left: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  watermarkText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    opacity: 0.8,
+  },
+  rightActionsFixed: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 10,
     alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  bottomInfoFixed: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    width: '70%',
+  },
+  publisherRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 8,
+  },
+  publisherDetails: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  publisherNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#fff',
+    marginRight: 2,
+  },
+  userName: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  dot: {
+    color: '#ffffff',
+    fontSize: 12,
+    marginHorizontal: 4,
+    opacity: 0.6,
+  },
+  timeAgo: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.8,
+  },
+  viewCount: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.8,
+  },
+  postContent: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '400',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    marginTop: 2,
+  },
+  followButton: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  followButtonText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '700',
   },
   actionButton: {
     alignItems: 'center',
@@ -537,154 +576,6 @@ const styles = StyleSheet.create({
   },
   likedText: {
     color: '#ff3040',
-  },
-  bottomInfo: {
-    position: 'absolute',
-    bottom: 120,
-    left: 16,
-    right: 75,
-  },
-  userInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  userAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  liveIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#00ff88',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  userDetails: {
-    flex: 1,
-  },
-  userNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userName: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-
-  metaInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  timeAgo: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-    opacity: 0.8,
-  },
-  dot: {
-    color: '#ffffff',
-    fontSize: 12,
-    marginHorizontal: 4,
-    opacity: 0.6,
-  },
-  viewCount: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-    opacity: 0.8,
-  },
-  followButton: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  followButtonText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  contentContainer: {
-    marginBottom: 12,
-  },
-  postContent: {
-    color: '#ffffff',
-    fontSize: 14,
-    lineHeight: 20,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  seeMore: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    opacity: 0.8,
-    marginTop: 2,
-  },
-
-  watermark: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  watermarkText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-    opacity: 0.8,
-  },
-  progressBarContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: 'transparent',
-  },
-  progressBarBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    height: 3,
-  },
-  progressBar: {
-    height: 3,
-    backgroundColor: '#ffffff',
   },
 });
 

@@ -55,7 +55,7 @@ const ChatScreen = ({ navigation, route, user }) => {
       setLoading(true);
       const response = await api.getMessages(chatId);
       if (response.success) {
-        setMessages(response.data.messages.reverse()); // Reverse to show newest at bottom
+        setMessages(response.data.messages); // Show messages in correct order (latest at bottom)
         
         // Mark messages as read
         await api.markChatAsRead(chatId);

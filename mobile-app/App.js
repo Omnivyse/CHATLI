@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { StatusBar, Platform } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 
 // Services
 import apiService from './src/services/api';
@@ -20,12 +21,14 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import PostFeedScreen from './src/screens/PostFeedScreen';
-import ClipsScreen from './src/screens/ClipsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import UserProfileScreen from './src/screens/UserProfileScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
 import UserSearchScreen from './src/screens/UserSearchScreen';
 import CreatePostScreen from './src/screens/CreatePostScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
+import ClipsScreen from './src/screens/ClipsScreen';
 
 // Components
 import LoadingScreen from './src/components/LoadingScreen';
@@ -118,19 +121,15 @@ function MainTabNavigator({ user, onLogout }) {
       <Tab.Screen name="Feed">
         {(props) => <PostFeedScreen {...props} user={user} />}
       </Tab.Screen>
-      
       <Tab.Screen name="Clips">
         {(props) => <ClipsScreen {...props} user={user} />}
       </Tab.Screen>
-      
       <Tab.Screen name="Chats">
         {(props) => <ChatListScreen {...props} user={user} />}
       </Tab.Screen>
-      
       <Tab.Screen name="Notifications">
         {(props) => <NotificationScreen {...props} user={user} />}
       </Tab.Screen>
-      
       <Tab.Screen name="Profile">
         {(props) => <ProfileScreen {...props} user={user} onLogout={onLogout} />}
       </Tab.Screen>
@@ -186,14 +185,7 @@ function MainStackNavigator({ user, onLogout }) {
       <Stack.Screen 
         name="Chat"
         options={{
-          headerShown: true,
-          headerTitle: '',
-          headerBackTitleVisible: false,
-          headerStyle: {
-            backgroundColor: '#fff',
-            shadowOpacity: 0,
-            elevation: 0,
-          },
+          headerShown: false
         }}
       >
         {(props) => <ChatScreen {...props} user={user} />}
@@ -227,6 +219,26 @@ function MainStackNavigator({ user, onLogout }) {
           headerBackTitleVisible: false,
         }}
       />
+      
+      <Stack.Screen 
+        name="UserProfile"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {(props) => <UserProfileScreen {...props} user={user} />}
+      </Stack.Screen>
+      
+      <Stack.Screen 
+        name="EditProfile"
+        options={{
+          headerShown: true,
+          title: 'Профайл засах',
+          headerBackTitleVisible: false,
+        }}
+      >
+        {(props) => <EditProfileScreen {...props} user={user} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
@@ -236,6 +248,29 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [appIsReady, setAppIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const notificationListener = useRef();
+  const responseListener = useRef();
+
+  // Register notification listeners ONCE at the top level
+  useEffect(() => {
+    registerForPushNotificationsAsync().then(token => {
+      // TODO: Save this token to your backend for this user!
+      console.log('Expo Push Token:', token);
+    });
+
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification response:', response);
+    });
+
+    return () => {
+      if (notificationListener.current) Notifications.removeNotificationSubscription(notificationListener.current);
+      if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current);
+    };
+  }, []);
 
   useEffect(() => {
     async function prepare() {
@@ -338,4 +373,29 @@ export default function App() {
       )}
     </>
   );
+}
+
+// Helper function
+async function registerForPushNotificationsAsync() {
+  let token;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== 'granted') {
+    alert('Failed to get push token for push notification!');
+    return;
+  }
+  token = (await Notifications.getExpoPushTokenAsync()).data;
+  return token;
 } 

@@ -150,7 +150,15 @@ const UserSearchScreen = ({ navigation, user }) => {
     const isFollowing = following.some(f => f._id === targetUser._id) || targetUser.isFollowing;
 
     return (
-      <View style={styles.userItem}>
+      <TouchableOpacity 
+        style={styles.userItem}
+        onPress={() => {
+          navigation.navigate('UserProfile', {
+            userId: targetUser._id,
+            userName: targetUser.name
+          });
+        }}
+      >
         <Image
           source={{ 
             uri: targetUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
@@ -176,7 +184,10 @@ const UserSearchScreen = ({ navigation, user }) => {
           {!isFollowing && (
             <TouchableOpacity
               style={styles.followButton}
-              onPress={() => handleFollowUser(targetUser)}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleFollowUser(targetUser);
+              }}
             >
               <Text style={styles.followButtonText}>Дагах</Text>
             </TouchableOpacity>
@@ -184,7 +195,10 @@ const UserSearchScreen = ({ navigation, user }) => {
           
           <TouchableOpacity
             style={[styles.chatButton, isLoading && styles.chatButtonDisabled]}
-            onPress={() => handleStartChat(targetUser)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleStartChat(targetUser);
+            }}
             disabled={isLoading}
           >
             {isLoading ? (
@@ -194,7 +208,7 @@ const UserSearchScreen = ({ navigation, user }) => {
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -204,7 +218,12 @@ const UserSearchScreen = ({ navigation, user }) => {
     return (
       <TouchableOpacity
         style={styles.followingItem}
-        onPress={() => handleStartChat(targetUser)}
+        onPress={() => {
+          navigation.navigate('UserProfile', {
+            userId: targetUser._id,
+            userName: targetUser.name
+          });
+        }}
         disabled={isLoading}
       >
         <Image

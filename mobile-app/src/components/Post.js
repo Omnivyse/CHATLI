@@ -205,7 +205,17 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
     <View style={styles.container}>
       {/* Post Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.userInfo}>
+        <TouchableOpacity 
+          style={styles.userInfo}
+          onPress={() => {
+            if (navigation && localPost.author._id !== user._id) {
+              navigation.navigate('UserProfile', {
+                userId: localPost.author._id,
+                userName: localPost.author.name
+              });
+            }
+          }}
+        >
           {localPost.author.avatar ? (
             <Image source={{ uri: localPost.author.avatar }} style={styles.avatar} />
           ) : (

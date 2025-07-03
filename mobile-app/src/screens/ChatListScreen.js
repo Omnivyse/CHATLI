@@ -30,7 +30,13 @@ const ChatListScreen = ({ navigation, user }) => {
       setError('');
       const response = await api.getChats();
       if (response.success) {
-        setChats(response.data.chats);
+        // Sort chats by most recent message (standard chat app behavior)
+        const sortedChats = response.data.chats.slice().sort((a, b) => {
+          const aTime = new Date(a.lastMessage?.timestamp || a.createdAt);
+          const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
+          return bTime - aTime;
+        });
+        setChats(sortedChats);
       } else {
         setError('Чат жагсаалтыг уншихад алдаа гарлаа');
       }
@@ -75,7 +81,7 @@ const ChatListScreen = ({ navigation, user }) => {
                 timestamp: message.createdAt,
                 isRead: false
               },
-              unreadCount: chat.unreadCount + 1
+              unreadCount: message.sender._id !== user._id ? chat.unreadCount + 1 : chat.unreadCount
             };
           }
           return chat;
@@ -189,6 +195,17 @@ const ChatListScreen = ({ navigation, user }) => {
     <TouchableOpacity
       style={styles.chatItem}
       onPress={() => handleChatPress(chat)}
+      onLongPress={() => {
+        if (chat.type === 'direct') {
+          const otherParticipant = chat.participants.find(p => p._id !== user._id);
+          if (otherParticipant) {
+            navigation.navigate('UserProfile', {
+              userId: otherParticipant._id,
+              userName: otherParticipant.name
+            });
+          }
+        }
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>

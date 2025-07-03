@@ -275,6 +275,16 @@ class ApiService {
     return this.request(`/auth/users/search?q=${encodeURIComponent(query)}`);
   }
 
+  // Get user profile by ID
+  async getUserProfile(userId) {
+    return this.request(`/auth/users/${userId}`);
+  }
+
+  // Get user posts by user ID
+  async getUserPosts(userId) {
+    return this.request(`/posts/user/${userId}`);
+  }
+
   // Follow system
   async followUser(userId) {
     return this.request(`/auth/users/${userId}/follow`, {

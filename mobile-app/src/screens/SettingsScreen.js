@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
-const SettingsScreen = ({ navigation, user }) => {
+const SettingsScreen = ({ navigation, user, onLogout }) => {
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [autoDownload, setAutoDownload] = useState(true);
@@ -225,6 +225,30 @@ const SettingsScreen = ({ navigation, user }) => {
           </View>
         ))}
 
+        {/* Logout Button at the bottom */}
+        <View style={styles.logoutSection}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => {
+              if (onLogout) {
+                Alert.alert(
+                  'Гарах',
+                  'Та гарахдаа итгэлтэй байна уу?',
+                  [
+                    { text: 'Болих', style: 'cancel' },
+                    { text: 'Гарах', style: 'destructive', onPress: onLogout },
+                  ]
+                );
+              } else {
+                Alert.alert('Logout', 'onLogout function not provided!');
+              }
+            }}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+            <Text style={styles.logoutText}>Гарах</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>CHATLI v1.0.0</Text>
@@ -308,6 +332,26 @@ const styles = StyleSheet.create({
     color: '#cccccc',
     marginBottom: 4,
     textAlign: 'center',
+  },
+  logoutSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 8,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ef4444',
+    marginLeft: 8,
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,18 @@ import {
   ScrollView,
   Image,
   Alert,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../services/api';
+import Post from '../components/Post';
 
 const ProfileScreen = ({ navigation, user, onLogout }) => {
   const [loading, setLoading] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(true);
 
   const handleLogout = () => {
     Alert.alert(
@@ -35,47 +41,55 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
     );
   };
 
-  const menuItems = [
-    {
-      icon: 'person-outline',
-      title: 'Профайл засах',
-      onPress: () => {
-        // TODO: Navigate to edit profile
-        Alert.alert('Анхааруулга', 'Энэ функц удахгүй бэлэн болно');
-      },
-    },
-    {
-      icon: 'settings-outline',
-      title: 'Тохиргоо',
-      onPress: () => {
-        // TODO: Navigate to settings
-        Alert.alert('Анхааруулга', 'Энэ функц удахгүй бэлэн болно');
-      },
-    },
-    {
-      icon: 'help-circle-outline',
-      title: 'Тусламж',
-      onPress: () => {
-        Alert.alert('Тусламж', 'CHATLI - Монголын анхны нийгмийн сүлжээ');
-      },
-    },
-    {
-      icon: 'information-circle-outline',
-      title: 'Аппын тухай',
-      onPress: () => {
-        Alert.alert('CHATLI', 'Хувилбар: 1.0.0\n\nМонголын анхны нийгмийн сүлжээ');
-      },
-    },
-  ];
+  useEffect(() => {
+    const loadUserPosts = async () => {
+      setPostsLoading(true);
+      try {
+        const response = await api.getUserPosts(user._id);
+        if (response.success && response.data.posts) {
+          setPosts(response.data.posts);
+        } else {
+          setPosts([]);
+        }
+      } catch (error) {
+        setPosts([]);
+      } finally {
+        setPostsLoading(false);
+      }
+    };
+    loadUserPosts();
+  }, [user._id]);
+
+  // Only menu items left: EditProfile and Settings are now header icons
+  const menuItems = [];
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header with Settings (left) and EditProfile (right) */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerIconLeft}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Ionicons name="settings-outline" size={26} color="#000" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Профайл</Text>
+        <TouchableOpacity
+          style={styles.headerIconRight}
+          onPress={() => navigation.navigate('EditProfile')}
+        >
+          <Ionicons name="create-outline" size={26} color="#000" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Cover Image */}
+        {user.coverImage ? (
+          <View style={styles.coverImageContainer}>
+            <Image source={{ uri: user.coverImage }} style={styles.coverImage} resizeMode="cover" />
+          </View>
+        ) : null}
+
         {/* Profile Info */}
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
@@ -107,47 +121,57 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
               <Text style={styles.statLabel}>Дагагч</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{user.postsCount || 0}</Text>
+              <Text style={styles.statNumber}>{posts.length}</Text>
               <Text style={styles.statLabel}>Пост</Text>
             </View>
           </View>
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.menuItem}
-              onPress={item.onPress}
-            >
-              <View style={styles.menuItemLeft}>
-                <Ionicons name={item.icon} size={24} color="#666" />
-                <Text style={styles.menuItemText}>{item.title}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#ccc" />
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* Menu Items (now empty) */}
+        {menuItems.length > 0 && (
+          <View style={styles.menuSection}>
+            {menuItems.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.menuItem,
+                  index === menuItems.length - 1 && { borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }
+                ]}
+                onPress={item.onPress}
+              >
+                <View style={styles.menuItemLeft}>
+                  <Ionicons name={item.icon} size={24} color="#666" />
+                  <Text style={styles.menuItemText}>{item.title}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#ccc" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
-        {/* Logout Button */}
-        <View style={styles.logoutSection}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            disabled={loading}
-          >
-            <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-            <Text style={styles.logoutText}>
-              {loading ? 'Гарч байна...' : 'Гарах'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* App Info */}
-        <View style={styles.appInfo}>
-          <Text style={styles.appInfoText}>CHATLI v1.0.0</Text>
-          <Text style={styles.appInfoText}>Монголын анхны нийгмийн сүлжээ</Text>
+        {/* Posts Section */}
+        <View style={styles.postsSection}>
+          <Text style={styles.postsSectionTitle}>Таны постууд</Text>
+          {postsLoading ? (
+            <View style={styles.postsLoading}>
+              <ActivityIndicator size="large" color="#000" />
+              <Text style={styles.postsLoadingText}>Постууд ачаалж байна...</Text>
+            </View>
+          ) : posts.length === 0 ? (
+            <View style={styles.noPostsContainer}>
+              <Ionicons name="document-text-outline" size={48} color="#ccc" />
+              <Text style={styles.noPostsTitle}>Пост алга</Text>
+              <Text style={styles.noPostsText}>Та одоогоор пост оруулаагүй байна.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={posts}
+              keyExtractor={item => item._id}
+              renderItem={({ item }) => <Post post={item} user={user} navigation={navigation} />}
+              contentContainerStyle={styles.postsList}
+              scrollEnabled={false}
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -160,35 +184,68 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
     textAlign: 'center',
+    flex: 1,
+  },
+  headerIconLeft: {
+    marginRight: 12,
+  },
+  headerIconRight: {
+    marginLeft: 12,
   },
   content: {
     flex: 1,
+  },
+  coverImageContainer: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#f0f0f0',
+    marginBottom: -50,
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
   },
   profileSection: {
     alignItems: 'center',
     paddingVertical: 32,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8f8f8',
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   avatarContainer: {
     marginBottom: 16,
+    marginTop: -50,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: '#f0f0f0',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
   avatarPlaceholder: {
     width: 80,
@@ -197,6 +254,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
   avatarText: {
     color: '#fff',
@@ -230,6 +289,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    marginBottom: 20,
   },
   statItem: {
     alignItems: 'center',
@@ -247,6 +307,19 @@ const styles = StyleSheet.create({
   },
   menuSection: {
     paddingVertical: 20,
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
@@ -266,36 +339,45 @@ const styles = StyleSheet.create({
     color: '#000',
     marginLeft: 16,
   },
-  logoutSection: {
-    paddingHorizontal: 20,
+  postsSection: {
     paddingVertical: 20,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 8,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
+  postsSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  logoutText: {
+  postsLoading: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  postsLoadingText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  noPostsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 40,
+  },
+  noPostsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ef4444',
-    marginLeft: 8,
+    color: '#000',
+    marginTop: 16,
+    marginBottom: 8,
   },
-  appInfo: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  appInfoText: {
-    fontSize: 12,
-    color: '#999',
+  noPostsText: {
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 20,
+  },
+  postsList: {
+    paddingHorizontal: 20,
   },
 });
 

@@ -244,20 +244,6 @@ io.on('connection', (socket) => {
         chatId,
         message
       });
-
-      // Update unread counts for other participants
-      const Chat = require('./models/Chat');
-      const chat = await Chat.findById(chatId);
-      
-      if (chat) {
-        const otherParticipants = chat.participants.filter(
-          participant => participant.toString() !== socket.userId
-        );
-
-        for (const participantId of otherParticipants) {
-          await chat.updateUnreadCount(participantId, true);
-        }
-      }
     } catch (error) {
       console.error('Send message error:', error);
     }
