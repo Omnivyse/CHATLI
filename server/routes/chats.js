@@ -660,6 +660,16 @@ router.delete('/:id', auth, async (req, res) => {
     
     console.log(`🗑️ Chat ${req.params.id} soft deleted for user ${req.user._id}`);
 
+    // Hard delete if all participants have deleted the chat
+    const allDeleted = chat.participants.every(participantId =>
+      chat.deletedBy.map(id => id.toString()).includes(participantId.toString())
+    );
+    if (allDeleted) {
+      await Message.deleteMany({ chat: chat._id });
+      await chat.deleteOne();
+      console.log(`🗑️ Chat ${chat._id} and all its messages permanently deleted.`);
+    }
+
     res.json({
       success: true,
       message: 'Чат амжилттай устгагдлаа'

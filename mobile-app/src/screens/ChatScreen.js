@@ -184,7 +184,16 @@ const ChatScreen = ({ navigation, route, user }) => {
           isMyMessage ? styles.myMessageBubble : styles.otherMessageBubble
         ]}>
           {!isMyMessage && (
-            <Text style={styles.senderName}>{message.sender.name}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                navigation.navigate('UserProfile', {
+                  userId: message.sender._id,
+                  userName: message.sender.name
+                });
+              }}
+            >
+              <Text style={styles.senderName}>{message.sender.name}</Text>
+            </TouchableOpacity>
           )}
           
           <Text style={[
@@ -226,15 +235,40 @@ const ChatScreen = ({ navigation, route, user }) => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (route.params?.onGoBack) route.params.onGoBack();
+            navigation.goBack();
+          }}
         >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {chatTitle}
-          </Text>
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const chat = await api.getChat(chatId);
+                if (chat.success && chat.data.chat.type === 'direct') {
+                  const otherUser = chat.data.chat.participants.find(p => p._id !== user._id);
+                  if (otherUser) {
+                    navigation.navigate('UserProfile', {
+                      userId: otherUser._id,
+                      userName: otherUser.name
+                    });
+                  }
+                } else if (chat.success && chat.data.chat.type === 'group') {
+                  // Optionally navigate to group info screen here
+                  // navigation.navigate('GroupInfo', { chatId });
+                }
+              } catch (e) {
+                // Optionally handle error
+              }
+            }}
+          >
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {chatTitle}
+            </Text>
+          </TouchableOpacity>
           <Text style={styles.headerSubtitle}>Онлайн</Text>
         </View>
         
@@ -258,13 +292,13 @@ const ChatScreen = ({ navigation, route, user }) => {
           <>
             <FlatList
               ref={flatListRef}
-              data={messages}
+              data={[...messages].reverse()}
               renderItem={renderMessage}
               keyExtractor={(item) => item._id}
               style={styles.messagesList}
               contentContainerStyle={styles.messagesContainer}
               showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              inverted={true}
             />
             
             {renderTypingIndicator()}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ const ChatListScreen = ({ navigation, user }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
+  const currentOpenChatId = useRef(null); // Track the currently open chat
 
   const loadChats = useCallback(async () => {
     try {
@@ -63,15 +64,12 @@ const ChatListScreen = ({ navigation, user }) => {
   useEffect(() => {
     const handleIncomingMessage = (data) => {
       const { chatId, message } = data;
-      
       setChats(prevChats => {
-        const chatExists = prevChats.find(chat => chat._id === chatId);
-        if (!chatExists) {
-          return prevChats;
-        }
-        
+        let found = false;
         const updatedChats = prevChats.map(chat => {
           if (chat._id === chatId) {
+            found = true;
+            const isChatOpen = currentOpenChatId.current === chatId;
             return {
               ...chat,
               lastMessage: {
@@ -81,20 +79,21 @@ const ChatListScreen = ({ navigation, user }) => {
                 timestamp: message.createdAt,
                 isRead: false
               },
-              unreadCount: message.sender._id !== user._id ? chat.unreadCount + 1 : chat.unreadCount
+              unreadCount: (!isChatOpen && message.sender._id !== user._id) ? chat.unreadCount + 1 : chat.unreadCount
             };
           }
           return chat;
-        }).sort((a, b) => {
-          const aTime = new Date(a.lastMessage?.timestamp || a.createdAt);
-          const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
-          return bTime - aTime;
         });
-        
+        // Move updated chat to top if found
+        if (found) {
+          const chatIndex = updatedChats.findIndex(chat => chat._id === chatId);
+          const [chatToTop] = updatedChats.splice(chatIndex, 1);
+          return [chatToTop, ...updatedChats];
+        }
+        // Optionally: fetch chats if not found (new chat started)
         return updatedChats;
       });
     };
-    
     socketService.on('new_message', handleIncomingMessage);
     return () => {
       socketService.off('new_message', handleIncomingMessage);
@@ -163,24 +162,30 @@ const ChatListScreen = ({ navigation, user }) => {
 
   const handleChatPress = async (chat) => {
     try {
-      // Mark chat as read
+      currentOpenChatId.current = chat._id; // Set open chat
       await api.markChatAsRead(chat._id);
-      
-      // Update local state to clear unread count
       setChats(prevChats => 
         prevChats.map(c => 
           c._id === chat._id ? { ...c, unreadCount: 0 } : c
         )
       );
-
-      // Navigate to chat screen
       navigation.navigate('Chat', { 
         chatId: chat._id,
-        chatTitle: getChatTitle(chat)
+        chatTitle: getChatTitle(chat),
+        onGoBack: () => { currentOpenChatId.current = null; } // Clear on back
       });
     } catch (error) {
       console.error('Error opening chat:', error);
       Alert.alert('Алдаа', 'Чатыг нээхэд алдаа гарлаа');
+    }
+  };
+
+  const handleDeleteChat = async (chatId) => {
+    try {
+      await api.deleteChat(chatId);
+      setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
+    } catch (error) {
+      Alert.alert('Алдаа', 'Чат устгахад алдаа гарлаа');
     }
   };
 
@@ -196,15 +201,14 @@ const ChatListScreen = ({ navigation, user }) => {
       style={styles.chatItem}
       onPress={() => handleChatPress(chat)}
       onLongPress={() => {
-        if (chat.type === 'direct') {
-          const otherParticipant = chat.participants.find(p => p._id !== user._id);
-          if (otherParticipant) {
-            navigation.navigate('UserProfile', {
-              userId: otherParticipant._id,
-              userName: otherParticipant.name
-            });
-          }
-        }
+        Alert.alert(
+          'Чат устгах',
+          'Энэ чатыг устгах уу?',
+          [
+            { text: 'Болих', style: 'cancel' },
+            { text: 'Устгах', style: 'destructive', onPress: () => handleDeleteChat(chat._id) }
+          ]
+        );
       }}
       activeOpacity={0.7}
     >
