@@ -13,9 +13,17 @@ const API_URL = getApiUrl();
 
 class ApiService {
   constructor() {
-    this.baseURL = API_URL;
+    this._baseURL = API_URL;
     this.token = null;
     this.initializeToken();
+  }
+
+  get baseURL() {
+    return this._baseURL || API_URL;
+  }
+
+  set baseURL(url) {
+    this._baseURL = url;
   }
 
   async initializeToken() {
@@ -48,7 +56,7 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
+    const url = `${this._baseURL}${endpoint}`;
     const config = {
       headers: this.getHeaders(),
       timeout: 30000, // 30 second timeout
@@ -304,11 +312,11 @@ class ApiService {
 
   // File upload for React Native
   async uploadFile(formData) {
-    const response = await fetch(`${this.baseURL}/upload`, {
+    const response = await fetch(`${this.baseURL}/upload/single`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'multipart/form-data',
+        // 'Content-Type': 'multipart/form-data', // Let fetch set this automatically
       },
       body: formData,
     });
@@ -331,7 +339,7 @@ class ApiService {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'multipart/form-data',
+        // 'Content-Type': 'multipart/form-data',
       },
       body: formData,
     });
@@ -351,7 +359,7 @@ class ApiService {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'multipart/form-data',
+        // 'Content-Type': 'multipart/form-data',
       },
       body: formData,
     });
@@ -371,7 +379,7 @@ class ApiService {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'multipart/form-data',
+        // 'Content-Type': 'multipart/form-data',
       },
       body: formData,
     });
@@ -391,7 +399,7 @@ class ApiService {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'multipart/form-data',
+        // 'Content-Type': 'multipart/form-data',
       },
       body: formData,
     });

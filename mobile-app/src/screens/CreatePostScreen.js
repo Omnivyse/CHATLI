@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,20 +12,46 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import api from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const { width } = Dimensions.get('window');
 
 const CreatePostScreen = ({ navigation, user }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [content, setContent] = useState('');
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   const handleSelectMedia = async () => {
     try {
@@ -172,22 +198,18 @@ const CreatePostScreen = ({ navigation, user }) => {
         media: mediaUrls,
       };
 
+      console.log('Creating post with data:', postData);
+      console.log('API URL:', api.baseURL);
       const response = await api.createPost(postData);
+      console.log('Create post response:', response);
       if (response.success) {
-        Alert.alert(
-          'Амжилттай',
-          'Пост амжилттай үүсгэгдлээ',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
+        navigation.goBack();
       } else {
+        console.error('Create post failed:', response);
         Alert.alert('Алдаа', response.message || 'Пост үүсгэхэд алдаа гарлаа');
       }
     } catch (error) {
+      console.error('Create post error details:', error);
       console.error('Create post error:', error);
       Alert.alert('Алдаа', 'Пост үүсгэхэд алдаа гарлаа');
     } finally {
@@ -220,7 +242,7 @@ const CreatePostScreen = ({ navigation, user }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -234,121 +256,120 @@ const CreatePostScreen = ({ navigation, user }) => {
         <TouchableOpacity
           style={[
             styles.postButton,
+            { backgroundColor: colors.primary },
             (!content.trim() && selectedMedia.length === 0) && styles.postButtonDisabled
           ]}
           onPress={handleCreatePost}
           disabled={loading || (!content.trim() && selectedMedia.length === 0)}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.textInverse} />
           ) : (
-            <Text style={styles.postButtonText}>Нийтлэх</Text>
+            <Text style={[styles.postButtonText, { color: colors.textInverse }]}>Нийтлэх</Text>
           )}
         </TouchableOpacity>
       </View>
 
-            <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
-      >
-        <ScrollView 
-          style={styles.content} 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+        <KeyboardAvoidingView 
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
-          {/* User Info */}
-          <View style={styles.userSection}>
-            <Image
-              source={{
-                uri: user.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-              }}
-              style={styles.userAvatar}
-            />
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{user.name}</Text>
-              <Text style={styles.userHandle}>@{user.username}</Text>
+          <ScrollView 
+            style={styles.content} 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* User Info */}
+            <View style={styles.userSection}>
+              <Image
+                source={{
+                  uri: user.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+                }}
+                style={styles.userAvatar}
+              />
+              <View style={styles.userInfo}>
+                <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
+                <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{user.username}</Text>
+              </View>
             </View>
-          </View>
 
-          {/* Content Input */}
-          <View style={styles.inputSection}>
-            <TextInput
-              style={styles.contentInput}
-              placeholder="Юу бодож байна?"
-              placeholderTextColor="#666"
-              value={content}
-              onChangeText={setContent}
-              multiline
-              textAlignVertical="top"
-              maxLength={2000}
-              editable={!loading}
-            />
-            
-            {/* Character Count */}
-            <View style={styles.characterCount}>
-              <Text style={[
-                styles.characterCountText,
-                content.length > 1800 && styles.characterCountWarning,
-                content.length >= 2000 && styles.characterCountError
-              ]}>
-                {content.length}/2000
-              </Text>
+            {/* Content Input */}
+            <View style={styles.inputSection}>
+              <TextInput
+                style={[styles.contentInput, { color: colors.text, backgroundColor: colors.background }]}
+                placeholder="Юу бодож байна?"
+                placeholderTextColor={colors.placeholder}
+                value={content}
+                onChangeText={setContent}
+                multiline
+                textAlignVertical="top"
+                maxLength={2000}
+                editable={!loading}
+                keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
+              />
+              
+              {/* Character Count */}
+              <View style={styles.characterCount}>
+                <Text style={[
+                  styles.characterCountText,
+                  { color: colors.textTertiary },
+                  content.length > 1800 && styles.characterCountWarning,
+                  content.length >= 2000 && styles.characterCountError
+                ]}>
+                  {content.length}/2000
+                </Text>
+              </View>
             </View>
-          </View>
 
-          {/* Media Preview */}
-          {selectedMedia.length > 0 && (
-            <View style={styles.mediaSection}>
-              <Text style={styles.mediaSectionTitle}>Медиа файлууд</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.mediaScroll}
-              >
-                {selectedMedia.map(renderMediaItem)}
-              </ScrollView>
-            </View>
-          )}
+            {/* Media Preview */}
+            {selectedMedia.length > 0 && (
+              <View style={styles.mediaSection}>
+                <Text style={[styles.mediaSectionTitle, { color: colors.text }]}>Медиа файлууд</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.mediaScroll}
+                >
+                  {selectedMedia.map(renderMediaItem)}
+                </ScrollView>
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
 
-          {/* Upload Progress */}
-          {uploadingMedia && (
-            <View style={styles.uploadProgress}>
-              <ActivityIndicator size="small" color="#000" />
-              <Text style={styles.uploadProgressText}>Медиа файл байршуулж байна...</Text>
-            </View>
-          )}
-        </ScrollView>
-
-                {/* Bottom Actions */}
-        <View style={styles.bottomActions}>
+        {/* Bottom Actions */}
+        <View style={[styles.bottomActions, { 
+          backgroundColor: colors.surface, 
+          borderTopColor: colors.border,
+          bottom: keyboardHeight,
+        }]}>
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: colors.surfaceVariant }]}
               onPress={handleSelectMedia}
               disabled={loading || selectedMedia.length >= 4}
             >
-              <Ionicons name="image" size={22} color="#000" />
-              <Text style={styles.actionButtonText}>Медиа</Text>
+              <Ionicons name="image" size={22} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>Медиа</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: colors.surfaceVariant }]}
               onPress={handleTakePhoto}
               disabled={loading || selectedMedia.length >= 4}
             >
-              <Ionicons name="camera" size={22} color="#000" />
-              <Text style={styles.actionButtonText}>Камер</Text>
+              <Ionicons name="camera" size={22} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>Камер</Text>
             </TouchableOpacity>
           </View>
           
-          <View style={styles.mediaCount}>
-            <Text style={styles.mediaCountText}>
+          <View style={[styles.mediaCount, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.mediaCountText, { color: colors.textSecondary }]}>
               {selectedMedia.length}/4
             </Text>
           </View>
         </View>
-      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -395,7 +416,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 4,
+    paddingBottom: 80,
   },
   userSection: {
     flexDirection: 'row',
@@ -515,6 +536,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     backgroundColor: '#ffffff',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
   },
   actionButtons: {
     flexDirection: 'row',
