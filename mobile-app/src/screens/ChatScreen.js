@@ -325,6 +325,7 @@ const ChatScreen = ({ navigation, route, user }) => {
               multiline
               maxLength={1000}
               editable={!sending}
+              keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
             />
             <TouchableOpacity
               style={[
