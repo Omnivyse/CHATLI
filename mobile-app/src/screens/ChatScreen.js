@@ -16,8 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import socketService from '../services/socket';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const ChatScreen = ({ navigation, route, user }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const { chatId, chatTitle } = route.params;
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -175,13 +179,15 @@ const ChatScreen = ({ navigation, route, user }) => {
             source={{ 
               uri: message.sender.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
             }}
-            style={styles.senderAvatar}
+            style={[styles.senderAvatar, { backgroundColor: colors.surfaceVariant }]}
           />
         )}
         
         <View style={[
           styles.messageBubble,
-          isMyMessage ? styles.myMessageBubble : styles.otherMessageBubble
+          isMyMessage
+            ? { backgroundColor: colors.primary }
+            : { backgroundColor: colors.surfaceVariant }
         ]}>
           {!isMyMessage && (
             <TouchableOpacity
@@ -192,20 +198,24 @@ const ChatScreen = ({ navigation, route, user }) => {
                 });
               }}
             >
-              <Text style={styles.senderName}>{message.sender.name}</Text>
+              <Text style={[styles.senderName, { color: colors.textSecondary }]}>{message.sender.name}</Text>
             </TouchableOpacity>
           )}
           
           <Text style={[
             styles.messageText,
-            isMyMessage ? styles.myMessageText : styles.otherMessageText
+            isMyMessage
+              ? { color: colors.textInverse }
+              : { color: colors.text }
           ]}>
             {message.content.text}
           </Text>
           
           <Text style={[
             styles.messageTime,
-            isMyMessage ? styles.myMessageTime : styles.otherMessageTime
+            isMyMessage
+              ? { color: 'rgba(255,255,255,0.7)' }
+              : { color: colors.textTertiary }
           ]}>
             {messageTime}
           </Text>
@@ -216,31 +226,30 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   const renderTypingIndicator = () => {
     if (typingUsers.length === 0) return null;
-
     return (
       <View style={styles.typingContainer}>
         <View style={styles.typingDots}>
-          <View style={[styles.typingDot, { animationDelay: '0ms' }]} />
-          <View style={[styles.typingDot, { animationDelay: '200ms' }]} />
-          <View style={[styles.typingDot, { animationDelay: '400ms' }]} />
+          <View style={[styles.typingDot, { backgroundColor: colors.textSecondary }]} />
+          <View style={[styles.typingDot, { backgroundColor: colors.textSecondary }]} />
+          <View style={[styles.typingDot, { backgroundColor: colors.textSecondary }]} />
         </View>
-        <Text style={styles.typingText}>бичиж байна...</Text>
+        <Text style={[styles.typingText, { color: colors.textSecondary }]}>бичиж байна...</Text>
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }] }>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }] }>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
           onPress={() => {
             if (route.params?.onGoBack) route.params.onGoBack();
             navigation.goBack();
           }}
         >
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         
         <View style={styles.headerInfo}>
@@ -265,15 +274,15 @@ const ChatScreen = ({ navigation, route, user }) => {
               }
             }}
           >
-            <Text style={styles.headerTitle} numberOfLines={1}>
+            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
               {chatTitle}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.headerSubtitle}>Онлайн</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Онлайн</Text>
         </View>
         
-        <TouchableOpacity style={styles.headerAction}>
-          <Ionicons name="call" size={24} color="#000" />
+        <TouchableOpacity style={[styles.headerAction, { backgroundColor: colors.surfaceVariant }] }>
+          <Ionicons name="call" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -284,8 +293,8 @@ const ChatScreen = ({ navigation, route, user }) => {
       >
         {loading ? (
           <View style={styles.loadingContainer}>
-            <View style={styles.loadingSpinner}>
-              <ActivityIndicator size="large" color="#000000" />
+            <View style={[styles.loadingSpinner, { backgroundColor: colors.surface }] }>
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           </View>
         ) : (
@@ -296,41 +305,39 @@ const ChatScreen = ({ navigation, route, user }) => {
               renderItem={renderMessage}
               keyExtractor={(item) => item._id}
               style={styles.messagesList}
-              contentContainerStyle={styles.messagesContainer}
+              contentContainerStyle={[styles.messagesContainer]}
               showsVerticalScrollIndicator={false}
               inverted={true}
             />
-            
             {renderTypingIndicator()}
           </>
         )}
 
         {/* Input */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }] }>
+          <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceVariant }] }>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { color: colors.text }]}
               placeholder="Мессеж бичих..."
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.placeholder}
               value={newMessage}
               onChangeText={handleTextChange}
               multiline
               maxLength={1000}
               editable={!sending}
             />
-            
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                (!newMessage.trim() || sending) && styles.sendButtonDisabled
+                { backgroundColor: (!newMessage.trim() || sending) ? colors.disabled : colors.primary },
               ]}
               onPress={sendMessage}
               disabled={!newMessage.trim() || sending}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Ionicons name="send" size={20} color="#fff" />
+                <Ionicons name="send" size={20} color={colors.textInverse} />
               )}
             </TouchableOpacity>
           </View>
@@ -343,7 +350,6 @@ const ChatScreen = ({ navigation, route, user }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
@@ -351,14 +357,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -369,18 +372,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
   },
   headerAction: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -394,9 +394,7 @@ const styles = StyleSheet.create({
   },
   loadingSpinner: {
     padding: 20,
-    backgroundColor: '#ffffff',
     borderRadius: 16,
-    shadowColor: '#000000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -428,7 +426,6 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     marginRight: 8,
-    backgroundColor: '#f0f0f0',
   },
   messageBubble: {
     maxWidth: '75%',
@@ -437,17 +434,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   myMessageBubble: {
-    backgroundColor: '#000',
     borderBottomRightRadius: 4,
   },
   otherMessageBubble: {
-    backgroundColor: '#f5f5f5',
     borderBottomLeftRadius: 4,
   },
   senderName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
     marginBottom: 4,
   },
   messageText: {
@@ -456,20 +450,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   myMessageText: {
-    color: '#fff',
   },
   otherMessageText: {
-    color: '#000',
   },
   messageTime: {
     fontSize: 11,
   },
   myMessageTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'right',
   },
   otherMessageTime: {
-    color: '#999',
   },
   typingContainer: {
     flexDirection: 'row',
@@ -486,25 +476,20 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#666',
     marginHorizontal: 1,
   },
   typingText: {
     fontSize: 12,
-    color: '#666',
     fontStyle: 'italic',
   },
   inputContainer: {
-    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#f5f5f5',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -512,13 +497,11 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
     maxHeight: 100,
     marginRight: 8,
     paddingVertical: 4,
   },
   sendButton: {
-    backgroundColor: '#000',
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -526,7 +509,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#ccc',
   },
 });
 

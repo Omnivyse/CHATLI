@@ -14,8 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import Post from '../components/Post';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const ProfileScreen = ({ navigation, user, onLogout }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [loading, setLoading] = useState(false);
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
@@ -64,25 +68,25 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
   const menuItems = [];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header with Settings (left) and EditProfile (right) */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={styles.headerIconLeft}
           onPress={() => navigation.navigate('Settings')}
         >
-          <Ionicons name="settings-outline" size={26} color="#000" />
+          <Ionicons name="settings-outline" size={26} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Профайл</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Профайл</Text>
         <TouchableOpacity
           style={styles.headerIconRight}
           onPress={() => navigation.navigate('EditProfile')}
         >
-          <Ionicons name="create-outline" size={26} color="#000" />
+          <Ionicons name="create-outline" size={26} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
         {user.coverImage ? (
           <View style={styles.coverImageContainer}>
@@ -91,38 +95,38 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
         ) : null}
 
         {/* Profile Info */}
-        <View style={styles.profileSection}>
+        <View style={[styles.profileSection, { backgroundColor: colors.surface }]}>
           <View style={styles.avatarContainer}>
             {user.avatar ? (
               <Image source={{ uri: user.avatar }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[styles.avatarText, { color: colors.text }]}>
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </Text>
               </View>
             )}
           </View>
           
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userHandle}>@{user.username}</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
+          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{user.username}</Text>
           
           {user.bio && (
-            <Text style={styles.userBio}>{user.bio}</Text>
+            <Text style={[styles.userBio, { color: colors.textSecondary }]}>{user.bio}</Text>
           )}
 
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{user.following?.length || 0}</Text>
-              <Text style={styles.statLabel}>Дагаж байна</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{user.following?.length || 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагаж байна</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{user.followers?.length || 0}</Text>
-              <Text style={styles.statLabel}>Дагагч</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{user.followers?.length || 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагагч</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{posts.length}</Text>
-              <Text style={styles.statLabel}>Пост</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{posts.length}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Пост</Text>
             </View>
           </View>
         </View>
@@ -150,18 +154,18 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
         )}
 
         {/* Posts Section */}
-        <View style={styles.postsSection}>
-          <Text style={styles.postsSectionTitle}>Таны постууд</Text>
+        <View style={[styles.postsSection, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.postsSectionTitle, { color: colors.text }]}>Таны постууд</Text>
           {postsLoading ? (
             <View style={styles.postsLoading}>
-              <ActivityIndicator size="large" color="#000" />
-              <Text style={styles.postsLoadingText}>Постууд ачаалж байна...</Text>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.postsLoadingText, { color: colors.textSecondary }]}>Постууд ачаалж байна...</Text>
             </View>
           ) : posts.length === 0 ? (
             <View style={styles.noPostsContainer}>
-              <Ionicons name="document-text-outline" size={48} color="#ccc" />
-              <Text style={styles.noPostsTitle}>Пост алга</Text>
-              <Text style={styles.noPostsText}>Та одоогоор пост оруулаагүй байна.</Text>
+              <Ionicons name="document-text-outline" size={48} color={colors.textTertiary} />
+              <Text style={[styles.noPostsTitle, { color: colors.text }]}>Пост алга</Text>
+              <Text style={[styles.noPostsText, { color: colors.textSecondary }]}>Та одоогоор пост оруулаагүй байна.</Text>
             </View>
           ) : (
             <FlatList
@@ -251,7 +255,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,

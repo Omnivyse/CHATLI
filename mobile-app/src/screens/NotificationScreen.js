@@ -11,8 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const NotificationScreen = ({ navigation, user }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -128,7 +132,8 @@ const NotificationScreen = ({ navigation, user }) => {
     <TouchableOpacity
       style={[
         styles.notificationItem,
-        !notification.isRead && styles.unreadNotification
+        { backgroundColor: colors.surface, borderBottomColor: colors.border },
+        !notification.isRead && { backgroundColor: colors.surfaceVariant }
       ]}
       onPress={() => handleMarkAsRead(notification._id)}
     >
@@ -141,32 +146,32 @@ const NotificationScreen = ({ navigation, user }) => {
       </View>
       
       <View style={styles.notificationContent}>
-        <Text style={styles.notificationTitle}>
+        <Text style={[styles.notificationTitle, { color: colors.text }]}>
           {notification.title || 'Шинэ мэдэгдэл'}
         </Text>
-        <Text style={styles.notificationMessage}>
+        <Text style={[styles.notificationMessage, { color: colors.textSecondary }]}>
           {notification.message || 'Мэдэгдлийн дэлгэрэнгүй мэдээлэл'}
         </Text>
-        <Text style={styles.notificationTime}>
+        <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>
           {formatNotificationTime(notification.createdAt)}
         </Text>
       </View>
 
       {!notification.isRead && (
-        <View style={styles.unreadDot} />
+        <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
       )}
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Мэдэгдэл</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Мэдэгдэл</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingSpinner}>
-            <ActivityIndicator size="large" color="#000000" />
+          <View style={[styles.loadingSpinner, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         </View>
       </SafeAreaView>
@@ -174,16 +179,16 @@ const NotificationScreen = ({ navigation, user }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Мэдэгдэл</Text>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Мэдэгдэл</Text>
         {notifications.some(n => !n.isRead) && (
           <TouchableOpacity
-            style={styles.markAllButton}
+            style={[styles.markAllButton, { backgroundColor: colors.primary }]}
             onPress={handleMarkAllAsRead}
           >
-            <Text style={styles.markAllText}>Бүгдийг унших</Text>
+            <Text style={[styles.markAllText, { color: colors.textInverse }]}>Бүгдийг унших</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -191,19 +196,19 @@ const NotificationScreen = ({ navigation, user }) => {
       {/* Notifications */}
       {error ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           <TouchableOpacity 
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadNotifications}
           >
-            <Text style={styles.retryButtonText}>Дахин оролдох</Text>
+            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Дахин оролдох</Text>
           </TouchableOpacity>
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="notifications-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyTitle}>Мэдэгдэл байхгүй</Text>
-          <Text style={styles.emptySubtitle}>
+          <Ionicons name="notifications-outline" size={64} color={colors.textTertiary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Мэдэгдэл байхгүй</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             Шинэ мэдэгдэл ирэхэд энд харагдана
           </Text>
         </View>
@@ -217,8 +222,8 @@ const NotificationScreen = ({ navigation, user }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#000']}
-              tintColor="#000"
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -289,7 +294,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#000',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,

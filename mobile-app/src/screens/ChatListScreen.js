@@ -10,15 +10,18 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
-  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import socketService from '../services/socket';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const ChatListScreen = ({ navigation, user }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -198,7 +201,7 @@ const ChatListScreen = ({ navigation, user }) => {
 
   const renderChatItem = ({ item: chat }) => (
     <TouchableOpacity
-      style={styles.chatItem}
+      style={[styles.chatItem, { borderBottomColor: colors.borderLight }]}
       onPress={() => handleChatPress(chat)}
       onLongPress={() => {
         Alert.alert(
@@ -215,7 +218,7 @@ const ChatListScreen = ({ navigation, user }) => {
       <View style={styles.avatarContainer}>
         <Image 
           source={{ uri: getChatAvatar(chat) }}
-          style={styles.avatar}
+          style={[styles.avatar, { backgroundColor: colors.surfaceVariant }]}
         />
         {chat.type === 'direct' && (() => {
           const otherParticipant = chat.participants.find(p => p._id !== user._id);
@@ -223,7 +226,10 @@ const ChatListScreen = ({ navigation, user }) => {
           return (
             <View style={[
               styles.onlineIndicator,
-              { backgroundColor: isOnline ? '#000' : '#999' }
+              { 
+                backgroundColor: isOnline ? colors.success : colors.textTertiary,
+                borderColor: colors.background 
+              }
             ]} />
           );
         })()}
@@ -231,21 +237,21 @@ const ChatListScreen = ({ navigation, user }) => {
       
       <View style={styles.chatInfo}>
         <View style={styles.chatHeader}>
-          <Text style={styles.chatTitle} numberOfLines={1}>
+          <Text style={[styles.chatTitle, { color: colors.text }]} numberOfLines={1}>
             {getChatTitle(chat)}
           </Text>
-          <Text style={styles.chatTime}>
+          <Text style={[styles.chatTime, { color: colors.textSecondary }]}>
             {getDisplayDate(chat.lastMessage?.timestamp)}
           </Text>
         </View>
         
         <View style={styles.chatFooter}>
-          <Text style={styles.lastMessage} numberOfLines={1}>
+          <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
             {getLastMessageText(chat)}
           </Text>
           {chat.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadCount}>
+            <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.unreadCount, { color: colors.textInverse }]}>
                 {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
               </Text>
             </View>
@@ -257,14 +263,13 @@ const ChatListScreen = ({ navigation, user }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Чат</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Чат</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingSpinner}>
-            <ActivityIndicator size="large" color="#000000" />
+          <View style={[styles.loadingSpinner, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         </View>
       </SafeAreaView>
@@ -272,28 +277,29 @@ const ChatListScreen = ({ navigation, user }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Чат</Text>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Чат</Text>
         <TouchableOpacity 
-          style={styles.newChatButton}
+          style={[styles.newChatButton, { backgroundColor: colors.surfaceVariant }]}
           onPress={() => navigation.navigate('UserSearch')}
         >
-          <Ionicons name="add" size={24} color="#000" />
+          <Ionicons name="add" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {/* Search */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { borderBottomColor: colors.border }]}>
+        <View style={[styles.searchInputContainer, { 
+          backgroundColor: colors.surfaceVariant, 
+          borderColor: colors.border 
+        }]}>
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Чат хайх..."
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -302,7 +308,7 @@ const ChatListScreen = ({ navigation, user }) => {
               onPress={() => setSearchQuery('')}
               style={styles.clearSearch}
             >
-              <Ionicons name="close" size={20} color="#666" />
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -311,21 +317,21 @@ const ChatListScreen = ({ navigation, user }) => {
       {/* Chat List */}
       {error ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           <TouchableOpacity 
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadChats}
           >
-            <Text style={styles.retryButtonText}>Дахин оролдох</Text>
+            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Дахин оролдох</Text>
           </TouchableOpacity>
         </View>
       ) : filteredChats.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyTitle}>
+          <Ionicons name="chatbubbles-outline" size={64} color={colors.textTertiary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {searchQuery ? 'Чат олдсонгүй' : 'Чат байхгүй байна'}
           </Text>
-          <Text style={styles.emptySubtitle}>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             {searchQuery 
               ? 'Өөр нэрээр хайж үзээрэй' 
               : 'Шинэ чат эхлүүлэхийн тулд + товчийг дарна уу'
@@ -342,8 +348,8 @@ const ChatListScreen = ({ navigation, user }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#000']}
-              tintColor="#000"
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           showsVerticalScrollIndicator={false}

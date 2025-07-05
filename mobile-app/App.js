@@ -9,7 +9,8 @@ import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { ThemeProvider } from './src/contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors } from './src/utils/themeUtils';
 
 // Services
 import apiService from './src/services/api';
@@ -49,6 +50,9 @@ const Tab = createBottomTabNavigator();
 SplashScreen.preventAutoHideAsync();
 
 function MainTabNavigator({ user, onLogout }) {
+  const { theme } = useTheme();
+  const tabBarColors = getTabBarColors(theme);
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -87,12 +91,12 @@ function MainTabNavigator({ user, onLogout }) {
             </View>
           );
         },
-        tabBarActiveTintColor: '#000000',
-        tabBarInactiveTintColor: '#64748b',
+        tabBarActiveTintColor: tabBarColors.activeTintColor,
+        tabBarInactiveTintColor: tabBarColors.inactiveTintColor,
         tabBarStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: tabBarColors.backgroundColor,
           borderTopWidth: 1,
-          borderTopColor: '#f1f5f9',
+          borderTopColor: tabBarColors.borderTopColor,
           paddingTop: 8,
           paddingBottom: 8,
           height: 72,
@@ -139,19 +143,22 @@ function MainTabNavigator({ user, onLogout }) {
 }
 
 function AuthStackNavigator({ onLogin }) {
+  const { theme } = useTheme();
+  const navigationColors = getNavigationColors(theme);
+  
   return (
     <Stack.Navigator 
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: navigationColors.backgroundColor,
           borderBottomWidth: 1,
-          borderBottomColor: '#e5e5e5',
+          borderBottomColor: navigationColors.borderBottomColor,
         },
         headerTitleStyle: {
           fontWeight: 'bold',
-          color: '#000000',
+          color: navigationColors.titleColor,
         },
-        headerTintColor: '#000000',
+        headerTintColor: navigationColors.tintColor,
       }}
     >
       <Stack.Screen 
@@ -172,11 +179,14 @@ function AuthStackNavigator({ onLogin }) {
 }
 
 function MainStackNavigator({ user, onLogout }) {
+  const { theme } = useTheme();
+  const colors = theme === 'dark' ? { background: '#0f172a' } : { background: '#ffffff' };
+  
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: '#fff' },
+        cardStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen name="MainTabs">
@@ -233,9 +243,7 @@ function MainStackNavigator({ user, onLogout }) {
       <Stack.Screen 
         name="EditProfile"
         options={{
-          headerShown: true,
-          title: 'Профайл засах',
-          headerBackTitleVisible: false,
+          headerShown: false,
         }}
       >
         {(props) => <EditProfileScreen {...props} user={user} />}
@@ -358,21 +366,43 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      <AppContent 
+        user={user} 
+        onLogout={handleLogout} 
+        onLogin={handleLogin}
+        showSplash={showSplash}
+        onSplashComplete={handleSplashComplete}
+      />
+    </ThemeProvider>
+  );
+}
+
+function AppContent({ user, onLogout, onLogin, showSplash, onSplashComplete }) {
+  const { theme, isLoading } = useTheme();
+  const statusBarStyle = getStatusBarStyle(theme);
+  const statusBarBackgroundColor = getStatusBarBackgroundColor(theme);
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <>
       <NavigationContainer>
-        <StatusBar style="dark" backgroundColor="#ffffff" />
+        <StatusBar style={statusBarStyle} backgroundColor={statusBarBackgroundColor} />
         {user ? (
-          <MainStackNavigator user={user} onLogout={handleLogout} />
+          <MainStackNavigator user={user} onLogout={onLogout} />
         ) : (
-          <AuthStackNavigator onLogin={handleLogin} />
+          <AuthStackNavigator onLogin={onLogin} />
         )}
       </NavigationContainer>
       <Toast />
       
       {/* Splash Screen Overlay */}
       {showSplash && (
-        <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
+        <CustomSplashScreen onAnimationComplete={onSplashComplete} />
       )}
-    </ThemeProvider>
+    </>
   );
 }
 

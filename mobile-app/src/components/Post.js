@@ -11,10 +11,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import apiService from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const Post = ({ post, user, onPostUpdate, navigation }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [localPost, setLocalPost] = useState(post);
   const [liking, setLiking] = useState(false);
   const [currentMedia, setCurrentMedia] = useState(0);
@@ -123,9 +127,12 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         <View style={styles.mediaWrapper}>
           {currentMediaItem.type === 'image' ? (
             imageLoadError ? (
-              <View style={[styles.mediaImage, styles.imageErrorContainer]}>
-                <Ionicons name="image-outline" size={40} color="#64748b" />
-                <Text style={styles.imageErrorText}>Зураг ачаалахад алдаа гарлаа</Text>
+              <View style={[styles.mediaImage, styles.imageErrorContainer, { 
+                backgroundColor: colors.surfaceVariant,
+                borderColor: colors.border 
+              }]}>
+                <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
+                <Text style={[styles.imageErrorText, { color: colors.textSecondary }]}>Зураг ачаалахад алдаа гарлаа</Text>
               </View>
             ) : (
               <Image
@@ -133,7 +140,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                   uri: currentMediaItem.url,
                   cache: 'default'
                 }}
-                style={styles.mediaImage}
+                style={[styles.mediaImage, { borderColor: colors.border }]}
                 resizeMode="cover"
                 defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==' }}
                 onError={(error) => {
@@ -155,7 +162,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             <Video
               ref={videoRef}
               source={{ uri: currentMediaItem.url }}
-              style={styles.mediaVideo}
+              style={[styles.mediaVideo, { borderColor: colors.border }]}
               useNativeControls
               resizeMode="contain"
               isLooping={false}
@@ -190,7 +197,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 key={index}
                 style={[
                   styles.mediaIndicator,
-                  index === currentMedia && styles.mediaIndicatorActive
+                  { backgroundColor: colors.border },
+                  index === currentMedia && { backgroundColor: colors.primary }
                 ]}
                 onPress={() => setCurrentMedia(index)}
               />
@@ -202,7 +210,11 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { 
+      backgroundColor: colors.surface, 
+      borderColor: colors.border,
+      shadowColor: colors.shadow 
+    }]}>
       {/* Post Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -219,26 +231,26 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           {localPost.author.avatar ? (
             <Image source={{ uri: localPost.author.avatar }} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={20} color="#64748b" />
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+              <Ionicons name="person" size={20} color={colors.textSecondary} />
             </View>
           )}
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{localPost.author.name}</Text>
-            <Text style={styles.postTime}>{formatRelativeTime(localPost.createdAt)}</Text>
+            <Text style={[styles.userName, { color: colors.text }]}>{localPost.author.name}</Text>
+            <Text style={[styles.postTime, { color: colors.textSecondary }]}>{formatRelativeTime(localPost.createdAt)}</Text>
           </View>
         </TouchableOpacity>
         
         {isOwner && (
           <TouchableOpacity style={styles.moreButton} onPress={handleDeletePost}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#0f172a" />
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Post Content */}
       {localPost.content && (
-        <Text style={styles.content}>{localPost.content}</Text>
+        <Text style={[styles.content, { color: colors.text }]}>{localPost.content}</Text>
       )}
 
       {/* Post Media */}
@@ -254,14 +266,14 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           <Ionicons
             name={isLiked ? "heart" : "heart-outline"}
             size={20}
-            color={isLiked ? "#ef4444" : "#64748b"}
+            color={isLiked ? colors.error : colors.textSecondary}
           />
-          <Text style={styles.actionText}>{localPost.likes.length}</Text>
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{localPost.likes.length}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={20} color="#64748b" />
-          <Text style={styles.actionText}>{localPost.comments?.length || 0}</Text>
+          <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{localPost.comments?.length || 0}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -270,13 +282,10 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#ffffff',
     borderRadius: 8,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000000',
     shadowOffset: {
       width: 0,
       height: 1,
@@ -305,7 +314,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -316,12 +324,10 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
     marginBottom: 2,
   },
   postTime: {
     fontSize: 12,
-    color: '#64748b',
   },
   moreButton: {
     padding: 8,
@@ -330,7 +336,6 @@ const styles = StyleSheet.create({
   content: {
     fontSize: 16,
     lineHeight: 22,
-    color: '#0f172a',
     marginBottom: 8,
   },
   mediaContainer: {
@@ -346,8 +351,6 @@ const styles = StyleSheet.create({
     height: 250,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
   },
   imageErrorContainer: {
     justifyContent: 'center',
@@ -356,7 +359,6 @@ const styles = StyleSheet.create({
   },
   imageErrorText: {
     fontSize: 14,
-    color: '#64748b',
     textAlign: 'center',
   },
   mediaVideo: {
@@ -364,7 +366,6 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
   mediaNavButton: {
     position: 'absolute',
@@ -394,10 +395,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#cbd5e1',
-  },
-  mediaIndicatorActive: {
-    backgroundColor: '#000000',
   },
   actions: {
     flexDirection: 'row',
@@ -412,7 +409,6 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
-    color: '#64748b',
     fontWeight: '500',
   },
 });

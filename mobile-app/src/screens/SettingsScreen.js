@@ -12,9 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
+import ThemeToggle from '../components/ThemeToggle';
 
 const SettingsScreen = ({ navigation, user, onLogout }) => {
   const { theme, toggleTheme } = useTheme();
+  const colors = getThemeColors(theme);
   const [notifications, setNotifications] = useState(true);
   const [autoDownload, setAutoDownload] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -35,7 +38,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           icon: 'moon-outline',
           title: 'Харанхуй горим',
           subtitle: 'Хар болон цагаан горим',
-          type: 'switch',
+          type: 'custom',
           value: theme === 'dark',
           onToggle: toggleTheme,
           disabled: false,
@@ -170,27 +173,33 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
     return (
       <TouchableOpacity
         key={index}
-        style={[styles.settingItem, item.disabled && styles.settingItemDisabled]}
+        style={[
+          styles.settingItem, 
+          { borderBottomColor: colors.border },
+          item.disabled && styles.settingItemDisabled
+        ]}
         onPress={item.onPress}
         disabled={item.disabled || item.type === 'switch'}
       >
-        <View style={styles.settingIcon}>
+        <View style={[styles.settingIcon, { backgroundColor: colors.surfaceVariant }]}>
           <Ionicons 
             name={item.icon} 
             size={24} 
-            color={item.disabled ? "#cccccc" : "#000000"} 
+            color={item.disabled ? colors.disabledText : colors.text} 
           />
         </View>
         <View style={styles.settingContent}>
           <Text style={[
             styles.settingTitle, 
-            item.disabled && styles.settingTitleDisabled
+            { color: colors.text },
+            item.disabled && { color: colors.disabledText }
           ]}>
             {item.title}
           </Text>
           <Text style={[
             styles.settingSubtitle,
-            item.disabled && styles.settingSubtitleDisabled
+            { color: colors.textSecondary },
+            item.disabled && { color: colors.disabledText }
           ]}>
             {item.subtitle}
           </Text>
@@ -201,14 +210,16 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
               value={item.value}
               onValueChange={item.onToggle}
               disabled={item.disabled}
-              trackColor={{ false: '#e5e5e5', true: '#000000' }}
-              thumbColor={item.value ? '#ffffff' : '#f4f3f4'}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={item.value ? colors.textInverse : colors.surfaceVariant}
             />
+          ) : item.type === 'custom' ? (
+            <ThemeToggle size={20} />
           ) : (
             <Ionicons 
               name="chevron-forward" 
               size={20} 
-              color={item.disabled ? "#cccccc" : "#cccccc"} 
+              color={item.disabled ? colors.disabledText : colors.textSecondary} 
             />
           )}
         </View>
@@ -217,11 +228,11 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, theme === 'dark' && { backgroundColor: '#111' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollView}>
         {settingsSections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
             {section.items.map((item, itemIndex) => renderSettingItem(item, itemIndex))}
           </View>
         ))}
@@ -229,7 +240,10 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
         {/* Logout Button at the bottom */}
         <View style={styles.logoutSection}>
           <TouchableOpacity
-            style={styles.logoutButton}
+            style={[styles.logoutButton, { 
+              backgroundColor: colors.error + '10', 
+              borderColor: colors.error + '20' 
+            }]}
             onPress={() => {
               if (onLogout) {
                 Alert.alert(
@@ -245,16 +259,16 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
               }
             }}
           >
-            <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-            <Text style={styles.logoutText}>Гарах</Text>
+            <Ionicons name="log-out-outline" size={24} color={colors.error} />
+            <Text style={[styles.logoutText, { color: colors.error }]}>Гарах</Text>
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>CHATLI v1.0.0</Text>
-          <Text style={styles.footerText}>Монголын анхны чат апп</Text>
-          <Text style={styles.footerText}>© 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</Text>
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>CHATLI v1.0.0</Text>
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>Монголын анхны чат апп</Text>
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>© 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

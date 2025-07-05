@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
+
 import api from '../services/api';
 
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
@@ -344,7 +344,6 @@ const ClipsScreen = ({ navigation, user }) => {
   return (
     <View style={styles.rootContainer}>
       <Text style={{opacity: 0, height: 0}}> </Text>
-      <StatusBar style="light" />
       <FlatList
         ref={flatListRef}
         data={posts}

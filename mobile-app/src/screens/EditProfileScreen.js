@@ -3,8 +3,12 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const EditProfileScreen = ({ navigation, user }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [name, setName] = useState(user?.name || '');
   const [username, setUsername] = useState(user?.username || '');
   const [bio, setBio] = useState(user?.bio || '');
@@ -64,16 +68,27 @@ const EditProfileScreen = ({ navigation, user }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }] }>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }] }>
+        <TouchableOpacity
+          style={styles.headerBack}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Профайл засах</Text>
+        <View style={{ width: 40 }} />
+      </View>
+      <ScrollView contentContainerStyle={[styles.content]} showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
-        <TouchableOpacity style={styles.coverImageContainer} onPress={() => pickImage('cover')} disabled={uploading}>
+        <TouchableOpacity style={[styles.coverImageContainer, { backgroundColor: colors.surfaceVariant }]} onPress={() => pickImage('cover')} disabled={uploading}>
           {coverImage ? (
             <Image source={{ uri: coverImage }} style={styles.coverImage} />
           ) : (
             <View style={styles.coverPlaceholder}>
-              <Ionicons name="image-outline" size={40} color="#ccc" />
-              <Text style={styles.coverPlaceholderText}>Ковер зураг</Text>
+              <Ionicons name="image-outline" size={40} color={colors.textTertiary} />
+              <Text style={[styles.coverPlaceholderText, { color: colors.textTertiary }]}>Ковер зураг</Text>
             </View>
           )}
           {uploading && <View style={styles.uploadingOverlay}><Text style={styles.uploadingText}>Түр хүлээнэ үү...</Text></View>}
@@ -81,49 +96,52 @@ const EditProfileScreen = ({ navigation, user }) => {
         {/* Avatar */}
         <TouchableOpacity style={styles.avatarContainer} onPress={() => pickImage('avatar')} disabled={uploading}>
           {avatar ? (
-            <Image source={{ uri: avatar }} style={styles.avatar} />
+            <Image source={{ uri: avatar }} style={[styles.avatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.background }]} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={40} color="#fff" />
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary, borderColor: colors.background }] }>
+              <Ionicons name="person" size={40} color={colors.textInverse} />
             </View>
           )}
-          <View style={styles.avatarEditIcon}>
-            <Ionicons name="camera" size={18} color="#fff" />
+          <View style={[styles.avatarEditIcon, { backgroundColor: colors.primary, borderColor: colors.background }] }>
+            <Ionicons name="camera" size={18} color={colors.textInverse} />
           </View>
           {uploading && <View style={styles.uploadingOverlay}><Text style={styles.uploadingText}>Түр хүлээнэ үү...</Text></View>}
         </TouchableOpacity>
         {/* Form Fields */}
         <View style={styles.formSection}>
-          <Text style={styles.label}>Нэр</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Нэр</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
             value={name}
             onChangeText={setName}
             placeholder="Нэр"
             autoCapitalize="words"
+            placeholderTextColor={colors.placeholder}
           />
-          <Text style={styles.label}>Хэрэглэгчийн нэр</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Хэрэглэгчийн нэр</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
             value={username}
             onChangeText={setUsername}
             placeholder="@username"
             autoCapitalize="none"
+            placeholderTextColor={colors.placeholder}
           />
-          <Text style={styles.label}>Био</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Био</Text>
           <TextInput
-            style={[styles.input, styles.bioInput]}
+            style={[styles.input, styles.bioInput, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
             value={bio}
             onChangeText={setBio}
             placeholder="Таны тухай..."
             multiline
             numberOfLines={4}
             maxLength={500}
+            placeholderTextColor={colors.placeholder}
           />
         </View>
         {/* Save Button */}
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving || uploading}>
-          <Text style={styles.saveButtonText}>{saving ? 'Хадгалж байна...' : 'Хадгалах'}</Text>
+        <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving || uploading}>
+          <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>{saving ? 'Хадгалж байна...' : 'Хадгалах'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -131,13 +149,34 @@ const EditProfileScreen = ({ navigation, user }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { alignItems: 'center', padding: 24 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  headerBack: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
   coverImageContainer: {
     width: '100%',
     height: 160,
     borderRadius: 16,
-    backgroundColor: '#f0f0f0',
     marginBottom: -60,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -146,7 +185,7 @@ const styles = StyleSheet.create({
   },
   coverImage: { width: '100%', height: '100%' },
   coverPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  coverPlaceholderText: { color: '#aaa', fontSize: 14, marginTop: 8 },
+  coverPlaceholderText: { fontSize: 14, marginTop: 8 },
   avatarContainer: {
     marginTop: 0,
     marginBottom: 16,
@@ -158,29 +197,23 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#f0f0f0',
     borderWidth: 3,
-    borderColor: '#fff',
   },
   avatarPlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#fff',
   },
   avatarEditIcon: {
     position: 'absolute',
     right: 6,
     bottom: 6,
-    backgroundColor: '#000',
     borderRadius: 12,
     padding: 3,
     borderWidth: 2,
-    borderColor: '#fff',
   },
   uploadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -192,29 +225,25 @@ const styles = StyleSheet.create({
   },
   uploadingText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   formSection: { width: '100%', marginTop: 8 },
-  label: { fontSize: 14, color: '#333', marginBottom: 4, marginTop: 16, fontWeight: '600' },
+  label: { fontSize: 14, marginBottom: 4, marginTop: 16, fontWeight: '600' },
   input: {
     width: '100%',
-    backgroundColor: '#f8f8f8',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#000',
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#eee',
   },
   bioInput: { minHeight: 80, textAlignVertical: 'top' },
   saveButton: {
     marginTop: 24,
-    backgroundColor: '#000',
     borderRadius: 8,
     paddingVertical: 16,
     paddingHorizontal: 40,
     alignItems: 'center',
     width: '100%',
   },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  saveButtonText: { fontSize: 16, fontWeight: 'bold' },
 });
 
 export default EditProfileScreen; 

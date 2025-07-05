@@ -14,8 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import Post from '../components/Post';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const { userId, userName } = route.params;
   const [profileUser, setProfileUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -168,20 +172,20 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Хэрэглэгч</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000000" />
-          <Text style={styles.loadingText}>Хэрэглэгчийн мэдээлэл ачаалж байна...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Хэрэглэгчийн мэдээлэл ачаалж байна...</Text>
         </View>
       </SafeAreaView>
     );
@@ -189,26 +193,26 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Хэрэглэгч</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="person-outline" size={64} color="#ccc" />
-          <Text style={styles.errorTitle}>Алдаа гарлаа</Text>
-          <Text style={styles.errorText}>{error}</Text>
+          <Ionicons name="person-outline" size={64} color={colors.textTertiary} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>Алдаа гарлаа</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           <TouchableOpacity 
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadUserProfile}
           >
-            <Text style={styles.retryButtonText}>Дахин оролдох</Text>
+            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Дахин оролдох</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -217,21 +221,21 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
 
   if (!profileUser) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Хэрэглэгч</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="person-outline" size={64} color="#ccc" />
-          <Text style={styles.errorTitle}>Хэрэглэгч олдсонгүй</Text>
-          <Text style={styles.errorText}>Энэ хэрэглэгч байхгүй байна</Text>
+          <Ionicons name="person-outline" size={64} color={colors.textTertiary} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>Хэрэглэгч олдсонгүй</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>Энэ хэрэглэгч байхгүй байна</Text>
         </View>
       </SafeAreaView>
     );
@@ -240,20 +244,20 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
   const isOwnProfile = currentUser._id === userId;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{profileUser.name}</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{profileUser.name}</Text>
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
         {profileUser.coverImage && (
           <View style={styles.coverImageContainer}>
@@ -266,38 +270,38 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
         )}
         
         {/* Profile Info */}
-        <View style={styles.profileSection}>
+        <View style={[styles.profileSection, { backgroundColor: colors.surface }]}>
           <View style={styles.avatarContainer}>
             {profileUser.avatar ? (
               <Image source={{ uri: profileUser.avatar }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[styles.avatarText, { color: colors.text }]}>
                   {profileUser.name?.charAt(0)?.toUpperCase() || 'U'}
                 </Text>
               </View>
             )}
           </View>
           
-          <Text style={styles.userName}>{profileUser.name}</Text>
-          <Text style={styles.userHandle}>@{profileUser.username}</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>{profileUser.name}</Text>
+          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{profileUser.username}</Text>
           
           {profileUser.bio && (
-            <Text style={styles.userBio}>{profileUser.bio}</Text>
+            <Text style={[styles.userBio, { color: colors.textSecondary }]}>{profileUser.bio}</Text>
           )}
 
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{profileUser.following?.length || 0}</Text>
-              <Text style={styles.statLabel}>Дагаж байна</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{profileUser.following?.length || 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагаж байна</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{profileUser.followers?.length || 0}</Text>
-              <Text style={styles.statLabel}>Дагагч</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{profileUser.followers?.length || 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагагч</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{posts.length}</Text>
-              <Text style={styles.statLabel}>Пост</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{posts.length}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Пост</Text>
             </View>
           </View>
 
@@ -307,23 +311,25 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
               <TouchableOpacity
                 style={[
                   styles.followButton,
-                  isFollowing && styles.unfollowButton
+                  { backgroundColor: colors.primary },
+                  isFollowing && { backgroundColor: colors.surfaceVariant }
                 ]}
                 onPress={handleFollowToggle}
                 disabled={followLoading}
               >
                 {followLoading ? (
-                  <ActivityIndicator size="small" color={isFollowing ? "#000" : "#fff"} />
+                  <ActivityIndicator size="small" color={isFollowing ? colors.text : colors.textInverse} />
                 ) : (
                   <>
                     <Ionicons 
                       name={isFollowing ? "checkmark" : "add"} 
                       size={16} 
-                      color={isFollowing ? "#000" : "#fff"} 
+                      color={isFollowing ? colors.text : colors.textInverse} 
                     />
                     <Text style={[
                       styles.followButtonText,
-                      isFollowing && styles.unfollowButtonText
+                      { color: colors.textInverse },
+                      isFollowing && { color: colors.text }
                     ]}>
                       {isFollowing ? 'Дагасан' : 'Дагах'}
                     </Text>
@@ -332,30 +338,30 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.messageButton}
+                style={[styles.messageButton, { backgroundColor: colors.surfaceVariant }]}
                 onPress={handleStartChat}
               >
-                <Ionicons name="chatbubble" size={16} color="#000" />
-                <Text style={styles.messageButtonText}>Мессеж</Text>
+                <Ionicons name="chatbubble" size={16} color={colors.text} />
+                <Text style={[styles.messageButtonText, { color: colors.text }]}>Мессеж</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
         {/* Posts Section */}
-        <View style={styles.postsSection}>
-          <Text style={styles.postsSectionTitle}>Постууд</Text>
+        <View style={[styles.postsSection, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.postsSectionTitle, { color: colors.text }]}>Постууд</Text>
           
           {postsLoading ? (
             <View style={styles.postsLoading}>
-              <ActivityIndicator size="small" color="#000" />
-              <Text style={styles.postsLoadingText}>Постууд ачаалж байна...</Text>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.postsLoadingText, { color: colors.textSecondary }]}>Постууд ачаалж байна...</Text>
             </View>
           ) : posts.length === 0 ? (
             <View style={styles.noPostsContainer}>
-              <Ionicons name="document-outline" size={48} color="#ccc" />
-              <Text style={styles.noPostsTitle}>Пост байхгүй</Text>
-              <Text style={styles.noPostsText}>
+              <Ionicons name="document-outline" size={48} color={colors.textTertiary} />
+              <Text style={[styles.noPostsTitle, { color: colors.text }]}>Пост байхгүй</Text>
+              <Text style={[styles.noPostsText, { color: colors.textSecondary }]}>
                 {isOwnProfile ? 'Та одоогоор пост нийтлээгүй байна' : 'Энэ хэрэглэгч одоогоор пост нийтлээгүй байна'}
               </Text>
             </View>
@@ -456,7 +462,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#000',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -490,7 +495,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
@@ -554,7 +558,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000',
     paddingVertical: 12,
     borderRadius: 8,
     gap: 6,

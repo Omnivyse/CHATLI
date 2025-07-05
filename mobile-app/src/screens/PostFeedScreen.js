@@ -7,12 +7,13 @@ import {
   Alert,
   StyleSheet,
   SafeAreaView,
-  StatusBar,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +21,8 @@ import apiService from '../services/api';
 import Post from '../components/Post';
 
 const PostFeedScreen = ({ user, navigation }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,8 +100,8 @@ const PostFeedScreen = ({ user, navigation }) => {
     if (loading && !refreshing) {
       return (
         <View style={styles.centerContainer}>
-          <View style={styles.loadingSpinner}>
-            <ActivityIndicator size="large" color="#000000" />
+          <View style={[styles.loadingSpinner, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         </View>
       );
@@ -107,7 +110,7 @@ const PostFeedScreen = ({ user, navigation }) => {
     if (error) {
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       );
     }
@@ -115,7 +118,7 @@ const PostFeedScreen = ({ user, navigation }) => {
     if (posts.length === 0) {
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>Пост байхгүй байна</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Пост байхгүй байна</Text>
         </View>
       );
     }
@@ -136,27 +139,30 @@ const PostFeedScreen = ({ user, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { 
         paddingHorizontal: responsiveStyles.headerPadding,
         maxWidth: responsiveStyles.maxContentWidth,
         alignSelf: 'center',
-        width: '100%'
+        width: '100%',
+        backgroundColor: colors.surface,
+        borderBottomColor: colors.border
       }]}>
-        <Text style={[styles.appName, { fontSize: responsiveStyles.appNameSize }]}>CHATLI</Text>
+        <Text style={[styles.appName, { 
+          fontSize: responsiveStyles.appNameSize,
+          color: colors.text 
+        }]}>CHATLI</Text>
         <TouchableOpacity 
-          style={styles.searchButton}
+          style={[styles.searchButton, { backgroundColor: colors.surfaceVariant }]}
           onPress={() => navigation.navigate('UserSearch')}
         >
-          <Ionicons name="search" size={responsiveStyles.searchButtonSize} color="#000000" />
+          <Ionicons name="search" size={responsiveStyles.searchButtonSize} color={colors.primary} />
         </TouchableOpacity>
       </View>
       
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
         contentContainerStyle={[styles.scrollContent, {
           paddingHorizontal: responsiveStyles.scrollPadding,
           maxWidth: responsiveStyles.maxContentWidth,
@@ -167,8 +173,8 @@ const PostFeedScreen = ({ user, navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#000000']}
-            tintColor="#000000"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -184,6 +190,7 @@ const PostFeedScreen = ({ user, navigation }) => {
           borderRadius: responsiveStyles.fabSize / 2,
           bottom: responsiveStyles.fabBottom,
           right: responsiveStyles.fabRight,
+          backgroundColor: colors.primary,
         }]}
         onPress={() => navigation.navigate('CreatePost')}
         activeOpacity={0.8}
@@ -191,7 +198,7 @@ const PostFeedScreen = ({ user, navigation }) => {
         <Ionicons 
           name="add" 
           size={responsiveStyles.fabSize > 56 ? 32 : 28} 
-          color="#ffffff" 
+          color={colors.textInverse} 
         />
       </TouchableOpacity>
     </SafeAreaView>
@@ -228,7 +235,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingVertical: 8,
-    paddingBottom: 92, // Extra padding for bottom tab navigator
+    paddingBottom: 20, // Reduced padding for bottom tab navigator
   },
   postsContainer: {
     flex: 1,
