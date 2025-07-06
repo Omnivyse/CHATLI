@@ -24,6 +24,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [liking, setLiking] = useState(false);
   const [currentMedia, setCurrentMedia] = useState(0);
   const [imageLoadError, setImageLoadError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const videoRef = useRef(null);
   
@@ -100,16 +101,29 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   };
 
   const getMediaToShow = () => {
+    console.log('=== DEBUG: Checking post media ===');
+    console.log('Post ID:', localPost._id);
+    console.log('Has media array:', !!localPost.media);
+    console.log('Media array:', localPost.media);
+    console.log('Has image field:', !!localPost.image);
+    console.log('Image field:', localPost.image);
+    console.log('Has video field:', !!localPost.video);
+    console.log('Video field:', localPost.video);
+    
     if (Array.isArray(localPost.media) && localPost.media.length > 0) {
+      console.log('Using media array with', localPost.media.length, 'items');
       return localPost.media;
     }
     // Fallback for legacy posts
     if (localPost.image) {
+      console.log('Using legacy image field');
       return [{ type: 'image', url: localPost.image }];
     }
     if (localPost.video) {
+      console.log('Using legacy video field');
       return [{ type: 'video', url: localPost.video }];
     }
+    console.log('No media found');
     return [];
   };
 
@@ -121,21 +135,46 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   };
 
   const renderMedia = () => {
-    if (mediaArray.length === 0) return null;
+    console.log('=== DEBUG: renderMedia ===');
+    console.log('Media array length:', mediaArray.length);
+    console.log('Current media index:', currentMedia);
+    
+    if (mediaArray.length === 0) {
+      console.log('No media to render');
+      return (
+        <View style={[styles.mediaContainer, { 
+          backgroundColor: '#f0f0f0', 
+          padding: 20, 
+          alignItems: 'center',
+          borderRadius: 8
+        }]}>
+          <Text style={{ color: '#666', fontSize: 14 }}>No media found in this post</Text>
+        </View>
+      );
+    }
 
     const currentMediaItem = mediaArray[currentMedia];
+    console.log('Current media item:', currentMediaItem);
+    
+    // Calculate aspect ratio for better display
+    const aspectRatio = currentMediaItem.width && currentMediaItem.height 
+      ? currentMediaItem.width / currentMediaItem.height 
+      : 1.5; // Default aspect ratio
     
     return (
       <View style={styles.mediaContainer}>
-        <View style={styles.mediaWrapper}>
+        <View style={[styles.mediaWrapper, { width: '100%' }]}> {/* Ensure wrapper is 100% width */}
           {currentMediaItem.type === 'image' ? (
             imageLoadError ? (
               <View style={[styles.mediaImage, styles.imageErrorContainer, { 
                 backgroundColor: colors.surfaceVariant,
                 borderColor: colors.border 
-              }]}>
+              }]}> 
                 <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
                 <Text style={[styles.imageErrorText, { color: colors.textSecondary }]}>Зураг ачаалахад алдаа гарлаа</Text>
+                <Text style={[styles.imageErrorText, { color: colors.textSecondary, fontSize: 12 }]}>
+                  URL: {currentMediaItem.url}
+                </Text>
               </View>
             ) : (
               <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
@@ -144,22 +183,18 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                     uri: currentMediaItem.url,
                     cache: 'default'
                   }}
-                  style={[styles.mediaImage, { borderColor: colors.border }]}
+                  style={{
+                    width: '100%',
+                    aspectRatio: aspectRatio,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
                   resizeMode="cover"
                   defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==' }}
-                  onError={(error) => {
-                    console.log('Image load error:', error.nativeEvent.error);
-                    console.log('Failed URL:', currentMediaItem.url);
-                    setImageLoadError(true);
-                  }}
-                  onLoad={() => {
-                    console.log('Image loaded successfully:', currentMediaItem.url);
-                    setImageLoadError(false);
-                  }}
-                  onLoadStart={() => {
-                    console.log('Image load started:', currentMediaItem.url);
-                    setImageLoadError(false);
-                  }}
+                  onError={() => setImageLoadError(true)}
+                  onLoad={() => setImageLoadError(false)}
+                  onLoadStart={() => setImageLoadError(false)}
                 />
               </TouchableOpacity>
             )
