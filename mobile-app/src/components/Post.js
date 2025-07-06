@@ -13,6 +13,7 @@ import { Video } from 'expo-av';
 import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
+import ImageViewerModal from './ImageViewerModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -23,6 +24,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [liking, setLiking] = useState(false);
   const [currentMedia, setCurrentMedia] = useState(0);
   const [imageLoadError, setImageLoadError] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const videoRef = useRef(null);
   
   // Debug log the post structure
@@ -99,23 +101,24 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
 
   const getMediaToShow = () => {
     if (Array.isArray(localPost.media) && localPost.media.length > 0) {
-      console.log('Post media array:', localPost.media);
       return localPost.media;
     }
     // Fallback for legacy posts
     if (localPost.image) {
-      console.log('Legacy post image:', localPost.image);
       return [{ type: 'image', url: localPost.image }];
     }
     if (localPost.video) {
-      console.log('Legacy post video:', localPost.video);
       return [{ type: 'video', url: localPost.video }];
     }
-    console.log('No media found for post:', localPost._id);
     return [];
   };
 
   const mediaArray = getMediaToShow();
+
+  const handleImagePress = () => {
+    console.log('Image pressed! Opening image viewer...');
+    setImageViewerVisible(true);
+  };
 
   const renderMedia = () => {
     if (mediaArray.length === 0) return null;
@@ -135,28 +138,30 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 <Text style={[styles.imageErrorText, { color: colors.textSecondary }]}>Зураг ачаалахад алдаа гарлаа</Text>
               </View>
             ) : (
-              <Image
-                source={{ 
-                  uri: currentMediaItem.url,
-                  cache: 'default'
-                }}
-                style={[styles.mediaImage, { borderColor: colors.border }]}
-                resizeMode="cover"
-                defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==' }}
-                onError={(error) => {
-                  console.log('Image load error:', error.nativeEvent.error);
-                  console.log('Failed URL:', currentMediaItem.url);
-                  setImageLoadError(true);
-                }}
-                onLoad={() => {
-                  console.log('Image loaded successfully:', currentMediaItem.url);
-                  setImageLoadError(false);
-                }}
-                onLoadStart={() => {
-                  console.log('Image load started:', currentMediaItem.url);
-                  setImageLoadError(false);
-                }}
-              />
+              <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+                <Image
+                  source={{ 
+                    uri: currentMediaItem.url,
+                    cache: 'default'
+                  }}
+                  style={[styles.mediaImage, { borderColor: colors.border }]}
+                  resizeMode="cover"
+                  defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==' }}
+                  onError={(error) => {
+                    console.log('Image load error:', error.nativeEvent.error);
+                    console.log('Failed URL:', currentMediaItem.url);
+                    setImageLoadError(true);
+                  }}
+                  onLoad={() => {
+                    console.log('Image loaded successfully:', currentMediaItem.url);
+                    setImageLoadError(false);
+                  }}
+                  onLoadStart={() => {
+                    console.log('Image load started:', currentMediaItem.url);
+                    setImageLoadError(false);
+                  }}
+                />
+              </TouchableOpacity>
             )
           ) : (
             <Video
@@ -274,11 +279,19 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         <TouchableOpacity style={styles.actionButton}>
           <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
           <Text style={[styles.actionText, { color: colors.textSecondary }]}>{localPost.comments?.length || 0}</Text>
-        </TouchableOpacity>
+                  </TouchableOpacity>
+        </View>
+        
+        {/* Image Viewer Modal */}
+        <ImageViewerModal
+          images={mediaArray.filter(item => item.type === 'image')}
+          initialIndex={currentMedia}
+          onClose={() => setImageViewerVisible(false)}
+          visible={imageViewerVisible}
+        />
       </View>
-    </View>
-  );
-};
+    );
+  };
 
 const styles = StyleSheet.create({
   container: {

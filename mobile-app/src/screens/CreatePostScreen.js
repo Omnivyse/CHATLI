@@ -21,6 +21,7 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
+import ImageViewerModal from '../components/ImageViewerModal';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +33,8 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [loading, setLoading] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -218,13 +221,23 @@ const CreatePostScreen = ({ navigation, user }) => {
     }
   };
 
-  const renderMediaItem = (media) => (
+  const handleImagePress = (index) => {
+    setSelectedImageIndex(index);
+    setImageViewerVisible(true);
+  };
+
+  const renderMediaItem = (media, index) => (
     <View key={media.id} style={styles.mediaItem}>
-      <Image
-        source={{ uri: media.type === 'video' ? media.thumbnail : media.uri }}
-        style={styles.mediaImage}
-        resizeMode="cover"
-      />
+      <TouchableOpacity 
+        onPress={() => media.type === 'image' && handleImagePress(index)}
+        activeOpacity={media.type === 'image' ? 0.9 : 1}
+      >
+        <Image
+          source={{ uri: media.type === 'video' ? media.thumbnail : media.uri }}
+          style={styles.mediaImage}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
       
       {media.type === 'video' && (
         <View style={styles.videoOverlay}>
@@ -333,7 +346,7 @@ const CreatePostScreen = ({ navigation, user }) => {
                   showsHorizontalScrollIndicator={false}
                   style={styles.mediaScroll}
                 >
-                  {selectedMedia.map(renderMediaItem)}
+                  {selectedMedia.map((media, index) => renderMediaItem(media, index))}
                 </ScrollView>
               </View>
             )}
@@ -372,7 +385,15 @@ const CreatePostScreen = ({ navigation, user }) => {
             </Text>
           </View>
         </View>
-    </View>
+        
+        {/* Image Viewer Modal */}
+        <ImageViewerModal
+          images={selectedMedia.filter(media => media.type === 'image').map(media => ({ url: media.uri }))}
+          initialIndex={selectedImageIndex}
+          onClose={() => setImageViewerVisible(false)}
+          visible={imageViewerVisible}
+        />
+      </View>
     </>
   );
 };
