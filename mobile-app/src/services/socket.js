@@ -140,6 +140,28 @@ class SocketService {
     }
   }
 
+  // Add reaction
+  addReaction(chatId, messageId, userId, emoji, userName) {
+    if (this.socket && this.isConnected) {
+      const data = { chatId, messageId, userId, emoji, userName };
+      this.socket.emit('add_reaction', data);
+      console.log('Reaction added:', data);
+    } else {
+      console.warn('Cannot add reaction - socket not connected');
+    }
+  }
+
+  // Remove reaction
+  removeReaction(chatId, messageId, userId, emoji) {
+    if (this.socket && this.isConnected) {
+      const data = { chatId, messageId, userId, emoji };
+      this.socket.emit('remove_reaction', data);
+      console.log('Reaction removed:', data);
+    } else {
+      console.warn('Cannot remove reaction - socket not connected');
+    }
+  }
+
   // Typing indicators
   startTyping(chatId) {
     if (this.socket && this.isConnected) {

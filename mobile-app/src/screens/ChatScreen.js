@@ -47,15 +47,33 @@ const ChatScreen = ({ navigation, route, user }) => {
     // Join chat room
     socketService.joinChat(chatId);
     
+    // Check socket connection status
+    console.log('Socket connection status:', socketService.getConnectionStatus());
+    console.log('Socket ready:', socketService.isReady());
+    
     // Listen for new messages
     socketService.on('new_message', handleNewMessage);
     socketService.on('user_typing', handleTypingStatus);
+    socketService.on('reaction_added', handleReactionAdded);
+    socketService.on('reaction_removed', handleReactionRemoved);
+    
+    // Test socket connection
+    setTimeout(() => {
+      console.log('Socket status after 2 seconds:', socketService.getConnectionStatus());
+      if (socketService.isReady()) {
+        console.log('Socket is ready for real-time reactions');
+      } else {
+        console.warn('Socket is not ready - reactions may not sync in real-time');
+      }
+    }, 2000);
     
     return () => {
       // Clean up
       socketService.leaveChat(chatId);
       socketService.off('new_message', handleNewMessage);
       socketService.off('user_typing', handleTypingStatus);
+      socketService.off('reaction_added', handleReactionAdded);
+      socketService.off('reaction_removed', handleReactionRemoved);
       
       // Stop typing when leaving
       if (typing) {
@@ -89,6 +107,8 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   const handleAddReaction = async (message, emoji) => {
     try {
+      console.log('Adding reaction:', emoji, 'to message:', message._id);
+      
       // Trigger animation
       animateReaction(message._id, emoji);
       
@@ -104,6 +124,10 @@ const ChatScreen = ({ navigation, route, user }) => {
               if (existingReaction.emoji === emoji) {
                 // Remove reaction if same emoji is tapped
                 const newReactions = reactions.filter(r => r.userId !== user._id);
+                
+                // Emit reaction removed event using socket service method
+                socketService.removeReaction(chatId, message._id, user._id, existingReaction.emoji);
+                
                 return {
                   ...msg,
                   reactions: newReactions
@@ -115,6 +139,10 @@ const ChatScreen = ({ navigation, route, user }) => {
                     ? { ...r, emoji, userName: user.name }
                     : r
                 );
+                
+                // Emit reaction updated event using socket service method
+                socketService.addReaction(chatId, message._id, user._id, emoji, user.name);
+                
                 return {
                   ...msg,
                   reactions: newReactions
@@ -123,6 +151,10 @@ const ChatScreen = ({ navigation, route, user }) => {
             } else {
               // Add new reaction (user has no existing reaction)
               const newReactions = [...reactions, { userId: user._id, emoji, userName: user.name }];
+              
+              // Emit reaction added event using socket service method
+              socketService.addReaction(chatId, message._id, user._id, emoji, user.name);
+              
               return {
                 ...msg,
                 reactions: newReactions
@@ -141,6 +173,70 @@ const ChatScreen = ({ navigation, route, user }) => {
       
     } catch (error) {
       console.error('Add reaction error:', error);
+    }
+  };
+
+  const handleReactionAdded = (data) => {
+    console.log('Received reaction_added event:', data);
+    if (data.chatId === chatId) {
+      console.log('Updating message with reaction:', data.messageId);
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          if (msg._id === data.messageId) {
+            const reactions = msg.reactions || [];
+            const existingReaction = reactions.find(r => r.userId === data.userId);
+            
+            if (existingReaction) {
+              // Replace existing reaction
+              const newReactions = reactions.map(r => 
+                r.userId === data.userId 
+                  ? { ...r, emoji: data.emoji, userName: data.userName }
+                  : r
+              );
+              console.log('Replaced reaction, new reactions:', newReactions);
+              return { ...msg, reactions: newReactions };
+            } else {
+              // Add new reaction
+              const newReactions = [...reactions, { 
+                userId: data.userId, 
+                emoji: data.emoji, 
+                userName: data.userName 
+              }];
+              console.log('Added new reaction, new reactions:', newReactions);
+              return { ...msg, reactions: newReactions };
+            }
+          }
+          return msg;
+        })
+      );
+      
+      // Animate the reaction if it's not from the current user
+      if (data.userId !== user._id) {
+        console.log('Animating reaction from other user');
+        animateReaction(data.messageId, data.emoji);
+      }
+    } else {
+      console.log('Reaction event for different chat:', data.chatId, 'current chat:', chatId);
+    }
+  };
+
+  const handleReactionRemoved = (data) => {
+    console.log('Received reaction_removed event:', data);
+    if (data.chatId === chatId) {
+      console.log('Removing reaction from message:', data.messageId);
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          if (msg._id === data.messageId) {
+            const reactions = msg.reactions || [];
+            const newReactions = reactions.filter(r => r.userId !== data.userId);
+            console.log('Removed reaction, new reactions:', newReactions);
+            return { ...msg, reactions: newReactions };
+          }
+          return msg;
+        })
+      );
+    } else {
+      console.log('Reaction removal event for different chat:', data.chatId, 'current chat:', chatId);
     }
   };
 

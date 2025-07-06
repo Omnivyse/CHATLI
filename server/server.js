@@ -266,6 +266,43 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Add reaction
+  socket.on('add_reaction', (data) => {
+    try {
+      const { chatId, messageId, userId, emoji, userName } = data;
+      console.log(`Reaction added: ${emoji} to message ${messageId} in chat ${chatId} by user ${userName}`);
+      
+      // Broadcast reaction to other users in the chat room
+      socket.to(`chat_${chatId}`).emit('reaction_added', {
+        chatId,
+        messageId,
+        userId,
+        emoji,
+        userName
+      });
+    } catch (error) {
+      console.error('Add reaction error:', error);
+    }
+  });
+
+  // Remove reaction
+  socket.on('remove_reaction', (data) => {
+    try {
+      const { chatId, messageId, userId, emoji } = data;
+      console.log(`Reaction removed: ${emoji} from message ${messageId} in chat ${chatId} by user ${userId}`);
+      
+      // Broadcast reaction removal to other users in the chat room
+      socket.to(`chat_${chatId}`).emit('reaction_removed', {
+        chatId,
+        messageId,
+        userId,
+        emoji
+      });
+    } catch (error) {
+      console.error('Remove reaction error:', error);
+    }
+  });
+
   // Disconnect
   socket.on('disconnect', async () => {
     connectionCount--;
