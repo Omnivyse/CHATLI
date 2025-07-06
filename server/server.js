@@ -290,7 +290,37 @@ io.on('connection', (socket) => {
   // Join chat room
   socket.on('join_chat', (chatId) => {
     socket.join(`chat_${chatId}`);
-    console.log(`User joined chat: ${chatId}`);
+    console.log(`🎯 User joined chat: ${chatId}`);
+    
+    // Send confirmation back to the user
+    socket.emit('chat_joined', {
+      chatId,
+      userId: socket.userId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Notify other users in the chat that someone joined
+    socket.to(`chat_${chatId}`).emit('user_joined_chat', {
+      chatId,
+      userId: socket.userId,
+      userName: socket.user?.name,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Test chat join event
+  socket.on('test_chat_join', (data) => {
+    console.log('🧪 Test chat join received:', data);
+    const { chatId, userId } = data;
+    
+    // Send test response back
+    socket.emit('test_chat_join_response', {
+      success: true,
+      chatId,
+      userId,
+      message: 'Chat join test successful',
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Leave chat room
@@ -343,18 +373,38 @@ io.on('connection', (socket) => {
       const userCount = chatRoom ? chatRoom.size : 0;
       console.log(`👥 Users in chat room: ${userCount}`);
       
-      // Broadcast reaction to other users in the chat room
-      socket.to(`chat_${chatId}`).emit('reaction_added', {
+      // Log all users in the room for debugging
+      if (chatRoom) {
+        const userIds = Array.from(chatRoom);
+        console.log(`👥 User IDs in chat room:`, userIds);
+      }
+      
+      // Broadcast reaction to ALL users in the chat room (including sender for confirmation)
+      io.to(`chat_${chatId}`).emit('reaction_added', {
         chatId,
         messageId,
         userId,
         emoji,
-        userName
+        userName,
+        timestamp: new Date().toISOString()
       });
       
-      console.log(`✅ Reaction broadcasted successfully`);
+      console.log(`✅ Reaction broadcasted successfully to ${userCount} users`);
+      
+      // Send acknowledgment to sender
+      socket.emit('reaction_added_ack', {
+        success: true,
+        messageId,
+        emoji,
+        timestamp: new Date().toISOString()
+      });
+      
     } catch (error) {
       console.error('❌ Add reaction error:', error);
+      socket.emit('reaction_added_ack', {
+        success: false,
+        error: error.message
+      });
     }
   });
 
@@ -370,17 +420,31 @@ io.on('connection', (socket) => {
       const userCount = chatRoom ? chatRoom.size : 0;
       console.log(`👥 Users in chat room: ${userCount}`);
       
-      // Broadcast reaction removal to other users in the chat room
-      socket.to(`chat_${chatId}`).emit('reaction_removed', {
+      // Broadcast reaction removal to ALL users in the chat room
+      io.to(`chat_${chatId}`).emit('reaction_removed', {
         chatId,
         messageId,
         userId,
-        emoji
+        emoji,
+        timestamp: new Date().toISOString()
       });
       
-      console.log(`✅ Reaction removal broadcasted successfully`);
+      console.log(`✅ Reaction removal broadcasted successfully to ${userCount} users`);
+      
+      // Send acknowledgment to sender
+      socket.emit('reaction_removed_ack', {
+        success: true,
+        messageId,
+        emoji,
+        timestamp: new Date().toISOString()
+      });
+      
     } catch (error) {
       console.error('❌ Remove reaction error:', error);
+      socket.emit('reaction_removed_ack', {
+        success: false,
+        error: error.message
+      });
     }
   });
 

@@ -44,8 +44,56 @@ const ChatScreen = ({ navigation, route, user }) => {
   useEffect(() => {
     loadMessages();
     
-    // Join chat room
-    socketService.joinChat(chatId);
+    // Ensure socket is connected and authenticated before joining chat
+    const setupSocket = async () => {
+      console.log('🔌 Setting up socket for chat:', chatId);
+      console.log('👤 Current user:', user._id);
+      
+      // Check if socket is ready
+      if (!socketService.isReady()) {
+        console.log('⚠️ Socket not ready, attempting to connect...');
+        // Try to connect if not already connected
+        socketService.connect(user.token);
+        
+        // Wait for connection
+        await new Promise((resolve) => {
+          const checkConnection = () => {
+            if (socketService.isReady()) {
+              console.log('✅ Socket connected successfully');
+              resolve();
+            } else {
+              console.log('⏳ Waiting for socket connection...');
+              setTimeout(checkConnection, 500);
+            }
+          };
+          checkConnection();
+        });
+      }
+      
+      // Join chat room with retry logic
+      const joinChatWithRetry = (retries = 3) => {
+        if (socketService.isReady()) {
+          console.log('🎯 Joining chat room:', chatId);
+          socketService.joinChat(chatId);
+          
+          // Verify chat room joining
+          setTimeout(() => {
+            console.log('🔍 Verifying chat room join...');
+            // Test if we can receive events
+            socketService.emit('test_chat_join', { chatId, userId: user._id });
+          }, 1000);
+        } else if (retries > 0) {
+          console.log(`🔄 Retrying chat join... (${retries} attempts left)`);
+          setTimeout(() => joinChatWithRetry(retries - 1), 1000);
+        } else {
+          console.error('❌ Failed to join chat room after retries');
+        }
+      };
+      
+      joinChatWithRetry();
+    };
+    
+    setupSocket();
     
     // Check socket connection status
     console.log('Socket connection status:', socketService.getConnectionStatus());
@@ -58,6 +106,30 @@ const ChatScreen = ({ navigation, route, user }) => {
     socketService.on('reaction_removed', handleReactionRemoved);
     socketService.on('test_reaction_received', (data) => {
       console.log('🧪 TEST REACTION RECEIVED:', data);
+    });
+    
+    // Listen for chat join confirmation
+    socketService.on('chat_joined', (data) => {
+      console.log('✅ Chat room joined successfully:', data);
+    });
+    
+    // Listen for reaction acknowledgments
+    socketService.on('reaction_added_ack', (data) => {
+      console.log('✅ Reaction added acknowledgment:', data);
+    });
+    
+    socketService.on('reaction_removed_ack', (data) => {
+      console.log('✅ Reaction removed acknowledgment:', data);
+    });
+    
+    // Listen for test responses
+    socketService.on('test_chat_join_response', (data) => {
+      console.log('🧪 Chat join test response:', data);
+    });
+    
+    // Listen for user joined chat events
+    socketService.on('user_joined_chat', (data) => {
+      console.log('👤 User joined chat:', data);
     });
     
     // Test socket connection
@@ -74,12 +146,18 @@ const ChatScreen = ({ navigation, route, user }) => {
     
     return () => {
       // Clean up
+      console.log('🧹 Cleaning up chat screen...');
       socketService.leaveChat(chatId);
       socketService.off('new_message', handleNewMessage);
       socketService.off('user_typing', handleTypingStatus);
       socketService.off('reaction_added', handleReactionAdded);
       socketService.off('reaction_removed', handleReactionRemoved);
       socketService.off('test_reaction_received');
+      socketService.off('chat_joined');
+      socketService.off('reaction_added_ack');
+      socketService.off('reaction_removed_ack');
+      socketService.off('test_chat_join_response');
+      socketService.off('user_joined_chat');
       
       // Stop typing when leaving
       if (typing) {

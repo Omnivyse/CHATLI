@@ -142,10 +142,27 @@ class SocketService {
   // Join chat room
   joinChat(chatId) {
     if (this.socket && this.isConnected) {
+      console.log('🎯 Joining chat room:', chatId);
       this.socket.emit('join_chat', chatId);
-      console.log('Joined chat:', chatId);
+      
+      // Add confirmation listener
+      this.socket.once('chat_joined', (data) => {
+        console.log('✅ Successfully joined chat room:', data);
+      });
+      
+      // Add error listener
+      this.socket.once('chat_join_error', (error) => {
+        console.error('❌ Failed to join chat room:', error);
+      });
+      
+      console.log('📡 Join chat event emitted for:', chatId);
     } else {
-      console.warn('Cannot join chat - socket not connected');
+      console.warn('⚠️ Cannot join chat - socket not connected');
+      console.log('🔍 Socket status:', {
+        socket: !!this.socket,
+        connected: this.isConnected,
+        socketId: this.socket?.id
+      });
     }
   }
 
@@ -173,11 +190,6 @@ class SocketService {
       const data = { chatId, messageId, userId, emoji, userName };
       console.log('😀 Adding reaction:', data);
       this.socket.emit('add_reaction', data);
-      
-      // Add acknowledgment listener
-      this.socket.once('reaction_added', (response) => {
-        console.log('✅ Reaction added successfully:', response);
-      });
     } else {
       console.warn('⚠️ Cannot add reaction - socket not connected');
       console.log('🔍 Socket status:', {
@@ -194,11 +206,6 @@ class SocketService {
       const data = { chatId, messageId, userId, emoji };
       console.log('🗑️ Removing reaction:', data);
       this.socket.emit('remove_reaction', data);
-      
-      // Add acknowledgment listener
-      this.socket.once('reaction_removed', (response) => {
-        console.log('✅ Reaction removed successfully:', response);
-      });
     } else {
       console.warn('⚠️ Cannot remove reaction - socket not connected');
       console.log('🔍 Socket status:', {
