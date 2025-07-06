@@ -270,7 +270,13 @@ io.on('connection', (socket) => {
   socket.on('add_reaction', (data) => {
     try {
       const { chatId, messageId, userId, emoji, userName } = data;
-      console.log(`Reaction added: ${emoji} to message ${messageId} in chat ${chatId} by user ${userName}`);
+      console.log(`🔥 REACTION ADDED: ${emoji} to message ${messageId} in chat ${chatId} by user ${userName} (${userId})`);
+      console.log(`📡 Broadcasting to chat room: chat_${chatId}`);
+      
+      // Get the number of users in the chat room
+      const chatRoom = io.sockets.adapter.rooms.get(`chat_${chatId}`);
+      const userCount = chatRoom ? chatRoom.size : 0;
+      console.log(`👥 Users in chat room: ${userCount}`);
       
       // Broadcast reaction to other users in the chat room
       socket.to(`chat_${chatId}`).emit('reaction_added', {
@@ -280,8 +286,10 @@ io.on('connection', (socket) => {
         emoji,
         userName
       });
+      
+      console.log(`✅ Reaction broadcasted successfully`);
     } catch (error) {
-      console.error('Add reaction error:', error);
+      console.error('❌ Add reaction error:', error);
     }
   });
 
@@ -289,7 +297,13 @@ io.on('connection', (socket) => {
   socket.on('remove_reaction', (data) => {
     try {
       const { chatId, messageId, userId, emoji } = data;
-      console.log(`Reaction removed: ${emoji} from message ${messageId} in chat ${chatId} by user ${userId}`);
+      console.log(`🗑️ REACTION REMOVED: ${emoji} from message ${messageId} in chat ${chatId} by user ${userId}`);
+      console.log(`📡 Broadcasting to chat room: chat_${chatId}`);
+      
+      // Get the number of users in the chat room
+      const chatRoom = io.sockets.adapter.rooms.get(`chat_${chatId}`);
+      const userCount = chatRoom ? chatRoom.size : 0;
+      console.log(`👥 Users in chat room: ${userCount}`);
       
       // Broadcast reaction removal to other users in the chat room
       socket.to(`chat_${chatId}`).emit('reaction_removed', {
@@ -298,9 +312,21 @@ io.on('connection', (socket) => {
         userId,
         emoji
       });
+      
+      console.log(`✅ Reaction removal broadcasted successfully`);
     } catch (error) {
-      console.error('Remove reaction error:', error);
+      console.error('❌ Remove reaction error:', error);
     }
+  });
+
+  // Test event for debugging
+  socket.on('test_reaction', (data) => {
+    console.log(`🧪 TEST REACTION EVENT RECEIVED:`, data);
+    socket.to(`chat_${data.chatId}`).emit('test_reaction_received', {
+      message: 'Test reaction event received and broadcasted',
+      timestamp: new Date().toISOString(),
+      data
+    });
   });
 
   // Disconnect

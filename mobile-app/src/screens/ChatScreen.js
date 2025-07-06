@@ -56,12 +56,17 @@ const ChatScreen = ({ navigation, route, user }) => {
     socketService.on('user_typing', handleTypingStatus);
     socketService.on('reaction_added', handleReactionAdded);
     socketService.on('reaction_removed', handleReactionRemoved);
+    socketService.on('test_reaction_received', (data) => {
+      console.log('🧪 TEST REACTION RECEIVED:', data);
+    });
     
     // Test socket connection
     setTimeout(() => {
       console.log('Socket status after 2 seconds:', socketService.getConnectionStatus());
       if (socketService.isReady()) {
         console.log('Socket is ready for real-time reactions');
+        // Test the reaction event
+        socketService.emit('test_reaction', { chatId, message: 'Testing reaction events' });
       } else {
         console.warn('Socket is not ready - reactions may not sync in real-time');
       }
@@ -74,6 +79,7 @@ const ChatScreen = ({ navigation, route, user }) => {
       socketService.off('user_typing', handleTypingStatus);
       socketService.off('reaction_added', handleReactionAdded);
       socketService.off('reaction_removed', handleReactionRemoved);
+      socketService.off('test_reaction_received');
       
       // Stop typing when leaving
       if (typing) {
@@ -107,7 +113,10 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   const handleAddReaction = async (message, emoji) => {
     try {
-      console.log('Adding reaction:', emoji, 'to message:', message._id);
+      console.log('🔥 CLIENT: Adding reaction:', emoji, 'to message:', message._id);
+      console.log('🔥 CLIENT: Current chat ID:', chatId);
+      console.log('🔥 CLIENT: Current user ID:', user._id);
+      console.log('🔥 CLIENT: Socket ready:', socketService.isReady());
       
       // Trigger animation
       animateReaction(message._id, emoji);
@@ -125,6 +134,7 @@ const ChatScreen = ({ navigation, route, user }) => {
                 // Remove reaction if same emoji is tapped
                 const newReactions = reactions.filter(r => r.userId !== user._id);
                 
+                console.log('🔥 CLIENT: Removing reaction, calling socketService.removeReaction');
                 // Emit reaction removed event using socket service method
                 socketService.removeReaction(chatId, message._id, user._id, existingReaction.emoji);
                 
@@ -140,6 +150,7 @@ const ChatScreen = ({ navigation, route, user }) => {
                     : r
                 );
                 
+                console.log('🔥 CLIENT: Replacing reaction, calling socketService.addReaction');
                 // Emit reaction updated event using socket service method
                 socketService.addReaction(chatId, message._id, user._id, emoji, user.name);
                 
@@ -152,6 +163,7 @@ const ChatScreen = ({ navigation, route, user }) => {
               // Add new reaction (user has no existing reaction)
               const newReactions = [...reactions, { userId: user._id, emoji, userName: user.name }];
               
+              console.log('🔥 CLIENT: Adding new reaction, calling socketService.addReaction');
               // Emit reaction added event using socket service method
               socketService.addReaction(chatId, message._id, user._id, emoji, user.name);
               
@@ -172,7 +184,7 @@ const ChatScreen = ({ navigation, route, user }) => {
       // const response = await api.addMessageReaction(chatId, message._id, emoji);
       
     } catch (error) {
-      console.error('Add reaction error:', error);
+      console.error('❌ CLIENT: Add reaction error:', error);
     }
   };
 
