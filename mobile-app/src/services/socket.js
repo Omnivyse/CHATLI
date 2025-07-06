@@ -25,7 +25,8 @@ class SocketService {
     }
 
     const socketURL = this.getSocketURL();
-    console.log('Connecting to socket:', socketURL);
+    console.log('🔌 Connecting to socket:', socketURL);
+    console.log('🚂 Environment:', __DEV__ ? 'Development' : 'Production');
 
     this.socket = io(socketURL, {
       transports: ['websocket', 'polling'],
@@ -34,15 +35,26 @@ class SocketService {
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: 1000,
       timeout: 20000,
+      forceNew: true,
+      upgrade: true,
+      rememberUpgrade: false,
+      // Railway-specific settings
+      path: '/socket.io/',
+      withCredentials: true,
+      extraHeaders: {
+        'User-Agent': 'Chatli-Mobile-App'
+      }
     });
 
     this.socket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('✅ Socket connected successfully');
+      console.log('🔗 Socket ID:', this.socket.id);
       this.isConnected = true;
       this.reconnectAttempts = 0;
       
       // Authenticate with token
       if (token) {
+        console.log('🔐 Authenticating socket with token...');
         this.socket.emit('authenticate', token);
       }
 
@@ -55,12 +67,13 @@ class SocketService {
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
+      console.log('❌ Socket disconnected:', reason);
       this.isConnected = false;
       
       // Attempt to reconnect for certain disconnect reasons
       if (reason === 'io server disconnect') {
         // Server initiated disconnect, don't reconnect
+        console.log('🛑 Server initiated disconnect, not reconnecting');
         return;
       }
       
@@ -69,24 +82,38 @@ class SocketService {
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      console.error('❌ Socket connection error:', error);
+      console.error('🔍 Error details:', {
+        message: error.message,
+        description: error.description,
+        context: error.context
+      });
       this.isConnected = false;
       this.attemptReconnect();
     });
 
     this.socket.on('reconnect', (attemptNumber) => {
-      console.log(`Socket reconnected after ${attemptNumber} attempts`);
+      console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
       this.isConnected = true;
       this.reconnectAttempts = 0;
     });
 
     this.socket.on('reconnect_error', (error) => {
-      console.error('Socket reconnection error:', error);
+      console.error('❌ Socket reconnection error:', error);
     });
 
     this.socket.on('reconnect_failed', () => {
-      console.error('Socket reconnection failed after maximum attempts');
+      console.error('💥 Socket reconnection failed after maximum attempts');
       this.isConnected = false;
+    });
+
+    // Add Railway-specific event listeners
+    this.socket.on('error', (error) => {
+      console.error('🚂 Railway socket error:', error);
+    });
+
+    this.socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`🔄 Reconnection attempt ${attemptNumber}/${this.maxReconnectAttempts}`);
     });
   }
 
@@ -144,10 +171,20 @@ class SocketService {
   addReaction(chatId, messageId, userId, emoji, userName) {
     if (this.socket && this.isConnected) {
       const data = { chatId, messageId, userId, emoji, userName };
+      console.log('😀 Adding reaction:', data);
       this.socket.emit('add_reaction', data);
-      console.log('Reaction added:', data);
+      
+      // Add acknowledgment listener
+      this.socket.once('reaction_added', (response) => {
+        console.log('✅ Reaction added successfully:', response);
+      });
     } else {
-      console.warn('Cannot add reaction - socket not connected');
+      console.warn('⚠️ Cannot add reaction - socket not connected');
+      console.log('🔍 Socket status:', {
+        socket: !!this.socket,
+        connected: this.isConnected,
+        socketId: this.socket?.id
+      });
     }
   }
 
@@ -155,10 +192,20 @@ class SocketService {
   removeReaction(chatId, messageId, userId, emoji) {
     if (this.socket && this.isConnected) {
       const data = { chatId, messageId, userId, emoji };
+      console.log('🗑️ Removing reaction:', data);
       this.socket.emit('remove_reaction', data);
-      console.log('Reaction removed:', data);
+      
+      // Add acknowledgment listener
+      this.socket.once('reaction_removed', (response) => {
+        console.log('✅ Reaction removed successfully:', response);
+      });
     } else {
-      console.warn('Cannot remove reaction - socket not connected');
+      console.warn('⚠️ Cannot remove reaction - socket not connected');
+      console.log('🔍 Socket status:', {
+        socket: !!this.socket,
+        connected: this.isConnected,
+        socketId: this.socket?.id
+      });
     }
   }
 

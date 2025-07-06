@@ -30,10 +30,21 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? [process.env.FRONTEND_URL].filter(Boolean)
-      : "http://localhost:3000",
-    methods: ["GET", "POST"],
-    credentials: true
+      ? [process.env.FRONTEND_URL, 'https://chatli.vercel.app', 'https://chatli-mobile.vercel.app'].filter(Boolean)
+      : ["http://localhost:3000", "http://localhost:3001", "http://localhost:19006"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 10000,
+  maxHttpBufferSize: 1e8,
+  allowRequest: (req, callback) => {
+    // Allow all requests for Railway
+    callback(null, true);
   }
 });
 app.set('io', io);
@@ -166,7 +177,34 @@ app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     message: 'Сервер ажиллаж байна',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    socketConnections: connectionCount,
+    environment: process.env.NODE_ENV
+  });
+});
+
+// WebSocket health check
+app.get('/api/socket-health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'WebSocket сервер ажиллаж байна',
+    timestamp: new Date().toISOString(),
+    socketConnections: connectionCount,
+    connectedUsers: Array.from(connectedUsers.keys()),
+    environment: process.env.NODE_ENV,
+    railway: !!process.env.RAILWAY_ENVIRONMENT
+  });
+});
+
+// Simple WebSocket test endpoint
+app.get('/api/socket-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'WebSocket test endpoint',
+    socketUrl: process.env.NODE_ENV === 'production' 
+      ? 'https://chatli-production.up.railway.app'
+      : 'http://localhost:5000',
+    instructions: 'Use this URL to test WebSocket connection in your mobile app'
   });
 });
 
@@ -176,7 +214,8 @@ let connectionCount = 0;
 
 io.on('connection', (socket) => {
   connectionCount++;
-  console.log(`User connected: ${socket.id} (Total: ${connectionCount})`);
+  console.log(`🔌 User connected: ${socket.id} (Total: ${connectionCount})`);
+  console.log(`🚂 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'Not Railway'}`);
   
   // Log memory usage every 50 connections
   if (connectionCount % 50 === 0) {
@@ -187,6 +226,32 @@ io.on('connection', (socket) => {
       heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`
     });
   }
+
+  // Handle connection errors
+  socket.on('connect_error', (error) => {
+    console.error('❌ Socket connection error:', error);
+  });
+
+  socket.on('disconnect', (reason) => {
+    connectionCount--;
+    console.log(`🔌 User disconnected: ${socket.id} (Reason: ${reason}, Total: ${connectionCount})`);
+    
+    if (socket.userId) {
+      connectedUsers.delete(socket.userId);
+      
+      // Update user status to offline
+      User.findByIdAndUpdate(socket.userId, {
+        status: 'offline',
+        lastSeen: new Date()
+      }).catch(err => console.error('Error updating user status:', err));
+      
+      // Notify other users about offline status
+      socket.broadcast.emit('user_status_change', {
+        userId: socket.userId,
+        status: 'offline'
+      });
+    }
+  });
 
   // Authenticate user
   socket.on('authenticate', async (token) => {
@@ -327,28 +392,6 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString(),
       data
     });
-  });
-
-  // Disconnect
-  socket.on('disconnect', async () => {
-    connectionCount--;
-    console.log(`User disconnected: ${socket.id} (Total: ${connectionCount})`);
-    
-    if (socket.userId) {
-      connectedUsers.delete(socket.userId);
-      
-      // Update user status to offline
-      await User.findByIdAndUpdate(socket.userId, {
-        status: 'offline',
-        lastSeen: new Date()
-      });
-
-      // Notify other users about offline status
-      socket.broadcast.emit('user_status_change', {
-        userId: socket.userId,
-        status: 'offline'
-      });
-    }
   });
 });
 
