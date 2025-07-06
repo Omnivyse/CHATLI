@@ -13,8 +13,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -242,7 +242,9 @@ const CreatePostScreen = ({ navigation, user }) => {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <>
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="#fff" />
+      <View style={[styles.container, { backgroundColor: colors.background }] }>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -370,7 +372,8 @@ const CreatePostScreen = ({ navigation, user }) => {
             </Text>
           </View>
         </View>
-    </SafeAreaView>
+    </View>
+    </>
   );
 };
 
@@ -384,7 +387,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -472,7 +475,7 @@ const styles = StyleSheet.create({
     color: '#ff3b30',
   },
   mediaSection: {
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
   mediaSectionTitle: {
     fontSize: 16,
@@ -532,7 +535,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     backgroundColor: '#ffffff',

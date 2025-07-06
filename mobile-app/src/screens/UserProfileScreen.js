@@ -259,15 +259,19 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
 
       <ScrollView style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
-        {profileUser.coverImage && (
-          <View style={styles.coverImageContainer}>
+        <View style={[styles.coverImageContainer, { backgroundColor: profileUser.coverImage ? undefined : (theme === 'dark' ? '#111' : '#f0f0f0') }] }>
+          {profileUser.coverImage ? (
             <Image 
               source={{ uri: profileUser.coverImage }} 
               style={styles.coverImage}
               resizeMode="cover"
             />
-          </View>
-        )}
+          ) : (
+            <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: theme === 'dark' ? '#111' : '#fff', justifyContent: 'center', alignItems: 'center' }}>
+              {/* Optionally add a white/gray icon or text here for fallback */}
+            </View>
+          )}
+        </View>
         
         {/* Profile Info */}
         <View style={[styles.profileSection, { backgroundColor: colors.surface }]}>

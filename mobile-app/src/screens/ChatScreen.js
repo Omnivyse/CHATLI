@@ -11,9 +11,14 @@ import {
   Alert,
   Image,
   ActivityIndicator,
+  Modal,
+  Pressable,
+  Clipboard,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { MaterialIcons, Feather } from '@expo/vector-icons';
 import api from '../services/api';
 import socketService from '../services/socket';
 import { useTheme } from '../contexts/ThemeContext';
@@ -30,6 +35,11 @@ const ChatScreen = ({ navigation, route, user }) => {
   const [typing, setTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState([]);
   const flatListRef = useRef(null);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [lastTap, setLastTap] = useState(null);
+  const [reactionAnimations, setReactionAnimations] = useState({});
 
   useEffect(() => {
     loadMessages();
@@ -53,6 +63,86 @@ const ChatScreen = ({ navigation, route, user }) => {
       }
     };
   }, [chatId]);
+
+  const animateReaction = (messageId, emoji) => {
+    const animationKey = `${messageId}-${emoji}`;
+    const animatedValue = new Animated.Value(0);
+    
+    setReactionAnimations(prev => ({
+      ...prev,
+      [animationKey]: animatedValue
+    }));
+
+    Animated.sequence([
+      Animated.timing(animatedValue, {
+        toValue: 1.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleAddReaction = async (message, emoji) => {
+    try {
+      // Trigger animation
+      animateReaction(message._id, emoji);
+      
+      // Update the message locally with the reaction
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          if (msg._id === message._id) {
+            // Initialize reactions array if it doesn't exist
+            const reactions = msg.reactions || [];
+            const existingReaction = reactions.find(r => r.userId === user._id);
+            
+            if (existingReaction) {
+              if (existingReaction.emoji === emoji) {
+                // Remove reaction if same emoji is tapped
+                const newReactions = reactions.filter(r => r.userId !== user._id);
+                return {
+                  ...msg,
+                  reactions: newReactions
+                };
+              } else {
+                // Replace existing reaction with new emoji
+                const newReactions = reactions.map(r => 
+                  r.userId === user._id 
+                    ? { ...r, emoji, userName: user.name }
+                    : r
+                );
+                return {
+                  ...msg,
+                  reactions: newReactions
+                };
+              }
+            } else {
+              // Add new reaction (user has no existing reaction)
+              const newReactions = [...reactions, { userId: user._id, emoji, userName: user.name }];
+              return {
+                ...msg,
+                reactions: newReactions
+              };
+            }
+          }
+          return msg;
+        })
+      );
+      
+      // Close the modal after adding reaction
+      setShowMessageModal(false);
+      
+      // Here you would typically send the reaction to your API
+      // const response = await api.addMessageReaction(chatId, message._id, emoji);
+      
+    } catch (error) {
+      console.error('Add reaction error:', error);
+    }
+  };
 
   const loadMessages = async () => {
     try {
@@ -165,15 +255,57 @@ const ChatScreen = ({ navigation, route, user }) => {
     });
   };
 
+  const handleLongPressMessage = (message) => {
+    setSelectedMessage(message);
+    setShowMessageModal(true);
+  };
+
+  const handleCopy = () => {
+    if (selectedMessage) {
+      Clipboard.setString(selectedMessage.content.text);
+      setShowMessageModal(false);
+    }
+  };
+
+  const handleReply = () => {
+    // Implement reply logic here
+    setShowMessageModal(false);
+  };
+
+  const handleReport = () => {
+    // Implement report logic here
+    setShowMessageModal(false);
+  };
+
   const renderMessage = ({ item: message }) => {
     const isMyMessage = message.sender._id === user._id;
     const messageTime = formatMessageTime(message.createdAt);
+    
+    const handleMessagePress = (event) => {
+      // Handle double tap for heart reaction (for all messages)
+      const now = Date.now();
+      const DOUBLE_PRESS_DELAY = 300;
+      
+      if (lastTap && (now - lastTap) < DOUBLE_PRESS_DELAY) {
+        // Double tap detected - add heart reaction
+        handleAddReaction(message, '❤️');
+        setLastTap(null);
+      } else {
+        setLastTap(now);
+      }
+    };
 
     return (
-      <View style={[
-        styles.messageContainer,
-        isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer
-      ]}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={handleMessagePress}
+        onLongPress={() => handleLongPressMessage(message)}
+        delayLongPress={300}
+        style={[
+          styles.messageContainer,
+          isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer
+        ]}
+      >
         {!isMyMessage && (
           <Image
             source={{ 
@@ -183,6 +315,37 @@ const ChatScreen = ({ navigation, route, user }) => {
           />
         )}
         
+        {/* Display reactions before message bubble for sent messages */}
+        {isMyMessage && message.reactions && message.reactions.length > 0 && (
+          <View style={[styles.reactionsContainer, styles.myReactionsContainer]}>
+            {(() => {
+              const reactionGroups = message.reactions.reduce((acc, reaction) => {
+                acc[reaction.emoji] = (acc[reaction.emoji] || 0) + 1;
+                return acc;
+              }, {});
+              
+              return Object.entries(reactionGroups).map(([emoji, count]) => {
+                const animationKey = `${message._id}-${emoji}`;
+                const animatedValue = reactionAnimations[animationKey] || new Animated.Value(1);
+                
+                return (
+                  <Animated.View 
+                    key={emoji} 
+                    style={[
+                      styles.reactionBadge, 
+                      { backgroundColor: colors.surface },
+                      { transform: [{ scale: animatedValue }] }
+                    ]}
+                  >
+                    <Text style={styles.reactionEmoji}>{emoji}</Text>
+                    <Text style={[styles.reactionCount, { color: colors.textSecondary }]}>{count}</Text>
+                  </Animated.View>
+                );
+              });
+            })()}
+          </View>
+        )}
+        
         <View style={[
           styles.messageBubble,
           isMyMessage
@@ -190,18 +353,8 @@ const ChatScreen = ({ navigation, route, user }) => {
             : { backgroundColor: colors.surfaceVariant }
         ]}>
           {!isMyMessage && (
-            <TouchableOpacity
-              onPress={() => {
-                navigation.navigate('UserProfile', {
-                  userId: message.sender._id,
-                  userName: message.sender.name
-                });
-              }}
-            >
-              <Text style={[styles.senderName, { color: colors.textSecondary }]}>{message.sender.name}</Text>
-            </TouchableOpacity>
+            <Text style={[styles.senderName, { color: colors.textSecondary }]}>{message.sender.name}</Text>
           )}
-          
           <Text style={[
             styles.messageText,
             isMyMessage
@@ -210,17 +363,27 @@ const ChatScreen = ({ navigation, route, user }) => {
           ]}>
             {message.content.text}
           </Text>
-          
-          <Text style={[
-            styles.messageTime,
-            isMyMessage
-              ? { color: 'rgba(255,255,255,0.7)' }
-              : { color: colors.textTertiary }
-          ]}>
-            {messageTime}
-          </Text>
         </View>
-      </View>
+        
+        {/* Display reactions after message bubble for received messages */}
+        {!isMyMessage && message.reactions && message.reactions.length > 0 && (
+          <View style={[styles.reactionsContainer, styles.otherReactionsContainer]}>
+            {(() => {
+              const reactionGroups = message.reactions.reduce((acc, reaction) => {
+                acc[reaction.emoji] = (acc[reaction.emoji] || 0) + 1;
+                return acc;
+              }, {});
+              
+              return Object.entries(reactionGroups).map(([emoji, count]) => (
+                <View key={emoji} style={[styles.reactionBadge, { backgroundColor: colors.surface }]}>
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                  <Text style={[styles.reactionCount, { color: colors.textSecondary }]}>{count}</Text>
+                </View>
+              ));
+            })()}
+          </View>
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -239,7 +402,7 @@ const ChatScreen = ({ navigation, route, user }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }] }>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }] }>
         <TouchableOpacity
@@ -344,6 +507,57 @@ const ChatScreen = ({ navigation, route, user }) => {
           </View>
         </View>
       </KeyboardAvoidingView>
+      {/* Message Modal for long press */}
+      <Modal
+        visible={showMessageModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMessageModal(false)}
+      >
+        <Pressable style={{ flex: 1, backgroundColor: 'transparent' }} onPress={() => setShowMessageModal(false)}>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 0 }}>
+            {/* Emoji Row */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16 }}>
+              {['❤️','😂','🔥','👀','🫠','👍'].map((emoji, idx) => (
+                <TouchableOpacity key={emoji} style={{ marginHorizontal: 8 }} onPress={() => handleAddReaction(selectedMessage, emoji)}>
+                  <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={{ marginHorizontal: 8 }}>
+                <Feather name="plus-circle" size={28} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {/* Send Time */}
+            {selectedMessage && (
+              <Text style={{ color: colors.textSecondary, marginBottom: 8, textAlign: 'center', fontSize: 13 }}>
+                {formatMessageTime(selectedMessage.createdAt)}
+              </Text>
+            )}
+            {/* Actions */}
+            <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={handleReply}>
+                <Feather name="corner-up-left" size={20} color={colors.text} style={{ marginRight: 12 }} />
+                <Text style={{ color: colors.text, fontSize: 16 }}>Reply</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={handleCopy}>
+                <Feather name="copy" size={20} color={colors.text} style={{ marginRight: 12 }} />
+                <Text style={{ color: colors.text, fontSize: 16 }}>Copy</Text>
+              </TouchableOpacity>
+              {selectedMessage && selectedMessage.sender._id === user._id ? (
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={() => {/* Unsend logic here */ setShowMessageModal(false); }}>
+                  <MaterialIcons name="undo" size={20} color="#ff3b30" style={{ marginRight: 12 }} />
+                  <Text style={{ color: '#ff3b30', fontSize: 16 }}>Unsend</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={handleReport}>
+                  <MaterialIcons name="report" size={20} color="#ff3b30" style={{ marginRight: 12 }} />
+                  <Text style={{ color: '#ff3b30', fontSize: 16 }}>Report</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -421,6 +635,10 @@ const styles = StyleSheet.create({
   },
   otherMessageContainer: {
     justifyContent: 'flex-start',
+  },
+  otherReactionsContainer: {
+    justifyContent: 'flex-end',
+    paddingRight: 0,
   },
   senderAvatar: {
     width: 32,
@@ -510,6 +728,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sendButtonDisabled: {
+  },
+  reactionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+    paddingHorizontal: 1,
+  },
+  myReactionsContainer: {
+    justifyContent: 'flex-start',
+    paddingLeft: 0,
+  },
+  otherReactionsContainer: {
+    justifyContent: 'flex-end',
+    paddingRight: 0,
+  },
+  reactionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 4,
+    marginBottom: 4,
+  },
+  reactionEmoji: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  reactionCount: {
+    fontSize: 12,
   },
 });
 

@@ -68,7 +68,7 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
   const menuItems = [];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {/* Header with Settings (left) and EditProfile (right) */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity

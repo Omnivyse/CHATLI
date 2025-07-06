@@ -9,12 +9,17 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const UserSearchScreen = ({ navigation, user }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -167,14 +172,14 @@ const UserSearchScreen = ({ navigation, user }) => {
         />
         
         <View style={styles.userInfo}>
-          <Text style={styles.userName} numberOfLines={1}>
+          <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
             {targetUser.name}
           </Text>
-          <Text style={styles.userUsername} numberOfLines={1}>
+          <Text style={[styles.userUsername, { color: colors.textSecondary }]} numberOfLines={1}>
             @{targetUser.username}
           </Text>
           {targetUser.bio && (
-            <Text style={styles.userBio} numberOfLines={2}>
+            <Text style={[styles.userBio, { color: colors.textTertiary }]} numberOfLines={2}>
               {targetUser.bio}
             </Text>
           )}
@@ -217,7 +222,7 @@ const UserSearchScreen = ({ navigation, user }) => {
 
     return (
       <TouchableOpacity
-        style={styles.followingItem}
+        style={[styles.followingItem, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
         onPress={() => {
           navigation.navigate('UserProfile', {
             userId: targetUser._id,
@@ -230,22 +235,22 @@ const UserSearchScreen = ({ navigation, user }) => {
           source={{ 
             uri: targetUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
           }}
-          style={styles.followingAvatar}
+          style={[styles.followingAvatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.border, borderWidth: 1 }]}
         />
         
         <View style={styles.followingInfo}>
-          <Text style={styles.followingName} numberOfLines={1}>
+          <Text style={[styles.followingName, { color: colors.text }]} numberOfLines={1}>
             {targetUser.name}
           </Text>
           <View style={[
             styles.onlineIndicator,
-            { backgroundColor: targetUser.status === 'online' ? '#000' : '#999' }
+            { backgroundColor: targetUser.status === 'online' ? colors.primary : colors.textTertiary, borderColor: colors.surface }
           ]} />
         </View>
 
         {isLoading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="small" color="#000" />
+            <ActivityIndicator size="small" color={colors.text} />
           </View>
         )}
       </TouchableOpacity>
@@ -253,31 +258,34 @@ const UserSearchScreen = ({ navigation, user }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }] }>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Хэрэглэгч хайх</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч хайх</Text>
         <View style={styles.placeholder} />
       </View>
 
       {/* Search Input */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }] }>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.surfaceVariant }] }>
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Нэр, имэйл хайх..."
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.placeholder}
             value={searchQuery}
             onChangeText={handleSearchChange}
             autoCapitalize="none"
             autoFocus
+            keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
           />
           {searchQuery ? (
             <TouchableOpacity 
@@ -287,7 +295,7 @@ const UserSearchScreen = ({ navigation, user }) => {
               }}
               style={styles.clearSearch}
             >
-              <Ionicons name="close" size={20} color="#666" />
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -325,7 +333,7 @@ const UserSearchScreen = ({ navigation, user }) => {
         // Following List
         <View style={styles.content}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Дагагчид</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Дагагчид</Text>
             <Text style={styles.sectionSubtitle}>
               Дагасан хүмүүстэйгээ чат эхлүүлээрэй
             </Text>
@@ -359,6 +367,7 @@ const UserSearchScreen = ({ navigation, user }) => {
         </View>
       )}
     </SafeAreaView>
+    </>
   );
 };
 
@@ -372,7 +381,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -394,7 +403,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -404,7 +413,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   searchIcon: {
     marginRight: 8,
@@ -423,7 +432,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
   },
   sectionTitle: {
     fontSize: 18,
@@ -480,7 +489,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#f8f8f8',
   },
