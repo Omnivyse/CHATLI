@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
+import socketService from '../services/socket';
 
 const NotificationScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
@@ -24,6 +25,14 @@ const NotificationScreen = ({ navigation, user }) => {
 
   useEffect(() => {
     loadNotifications();
+    // Listen for real-time notifications
+    const handleNotification = (data) => {
+      setNotifications((prev) => [data, ...prev]);
+    };
+    socketService.onNotification(handleNotification);
+    return () => {
+      socketService.offNotification(handleNotification);
+    };
   }, []);
 
   const loadNotifications = async () => {

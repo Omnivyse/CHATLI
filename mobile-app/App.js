@@ -3,12 +3,13 @@ import { StatusBar, Platform } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, Alert, LogBox } from 'react-native';
+import { View, Text, Alert, LogBox, Platform as RNPlatform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors } from './src/utils/themeUtils';
 
@@ -97,9 +98,9 @@ function MainTabNavigator({ user, onLogout }) {
           backgroundColor: tabBarColors.backgroundColor,
           borderTopWidth: 1,
           borderTopColor: tabBarColors.borderTopColor,
-          paddingTop: 8,
-          paddingBottom: 8,
-          height: 72,
+          paddingTop: RNPlatform.OS === 'ios' ? 8 : 4,
+          paddingBottom: RNPlatform.OS === 'ios' ? 8 : 16, // Extra padding for Android
+          height: RNPlatform.OS === 'ios' ? 72 : 80, // Taller for Android
           shadowColor: '#000000',
           shadowOffset: {
             width: 0,
@@ -107,7 +108,12 @@ function MainTabNavigator({ user, onLogout }) {
           },
           shadowOpacity: 0.05,
           shadowRadius: 2,
-          elevation: 5,
+          elevation: 8, // Higher elevation for Android
+          // Android specific styles
+          ...(RNPlatform.OS === 'android' && {
+            paddingHorizontal: 8,
+            paddingVertical: 8,
+          }),
         },
         tabBarLabelStyle: {
           display: 'none',
@@ -116,9 +122,9 @@ function MainTabNavigator({ user, onLogout }) {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: 44, // Minimum touch target
+          minHeight: RNPlatform.OS === 'ios' ? 44 : 48, // Minimum touch target
           paddingHorizontal: 12,
-          paddingVertical: 8,
+          paddingVertical: RNPlatform.OS === 'ios' ? 8 : 4,
         },
         headerShown: false,
       })}
@@ -366,13 +372,15 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <AppContent 
-        user={user} 
-        onLogout={handleLogout} 
-        onLogin={handleLogin}
-        showSplash={showSplash}
-        onSplashComplete={handleSplashComplete}
-      />
+      <SafeAreaProvider>
+        <AppContent 
+          user={user} 
+          onLogout={handleLogout} 
+          onLogin={handleLogin}
+          showSplash={showSplash}
+          onSplashComplete={handleSplashComplete}
+        />
+      </SafeAreaProvider>
     </ThemeProvider>
   );
 }
@@ -389,7 +397,12 @@ function AppContent({ user, onLogout, onLogin, showSplash, onSplashComplete }) {
   return (
     <>
       <NavigationContainer>
-        <StatusBar style={statusBarStyle} backgroundColor={statusBarBackgroundColor} />
+        <StatusBar 
+          style={statusBarStyle} 
+          backgroundColor={statusBarBackgroundColor}
+          translucent={RNPlatform.OS === 'android'}
+          barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
+        />
         {user ? (
           <MainStackNavigator user={user} onLogout={onLogout} />
         ) : (
@@ -409,7 +422,7 @@ function AppContent({ user, onLogout, onLogin, showSplash, onSplashComplete }) {
 // Helper function
 async function registerForPushNotificationsAsync() {
   let token;
-  if (Platform.OS === 'android') {
+  if (RNPlatform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,

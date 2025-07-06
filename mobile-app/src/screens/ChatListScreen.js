@@ -10,6 +10,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -261,63 +262,47 @@ const ChatListScreen = ({ navigation, user }) => {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Чат</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <View style={[styles.loadingSpinner, { backgroundColor: colors.surface }]}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'left', 'right']} // Don't include bottom to avoid tab bar overlap
+    >
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Чат</Text>
         <TouchableOpacity 
-          style={[styles.newChatButton, { backgroundColor: colors.surfaceVariant }]}
+          style={styles.searchButton}
           onPress={() => navigation.navigate('UserSearch')}
         >
-          <Ionicons name="add" size={24} color={colors.primary} />
+          <Ionicons name="search" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
-      <View style={[styles.searchContainer, { borderBottomColor: colors.border }]}>
-        <View style={[styles.searchInputContainer, { 
-          backgroundColor: colors.surfaceVariant, 
-          borderColor: colors.border 
-        }]}>
-          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Чат хайх..."
-            placeholderTextColor={colors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery ? (
-            <TouchableOpacity 
-              onPress={() => setSearchQuery('')}
-              style={styles.clearSearch}
-            >
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+      {/* Search Bar */}
+      <View style={[styles.searchContainer, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+        <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.text }]}
+          placeholder="Хайх..."
+          placeholderTextColor={colors.placeholder}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Chat List */}
-      {error ? (
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadChats}
@@ -328,30 +313,32 @@ const ChatListScreen = ({ navigation, user }) => {
       ) : filteredChats.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="chatbubbles-outline" size={64} color={colors.textTertiary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {searchQuery ? 'Чат олдсонгүй' : 'Чат байхгүй байна'}
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            {searchQuery ? 'Хайлтад тохирох чат олдсонгүй' : 'Чат байхгүй байна'}
           </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            {searchQuery 
-              ? 'Өөр нэрээр хайж үзээрэй' 
-              : 'Шинэ чат эхлүүлэхийн тулд + товчийг дарна уу'
-            }
-          </Text>
+          {!searchQuery && (
+            <TouchableOpacity 
+              style={[styles.newChatButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('UserSearch')}
+            >
+              <Text style={[styles.newChatButtonText, { color: colors.textInverse }]}>Шинэ чат эхлэх</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
           data={filteredChats}
-          renderItem={renderChatItem}
           keyExtractor={(item) => item._id}
-          style={styles.chatList}
+          renderItem={renderChatItem}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[colors.primary]}
               tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
+          contentContainerStyle={styles.chatList}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -378,6 +365,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#0f172a',
   },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   newChatButton: {
     width: 40,
     height: 40,
@@ -391,6 +385,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   searchInputContainer: {
     flexDirection: 'row',
@@ -415,7 +417,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   chatList: {
-    flex: 1,
+    flexGrow: 1,
+    paddingBottom: Platform.OS === 'android' ? 20 : 0, // Extra padding for Android
   },
   chatItem: {
     flexDirection: 'row',
@@ -545,11 +548,23 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
+  emptyText: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
   emptySubtitle: {
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  newChatButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

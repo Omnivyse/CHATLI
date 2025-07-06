@@ -299,6 +299,36 @@ class SocketService {
   isReady() {
     return this.socket && this.isConnected;
   }
+
+  // Like post
+  likePost(postId, likedBy, postOwner) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('like_post', { postId, likedBy, postOwner });
+    }
+  }
+
+  // Comment post
+  commentPost(postId, commentBy, postOwner, commentText) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('comment_post', { postId, commentBy, postOwner, commentText });
+    }
+  }
+
+  // Follow user
+  followUser(followedUserId, followedBy) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('follow_user', { followedUserId, followedBy });
+    }
+  }
+
+  // Listen for real-time notifications
+  onNotification(callback) {
+    this.on('notification', callback);
+  }
+
+  offNotification(callback) {
+    this.off('notification', callback);
+  }
 }
 
 const socketService = new SocketService();

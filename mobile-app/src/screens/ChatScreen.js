@@ -1,20 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  TextInput,
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Alert,
-  Image,
-  ActivityIndicator,
   Modal,
   Pressable,
   Clipboard,
   Animated,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -639,6 +639,8 @@ const ChatScreen = ({ navigation, route, user }) => {
       <KeyboardAvoidingView 
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        enabled={Platform.OS === 'ios'}
       >
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -663,7 +665,16 @@ const ChatScreen = ({ navigation, route, user }) => {
         )}
 
         {/* Input */}
-        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }] }>
+        <View style={[
+          styles.inputContainer, 
+          { 
+            backgroundColor: colors.surface, 
+            borderTopColor: colors.border,
+            ...(Platform.OS === 'android' && {
+              paddingBottom: 10, // Extra padding for Android keyboard
+            })
+          }
+        ]}>
           <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceVariant }] }>
             <TextInput
               style={[styles.textInput, { color: colors.text }]}
@@ -675,6 +686,8 @@ const ChatScreen = ({ navigation, route, user }) => {
               maxLength={1000}
               editable={!sending}
               keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
+              returnKeyType="send"
+              blurOnSubmit={false}
             />
             <TouchableOpacity
               style={[
@@ -890,26 +903,26 @@ const styles = StyleSheet.create({
   inputContainer: {
     borderTopWidth: 1,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 25, // Reduced from 8 to 4 to move it higher
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 8, // Increased from 6 to 8
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    maxHeight: 100,
+    maxHeight: 80, // Reduced from 100 to 80
     marginRight: 8,
-    paddingVertical: 4,
+    paddingVertical: 4, // Increased from 2 to 4
   },
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32, // Reduced from 36 to 32
+    height: 20, // Reduced from 36 to 20
+    borderRadius: 16, // Reduced from 18 to 16
     justifyContent: 'center',
     alignItems: 'center',
   },
