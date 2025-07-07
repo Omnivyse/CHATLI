@@ -10,27 +10,27 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Animated,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 import api from '../services/api';
 
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
-
-const GAP = 8; // px between videos
-const ASPECT_RATIO = 9 / 16;
-const VIDEO_BOX_WIDTH = windowWidth;
-const VIDEO_BOX_HEIGHT = VIDEO_BOX_WIDTH / ASPECT_RATIO;
-const GAP_BETWEEN_VIDEOS = 100;
+const TAB_BAR_HEIGHT = 72; // matches App.js tabBarStyle height
 
 const ClipsScreen = ({ navigation, user }) => {
   const insets = useSafeAreaInsets();
-  const TAB_BAR_HEIGHT = 72; // matches App.js tabBarStyle height
   const CLIP_CONTAINER_HEIGHT = windowHeight - TAB_BAR_HEIGHT - insets.bottom;
-  const ITEM_HEIGHT = CLIP_CONTAINER_HEIGHT + GAP;
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,13 +38,164 @@ const ClipsScreen = ({ navigation, user }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [pausedVideos, setPausedVideos] = useState({});
   const [videoProgress, setVideoProgress] = useState({});
+  const [mutedVideos, setMutedVideos] = useState({});
+  const [heartAnimations, setHeartAnimations] = useState({});
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [selectedPostForOptions, setSelectedPostForOptions] = useState(null);
   const flatListRef = useRef(null);
   const videoRefs = useRef({});
   const longPressTimers = useRef({});
+  const doubleTapTimers = useRef({});
+  const lastTapTime = useRef({});
+  const heartAnimationRefs = useRef({});
+  const scrollViewRef = useRef(null);
 
   useEffect(() => {
     loadPosts();
+    
+    // Cleanup function to pause all videos when component unmounts
+    return () => {
+      pauseAllVideos();
+      clearAllTimers();
+    };
   }, []);
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+      // Scroll to bottom when keyboard shows
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Handle screen focus/blur
+  useFocusEffect(
+    React.useCallback(() => {
+      // Screen is focused - resume current video if it was playing
+      if (posts.length > 0 && currentIndex < posts.length) {
+        const currentPost = posts[currentIndex];
+        if (currentPost && !pausedVideos[currentPost._id]) {
+          const videoRef = videoRefs.current[currentPost._id];
+          if (videoRef) {
+            videoRef.playAsync();
+          }
+        }
+      }
+      
+      return () => {
+        // Screen is blurred - pause all videos
+        pauseAllVideos();
+        clearAllTimers();
+      };
+    }, [posts, currentIndex, pausedVideos])
+  );
+
+  // Handle tab press to refresh when already in Clips section
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', (e) => {
+      // Check if we're already on the Clips tab
+      if (navigation.isFocused()) {
+        // Prevent default behavior and refresh instead
+        e.preventDefault();
+        handleRefresh();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const pauseAllVideos = () => {
+    Object.values(videoRefs.current).forEach(video => {
+      if (video) {
+        video.pauseAsync();
+      }
+    });
+  };
+
+  const clearAllTimers = () => {
+    Object.values(longPressTimers.current).forEach(timer => {
+      if (timer) clearTimeout(timer);
+    });
+    Object.values(doubleTapTimers.current).forEach(timer => {
+      if (timer) clearTimeout(timer);
+    });
+    // Clear the timer objects
+    longPressTimers.current = {};
+    doubleTapTimers.current = {};
+  };
+
+  const openCommentModal = async (post) => {
+    setSelectedPost(post);
+    setCommentModalVisible(true);
+    setCommentText('');
+    setCommentLoading(true);
+    
+    try {
+      // Load comments for this post
+      const response = await api.getComments(post._id);
+      if (response.success) {
+        // Comments are included in the post data
+        setComments(response.data.post.comments || []);
+      }
+    } catch (error) {
+      console.error('Load comments error:', error);
+      setComments([]);
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const closeCommentModal = () => {
+    setCommentModalVisible(false);
+    setSelectedPost(null);
+    setComments([]);
+    setCommentText('');
+  };
+
+  const submitComment = async () => {
+    if (!commentText.trim() || !selectedPost) return;
+    
+    setCommentLoading(true);
+    try {
+      const response = await api.addComment(selectedPost._id, commentText.trim());
+      if (response.success) {
+        // Add new comment to the list (comments are returned in response.data.comments)
+        setComments(response.data.comments || []);
+        setCommentText('');
+        
+        // Update post comment count
+        setPosts(prevPosts =>
+          prevPosts.map(post =>
+            post._id === selectedPost._id
+              ? { ...post, comments: response.data.comments || [] }
+              : post
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Add comment error:', error);
+      Alert.alert('Алдаа', 'Сэтгэгдэл нэмэхэд алдаа гарлаа');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
 
   const loadPosts = async () => {
     try {
@@ -113,16 +264,88 @@ const ClipsScreen = ({ navigation, user }) => {
     }
   }).current;
 
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80,
+    minimumViewTime: 100,
+  }).current;
+
   const handleVideoTap = async (postId) => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300; // 300ms for double tap detection
+    
+    // Check if this is a double tap
+    if (lastTapTime.current[postId] && (now - lastTapTime.current[postId]) < DOUBLE_TAP_DELAY) {
+      // Double tap detected - like the post
+      clearTimeout(doubleTapTimers.current[postId]);
+      delete lastTapTime.current[postId];
+      delete doubleTapTimers.current[postId];
+      
+      // Like the post
+      await handleLike(postId);
+      
+      // Show heart animation
+      setHeartAnimations(prev => ({ ...prev, [postId]: true }));
+      
+      // Create animation
+      const animatedValue = new Animated.Value(0);
+      heartAnimationRefs.current[postId] = animatedValue;
+      
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(animatedValue, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animatedValue, {
+            toValue: 1.2,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setHeartAnimations(prev => ({ ...prev, [postId]: false }));
+        delete heartAnimationRefs.current[postId];
+      });
+      
+      return;
+    }
+    
+    // Single tap - play/pause video
+    lastTapTime.current[postId] = now;
+    doubleTapTimers.current[postId] = setTimeout(() => {
+      // Single tap confirmed after delay
+      const videoRef = videoRefs.current[postId];
+      if (videoRef) {
+        const isPaused = pausedVideos[postId];
+        if (isPaused) {
+          videoRef.playAsync();
+          setPausedVideos(prev => ({ ...prev, [postId]: false }));
+        } else {
+          videoRef.pauseAsync();
+          setPausedVideos(prev => ({ ...prev, [postId]: true }));
+        }
+      }
+      delete lastTapTime.current[postId];
+      delete doubleTapTimers.current[postId];
+    }, DOUBLE_TAP_DELAY);
+  };
+
+  const handleMuteToggle = async (postId) => {
     const videoRef = videoRefs.current[postId];
     if (videoRef) {
-      const isPaused = pausedVideos[postId];
-      if (isPaused) {
-        await videoRef.playAsync();
-        setPausedVideos(prev => ({ ...prev, [postId]: false }));
+      const isMuted = mutedVideos[postId];
+      if (isMuted) {
+        await videoRef.setIsMutedAsync(false);
+        setMutedVideos(prev => ({ ...prev, [postId]: false }));
       } else {
-        await videoRef.pauseAsync();
-        setPausedVideos(prev => ({ ...prev, [postId]: true }));
+        await videoRef.setIsMutedAsync(true);
+        setMutedVideos(prev => ({ ...prev, [postId]: true }));
       }
     }
   };
@@ -152,57 +375,72 @@ const ClipsScreen = ({ navigation, user }) => {
   };
 
   const formatTimeAgo = (dateString) => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffInSeconds = Math.floor((now - date) / 1000);
-    
-    if (diffInSeconds < 60) return `${diffInSeconds}с`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}м`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}ц`;
-    return `${Math.floor(diffInSeconds / 86400)}ө`;
+    try {
+      if (!dateString) return '0с';
+      const now = new Date();
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '0с';
+      
+      const diffInSeconds = Math.floor((now - date) / 1000);
+      
+      if (diffInSeconds < 60) return `${diffInSeconds}с`;
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}м`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}ц`;
+      return `${Math.floor(diffInSeconds / 86400)}ө`;
+    } catch (error) {
+      console.warn('formatTimeAgo error:', error, 'dateString:', dateString);
+      return '0с';
+    }
   };
 
   const formatViewCount = (likesCount) => {
-    if (likesCount < 1000) return likesCount.toString();
-    if (likesCount < 1000000) return `${(likesCount / 1000).toFixed(1)}k`;
-    return `${(likesCount / 1000000).toFixed(1)}M`;
-  };
-
-  const getViewMultiplier = (postId) => {
-    // Create consistent view multiplier based on post ID
-    const hash = postId.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    return Math.abs(hash % 100) + 10; // 10-109x multiplier for more realistic views
+    try {
+      if (likesCount === null || likesCount === undefined) return '0';
+      const count = Number(likesCount) || 0;
+      if (count < 1000) return count.toString();
+      if (count < 1000000) return `${(count / 1000).toFixed(1)}k`;
+      return `${(count / 1000000).toFixed(1)}M`;
+    } catch (error) {
+      console.warn('formatViewCount error:', error, 'likesCount:', likesCount);
+      return '0';
+    }
   };
 
   // Utility to always return a string for any value
   const safeText = (val) => {
-    if (val === null || val === undefined) return '';
-    if (typeof val === 'string' || typeof val === 'number') return String(val);
     try {
-      return JSON.stringify(val);
-    } catch {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string') return val;
+      if (typeof val === 'number') return String(val);
+      if (typeof val === 'boolean') return String(val);
+      if (typeof val === 'object') {
+        // Handle objects more carefully
+        if (val.toString && typeof val.toString === 'function') {
+          return val.toString();
+        }
+        return JSON.stringify(val);
+      }
+      return String(val);
+    } catch (error) {
+      console.warn('safeText error:', error, 'value:', val);
       return '';
     }
   };
 
-  const renderClipItem = ({ item, index }) => {
+    const renderClipItem = ({ item, index }) => {
     const media = item.media[0];
     const isLiked = item.likes.includes(user._id);
-    // Center the 9:16 box vertically
-    const verticalPadding = Math.max(0, (CLIP_CONTAINER_HEIGHT - VIDEO_BOX_HEIGHT) / 2);
-    // Add gap below except for last item
-    const isLast = index === posts.length - 1;
+    
     return (
-      <View style={[styles.clipContainer, { height: CLIP_CONTAINER_HEIGHT, marginBottom: isLast ? 0 : GAP_BETWEEN_VIDEOS }]}> {/* Add gap below except last */}
-        {/* Transparent Text to prevent RN error */}
-        <Text style={{opacity: 0, height: 0}}> </Text>
-        {/* Black space above */}
-        {verticalPadding > 0 && <View style={{ height: verticalPadding, width: '100%', backgroundColor: '#000' }} />}
-        {/* 9:16 Video Box */}
-        <View style={styles.videoBox}>
+      <View style={styles.clipContainer}>
+        {/* Full-screen Video */}
+        <TouchableOpacity 
+          style={styles.videoContainer}
+          onPress={() => handleVideoTap(item._id)}
+          onLongPress={() => handleLongPress(item._id)}
+          onPressOut={() => handlePressOut(item._id)}
+          activeOpacity={1}
+        >
           <Video
             ref={(ref) => {
               videoRefs.current[item._id] = ref;
@@ -211,7 +449,7 @@ const ClipsScreen = ({ navigation, user }) => {
             style={styles.video}
             shouldPlay={index === currentIndex && !pausedVideos[item._id]}
             isLooping
-            isMuted={false}
+            isMuted={mutedVideos[item._id] || false}
             resizeMode="contain"
             onError={(error) => {
               console.error('Video error:', error);
@@ -226,6 +464,10 @@ const ClipsScreen = ({ navigation, user }) => {
               }
             }}
           />
+          
+          {/* Dark overlay for better text readability */}
+          <View style={styles.darkOverlay} />
+          
           {pausedVideos[item._id] && (
             <View style={styles.playPauseOverlay}>
               <View style={styles.playIcon}>
@@ -233,14 +475,50 @@ const ClipsScreen = ({ navigation, user }) => {
               </View>
             </View>
           )}
-          {/* Overlays: SafeAreaView for icons and info, positioned absolutely over the 9:16 box */}
+          
+          {/* Heart Animation for Double Tap */}
+          {heartAnimations[item._id] && (
+            <View style={styles.heartAnimationContainer}>
+              <Animated.View 
+                style={[
+                  styles.heartAnimation,
+                  {
+                    transform: [
+                      { 
+                        scale: heartAnimationRefs.current[item._id] || new Animated.Value(0)
+                      }
+                    ],
+                    opacity: heartAnimationRefs.current[item._id] || new Animated.Value(0)
+                  }
+                ]}
+              >
+                <Ionicons name="heart" size={80} color="#ff3040" />
+              </Animated.View>
+            </View>
+          )}
+          
+          {/* Overlays */}
           <SafeAreaView style={styles.overlaySafeArea} pointerEvents="box-none">
             {/* Top Watermark */}
             <View style={styles.watermark}>
               <Text style={styles.watermarkText}>CHATLI clips</Text>
             </View>
-            {/* Right Side Actions (centered vertically in 9:16 box) */}
-            <View style={[styles.rightActionsFixed, { top: VIDEO_BOX_HEIGHT / 2 - 90 }]}> {/* 90 = half the icon stack height */}
+            
+            {/* Mute/Unmute Button - Top Right */}
+            <TouchableOpacity
+              style={styles.muteButton}
+              onPress={() => handleMuteToggle(item._id)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={mutedVideos[item._id] ? 'volume-mute' : 'volume-high'}
+                size={24}
+                color="#ffffff"
+              />
+            </TouchableOpacity>
+            
+            {/* Right Side Actions - positioned in center-right */}
+            <View style={styles.rightActions}>
               <TouchableOpacity
                 style={[styles.actionButton, isLiked && styles.likedButton]}
                 onPress={() => handleLike(item._id)}
@@ -254,21 +532,21 @@ const ClipsScreen = ({ navigation, user }) => {
                   />
                 </View>
                 <Text style={[styles.actionText, isLiked && styles.likedText]}>
-                  {safeText(formatViewCount(item.likes?.length))}
+                  {safeText(formatViewCount(item.likes?.length || 0))}
                 </Text>
               </TouchableOpacity>
+              
               <TouchableOpacity 
                 style={styles.actionButton}
-                onPress={() => {
-                  Alert.alert('Сэтгэгдэл', 'Сэтгэгдэл функц удахгүй нэмэгдэнэ');
-                }}
+                onPress={() => openCommentModal(item)}
                 activeOpacity={0.7}
               >
                 <View style={styles.actionIconContainer}>
                   <Ionicons name="chatbubble-outline" size={26} color="#ffffff" />
                 </View>
-                <Text style={styles.actionText}>{safeText(formatViewCount(item.comments?.length))}</Text>
+                <Text style={styles.actionText}>{safeText(formatViewCount(item.comments?.length || 0))}</Text>
               </TouchableOpacity>
+              
               <TouchableOpacity 
                 style={styles.actionButton}
                 onPress={() => {
@@ -289,8 +567,9 @@ const ClipsScreen = ({ navigation, user }) => {
                 </View>
               </TouchableOpacity>
             </View>
-            {/* Bottom Left: Publisher Info & Description (just above nav) */}
-            <View style={[styles.bottomInfoFixed, { bottom: TAB_BAR_HEIGHT + insets.bottom + 16 }]}> {/* 16px padding above nav */}
+            
+            {/* Bottom Info - positioned at bottom */}
+            <View style={styles.bottomInfo}>
               <View style={styles.publisherRow}>
                 <Image
                   source={{ uri: item.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' }}
@@ -298,23 +577,24 @@ const ClipsScreen = ({ navigation, user }) => {
                 />
                 <View style={styles.publisherDetails}>
                   <View style={styles.publisherNameRow}>
-                    <Text style={styles.userName}>{safeText(item.author?.name) || '@'}</Text>
+                    <Text style={styles.userName}>{safeText(item.author?.name || 'Unknown')}</Text>
                     <Text style={styles.dot}>•</Text>
                     <Text style={styles.timeAgo}>{safeText(formatTimeAgo(item.createdAt))}</Text>
                     <Text style={styles.dot}>•</Text>
-                    <Text style={styles.viewCount}>{safeText(formatViewCount(item.likes?.length))} үзсэн</Text>
+                    <Text style={styles.viewCount}>{safeText(formatViewCount(item.likes?.length || 0))} үзсэн</Text>
                   </View>
-                  <Text style={styles.postContent}>{safeText(item.content)}</Text>
+                  <Text style={styles.postContent}>{safeText(item.content || '')}</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.followButton}>
-                <Text style={styles.followButtonText}>Дагах</Text>
-              </TouchableOpacity>
+              {/* Only show follow button if it's not the current user's post */}
+              {item.author._id !== user._id && (
+                <TouchableOpacity style={styles.followButton}>
+                  <Text style={styles.followButtonText}>Дагах</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </SafeAreaView>
-        </View>
-        {/* Brighter gap below */}
-        {!isLast && <View style={{ height: GAP_BETWEEN_VIDEOS, width: '100%', backgroundColor: 'transparent' }} />}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -343,24 +623,116 @@ const ClipsScreen = ({ navigation, user }) => {
 
   return (
     <View style={styles.rootContainer}>
-      <Text style={{opacity: 0, height: 0}}> </Text>
       <FlatList
         ref={flatListRef}
         data={posts}
-        keyExtractor={item => (item && item._id ? String(item._id) : Math.random().toString())}
+        keyExtractor={item => (item && item._id ? String(item._id) : String(Math.random()))}
         renderItem={renderClipItem}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
-        initialNumToRender={2}
+        viewabilityConfig={viewabilityConfig}
+        initialNumToRender={1}
+        maxToRenderPerBatch={1}
         windowSize={3}
         style={{ flex: 1, backgroundColor: '#000' }}
-        contentContainerStyle={{ flexGrow: 1, backgroundColor: '#000', paddingBottom: 0, marginBottom: 0 }}
-        snapToInterval={CLIP_CONTAINER_HEIGHT}
+        contentContainerStyle={{ backgroundColor: '#000' }}
+        snapToInterval={windowHeight - TAB_BAR_HEIGHT - 10}
         decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
-        getItemLayout={(data, index) => ({ length: CLIP_CONTAINER_HEIGHT, offset: CLIP_CONTAINER_HEIGHT * index, index })}
+        getItemLayout={(data, index) => ({ length: windowHeight - TAB_BAR_HEIGHT - 10, offset: (windowHeight - TAB_BAR_HEIGHT - 10) * index, index })}
       />
+      
+      {/* Comment Modal */}
+      <Modal
+        visible={commentModalVisible}
+        animationType="slide"
+        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+        onRequestClose={closeCommentModal}
+      >
+        <KeyboardAvoidingView 
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        >
+          <SafeAreaView style={styles.modalSafeArea}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={closeCommentModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Сэтгэгдэл</Text>
+              <View style={styles.placeholder} />
+            </View>
+            
+            {/* Comments List */}
+            <ScrollView 
+              ref={scrollViewRef}
+              style={styles.commentsContainer}
+              contentContainerStyle={styles.commentsContentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {commentLoading ? (
+                <View style={styles.loadingComments}>
+                  <ActivityIndicator size="large" color="#666" />
+                </View>
+              ) : comments.length === 0 ? (
+                <View style={styles.emptyComments}>
+                  <Ionicons name="chatbubble-outline" size={48} color="#ccc" />
+                  <Text style={styles.emptyCommentsText}>Сэтгэгдэл байхгүй</Text>
+                  <Text style={styles.emptyCommentsSubtext}>Эхний сэтгэгдлээ үлдэээрэй</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={comments}
+                  keyExtractor={item => item._id}
+                  renderItem={({ item }) => (
+                    <View style={styles.commentItem}>
+                      <Image
+                        source={{ uri: item.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' }}
+                        style={styles.commentAvatar}
+                      />
+                      <View style={styles.commentContent}>
+                        <View style={styles.commentHeader}>
+                          <Text style={styles.commentAuthor}>{safeText(item.author?.name || 'Unknown')}</Text>
+                          <Text style={styles.commentTime}>{safeText(formatTimeAgo(item.createdAt))}</Text>
+                        </View>
+                        <Text style={styles.commentText}>{safeText(item.content)}</Text>
+                      </View>
+                    </View>
+                  )}
+                  showsVerticalScrollIndicator={false}
+                />
+              )}
+            </ScrollView>
+            
+            {/* Comment Input */}
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Сэтгэгдэл бичих..."
+                placeholderTextColor="#999"
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+                maxLength={500}
+                returnKeyType="send"
+                blurOnSubmit={false}
+              />
+              <TouchableOpacity
+                style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
+                onPress={submitComment}
+                disabled={!commentText.trim() || commentLoading}
+              >
+                {commentLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -395,23 +767,27 @@ const styles = StyleSheet.create({
   },
   clipContainer: {
     width: windowWidth,
+    height: windowHeight - TAB_BAR_HEIGHT - 20, // Slightly smaller to ensure proper snapping
     backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
     position: 'relative',
+    overflow: 'hidden',
+    marginBottom: 10, // Small space between videos
   },
-  videoBox: {
-    width: VIDEO_BOX_WIDTH,
-    height: VIDEO_BOX_HEIGHT,
+  videoContainer: {
+    width: windowWidth,
+    height: '100%',
     backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'relative',
     overflow: 'hidden',
   },
   video: {
-    width: VIDEO_BOX_WIDTH,
-    height: VIDEO_BOX_HEIGHT,
+    width: windowWidth,
+    height: '100%',
     backgroundColor: '#000',
+  },
+  darkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   playPauseOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -426,6 +802,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  heartAnimationContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  heartAnimation: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   overlaySafeArea: {
     ...StyleSheet.absoluteFillObject,
@@ -448,25 +846,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     opacity: 0.8,
   },
-  rightActionsFixed: {
+  muteButton: {
+    position: 'absolute',
+    top: 50,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 15,
+  },
+  rightActions: {
     position: 'absolute',
     right: 16,
-    zIndex: 10,
+    bottom: 100, // Position above the bottom user info
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
-  bottomInfoFixed: {
+  bottomInfo: {
     position: 'absolute',
     left: 16,
-    zIndex: 10,
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    width: '70%',
+    right: 80, // Leave space for right actions
+    bottom: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   publisherRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 8,
+    flex: 1,
   },
   publisherDetails: {
     marginLeft: 10,
@@ -533,6 +944,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    marginLeft: 10,
   },
   followButtonText: {
     color: '#000000',
@@ -575,6 +987,140 @@ const styles = StyleSheet.create({
   },
   likedText: {
     color: '#ff3040',
+  },
+  // Comment Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalSafeArea: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  placeholder: {
+    width: 40,
+  },
+  commentsContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    maxHeight: '70%',
+  },
+  commentsContentContainer: {
+    paddingBottom: 20,
+    flexGrow: 1,
+  },
+  loadingComments: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyComments: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyCommentsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 16,
+  },
+  emptyCommentsSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  commentItem: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  commentAuthor: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginRight: 8,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: '#999',
+  },
+  commentText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 1,
+    paddingBottom: Platform.OS === 'ios',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    backgroundColor: '#fff',
+    minHeight: 60,
+    marginTop: 'auto',
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical:12,
+    minHeight: 20,
+    maxHeight: 100,
+    fontSize: 14,
+    color: '#000',
+    marginRight: 8,
+    textAlignVertical: 'center',
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#ccc',
   },
 });
 

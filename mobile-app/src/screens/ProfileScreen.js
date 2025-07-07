@@ -125,7 +125,7 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагагч</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: colors.text }]}>{posts.length}</Text>
+                              <Text style={[styles.statNumber, { color: colors.text }]}>{String(posts.length)}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Пост</Text>
             </View>
           </View>

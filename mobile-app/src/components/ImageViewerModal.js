@@ -70,7 +70,7 @@ const ImageViewerModal = ({
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.counter}>
-            {initialIndex + 1} / {images.length}
+                            {String(initialIndex + 1)} / {String(images.length)}
           </Text>
         </View>
         {/* Centered and Movable Image */}

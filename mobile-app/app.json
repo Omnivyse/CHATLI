@@ -21,7 +21,11 @@
     },
     "web": {},
     "sdkVersion": "53.0.0",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "plugins": [
       [
         "expo-image-picker",
@@ -35,7 +39,8 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
-} 
+}

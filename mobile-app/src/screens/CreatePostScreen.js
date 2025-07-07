@@ -332,7 +332,7 @@ const CreatePostScreen = ({ navigation, user }) => {
                   content.length > 1800 && styles.characterCountWarning,
                   content.length >= 2000 && styles.characterCountError
                 ]}>
-                  {content.length}/2000
+                  {String(content.length)}/2000
                 </Text>
               </View>
             </View>
@@ -381,7 +381,7 @@ const CreatePostScreen = ({ navigation, user }) => {
           
           <View style={[styles.mediaCount, { backgroundColor: colors.surfaceVariant }]}>
             <Text style={[styles.mediaCountText, { color: colors.textSecondary }]}>
-              {selectedMedia.length}/4
+                              {String(selectedMedia.length)}/4
             </Text>
           </View>
         </View>

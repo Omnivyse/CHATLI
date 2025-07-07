@@ -255,6 +255,18 @@ class ApiService {
     });
   }
 
+  async getComments(postId) {
+    // Comments are included in the post data, so we get the single post
+    return this.request(`/posts/${postId}`);
+  }
+
+  async addComment(postId, content) {
+    return this.request(`/posts/${postId}/comment`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
   async deletePost(postId) {
     return this.request(`/posts/${postId}`, {
       method: 'DELETE',

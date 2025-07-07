@@ -18,6 +18,14 @@ import ImageViewerModal from './ImageViewerModal';
 const { width: screenWidth } = Dimensions.get('window');
 
 const Post = ({ post, user, onPostUpdate, navigation }) => {
+  if (
+    !post ||
+    typeof post !== 'object' ||
+    !post.author ||
+    typeof post.author !== 'object'
+  ) {
+    return <Text>Invalid post data</Text>;
+  }
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [localPost, setLocalPost] = useState(post);
@@ -86,45 +94,40 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   };
 
   const formatRelativeTime = (dateString) => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diff = now - date;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
+    try {
+      const now = new Date();
+      const date = new Date(dateString);
+      const diff = now - date;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'яг одоо';
-    if (minutes < 60) return `${minutes}м`;
-    if (hours < 24) return `${hours}ц`;
-    if (days < 7) return `${days}ө`;
-    return date.toLocaleDateString('mn-MN');
+      if (minutes < 1) return 'яг одоо';
+      if (minutes < 60) return `${minutes}м`;
+      if (hours < 24) return `${hours}ц`;
+      if (days < 7) return `${days}ө`;
+      return date.toLocaleDateString('mn-MN');
+    } catch (error) {
+      return 'яг одоо';
+    }
   };
 
   const getMediaToShow = () => {
-    console.log('=== DEBUG: Checking post media ===');
-    console.log('Post ID:', localPost._id);
-    console.log('Has media array:', !!localPost.media);
-    console.log('Media array:', localPost.media);
-    console.log('Has image field:', !!localPost.image);
-    console.log('Image field:', localPost.image);
-    console.log('Has video field:', !!localPost.video);
-    console.log('Video field:', localPost.video);
-    
-    if (Array.isArray(localPost.media) && localPost.media.length > 0) {
-      console.log('Using media array with', localPost.media.length, 'items');
-      return localPost.media;
+    try {
+      if (Array.isArray(localPost.media) && localPost.media.length > 0) {
+        return localPost.media;
+      }
+      // Fallback for legacy posts
+      if (localPost.image) {
+        return [{ type: 'image', url: localPost.image }];
+      }
+      if (localPost.video) {
+        return [{ type: 'video', url: localPost.video }];
+      }
+      return [];
+    } catch (error) {
+      return [];
     }
-    // Fallback for legacy posts
-    if (localPost.image) {
-      console.log('Using legacy image field');
-      return [{ type: 'image', url: localPost.image }];
-    }
-    if (localPost.video) {
-      console.log('Using legacy video field');
-      return [{ type: 'video', url: localPost.video }];
-    }
-    console.log('No media found');
-    return [];
   };
 
   const mediaArray = getMediaToShow();
@@ -135,26 +138,27 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   };
 
   const renderMedia = () => {
-    console.log('=== DEBUG: renderMedia ===');
-    console.log('Media array length:', mediaArray.length);
-    console.log('Current media index:', currentMedia);
-    
     if (mediaArray.length === 0) {
-      console.log('No media to render');
       return (
         <View style={[styles.mediaContainer, { 
           backgroundColor: '#f0f0f0', 
           padding: 20, 
           alignItems: 'center',
           borderRadius: 8
-        }]}>
+        }]}> 
           <Text style={{ color: '#666', fontSize: 14 }}>No media found in this post</Text>
         </View>
       );
     }
 
     const currentMediaItem = mediaArray[currentMedia];
-    console.log('Current media item:', currentMediaItem);
+    if (!currentMediaItem) {
+      return (
+        <View style={[styles.mediaContainer, { backgroundColor: '#f0f0f0', padding: 20, alignItems: 'center', borderRadius: 8 }]}> 
+          <Text style={{ color: '#666', fontSize: 14 }}>No media found in this post</Text>
+        </View>
+      );
+    }
     
     // Calculate aspect ratio for better display
     const aspectRatio = currentMediaItem.width && currentMediaItem.height 
@@ -173,7 +177,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
                 <Text style={[styles.imageErrorText, { color: colors.textSecondary }]}>Зураг ачаалахад алдаа гарлаа</Text>
                 <Text style={[styles.imageErrorText, { color: colors.textSecondary, fontSize: 12 }]}>
-                  URL: {currentMediaItem.url}
+                  URL: {currentMediaItem.url || 'Unknown URL'}
                 </Text>
               </View>
             ) : (
@@ -202,7 +206,19 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             <Video
               ref={videoRef}
               source={{ uri: currentMediaItem.url }}
-              style={[styles.mediaVideo, { borderColor: colors.border }]}
+              style={{
+                width: '100%',
+                aspectRatio: aspectRatio || 16 / 9,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: '#111',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
               useNativeControls
               resizeMode="contain"
               isLooping={false}
@@ -232,17 +248,19 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         {/* Media Indicators */}
         {mediaArray.length > 1 && (
           <View style={styles.mediaIndicators}>
-            {mediaArray.map((_, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.mediaIndicator,
-                  { backgroundColor: colors.border },
-                  index === currentMedia && { backgroundColor: colors.primary }
-                ]}
-                onPress={() => setCurrentMedia(index)}
-              />
-            ))}
+            {mediaArray.map((item, index) =>
+              item ? (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.mediaIndicator,
+                    { backgroundColor: colors.border },
+                    index === currentMedia && { backgroundColor: colors.primary }
+                  ]}
+                  onPress={() => setCurrentMedia(index)}
+                />
+              ) : null
+            )}
           </View>
         )}
       </View>
@@ -260,10 +278,10 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         <TouchableOpacity 
           style={styles.userInfo}
           onPress={() => {
-            if (navigation && localPost.author._id !== user._id) {
+            if (navigation && localPost.author?._id !== user._id) {
               navigation.navigate('UserProfile', {
-                userId: localPost.author._id,
-                userName: localPost.author.name
+                userId: localPost.author?._id || '',
+                userName: localPost.author?.name || 'Unknown User'
               });
             }
           }}
@@ -276,8 +294,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             </View>
           )}
           <View style={styles.userDetails}>
-            <Text style={[styles.userName, { color: colors.text }]}>{localPost.author.name}</Text>
-            <Text style={[styles.postTime, { color: colors.textSecondary }]}>{formatRelativeTime(localPost.createdAt)}</Text>
+            <Text style={[styles.userName, { color: colors.text }]}>{localPost.author?.name || 'Unknown User'}</Text>
+            <Text style={[styles.postTime, { color: colors.textSecondary }]}>{formatRelativeTime(localPost.createdAt || new Date())}</Text>
           </View>
         </TouchableOpacity>
         
@@ -290,7 +308,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
 
       {/* Post Content */}
       {localPost.content && (
-        <Text style={[styles.content, { color: colors.text }]}>{localPost.content}</Text>
+        <Text style={[styles.content, { color: colors.text }]}>{localPost.content || ''}</Text>
       )}
 
       {/* Post Media */}
@@ -308,19 +326,19 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             size={20}
             color={isLiked ? colors.error : colors.textSecondary}
           />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{localPost.likes.length}</Text>
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{String(localPost.likes.length)}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton}>
           <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{localPost.comments?.length || 0}</Text>
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{String(localPost.comments?.length || 0)}</Text>
                   </TouchableOpacity>
         </View>
         
         {/* Image Viewer Modal */}
         <ImageViewerModal
           images={mediaArray.filter(item => item.type === 'image')}
-          initialIndex={currentMedia}
+          initialIndex={currentMedia || 0}
           onClose={() => setImageViewerVisible(false)}
           visible={imageViewerVisible}
         />

@@ -115,7 +115,7 @@ const PostFeedScreen = ({ user, navigation }) => {
       );
     }
 
-    if (posts.length === 0) {
+    if (!posts || posts.length === 0) {
       return (
         <View style={styles.centerContainer}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Пост байхгүй байна</Text>
@@ -125,15 +125,19 @@ const PostFeedScreen = ({ user, navigation }) => {
 
     return (
       <View style={styles.postsContainer}>
-        {posts.map((post) => (
-          <Post
-            key={post._id}
-            post={post}
-            user={user}
-            onPostUpdate={handlePostUpdate}
-            navigation={navigation}
-          />
-        ))}
+        {Array.isArray(posts) && posts.filter(post => post && post._id && post.author).length > 0 ? (
+          posts.filter(post => post && post._id && post.author).map((post) => (
+            <Post
+              key={post._id}
+              post={post}
+              user={user}
+              onPostUpdate={handlePostUpdate}
+              navigation={navigation}
+            />
+          ))
+        ) : (
+          <Text>No posts to show</Text>
+        )}
       </View>
     );
   };

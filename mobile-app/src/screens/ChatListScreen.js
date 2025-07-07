@@ -253,7 +253,7 @@ const ChatListScreen = ({ navigation, user }) => {
           {chat.unreadCount > 0 && (
             <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
               <Text style={[styles.unreadCount, { color: colors.textInverse }]}>
-                {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
+                {chat.unreadCount > 9 ? '9+' : String(chat.unreadCount)}
               </Text>
             </View>
           )}
