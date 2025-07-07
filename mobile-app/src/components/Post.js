@@ -203,26 +203,46 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
               </TouchableOpacity>
             )
           ) : (
-            <Video
-              ref={videoRef}
-              source={{ uri: currentMediaItem.url }}
-              style={{
-                width: '100%',
-                aspectRatio: aspectRatio || 16 / 9,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: '#111',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 4,
+            <TouchableOpacity 
+              onPress={() => {
+                // Navigate to Clips section with this video
+                if (navigation) {
+                  navigation.navigate('Clips', {
+                    initialVideo: {
+                      post: localPost,
+                      mediaIndex: currentMedia,
+                      mediaItem: currentMediaItem
+                    }
+                  });
+                }
               }}
-              useNativeControls
-              resizeMode="contain"
-              isLooping={false}
-            />
+              activeOpacity={0.9}
+            >
+              <Video
+                ref={videoRef}
+                source={{ uri: currentMediaItem.url }}
+                style={{
+                  width: '100%',
+                  aspectRatio: aspectRatio || 16 / 9,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: '#111',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+                useNativeControls
+                resizeMode="contain"
+                isLooping={false}
+              />
+              {/* Play button overlay */}
+              <View style={styles.videoPlayOverlay}>
+                <Ionicons name="play-circle" size={50} color="#ffffff" />
+              </View>
+            </TouchableOpacity>
           )}
           
           {/* Media Navigation */}
@@ -476,6 +496,17 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  videoPlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
   },
 });
 

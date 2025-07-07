@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Keyboard,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,7 +29,7 @@ import api from '../services/api';
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
 const TAB_BAR_HEIGHT = 72; // matches App.js tabBarStyle height
 
-const ClipsScreen = ({ navigation, user }) => {
+const ClipsScreen = ({ navigation, user, route }) => {
   const insets = useSafeAreaInsets();
   const CLIP_CONTAINER_HEIGHT = windowHeight - TAB_BAR_HEIGHT - insets.bottom;
 
@@ -46,8 +47,7 @@ const ClipsScreen = ({ navigation, user }) => {
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
-  const [selectedPostForOptions, setSelectedPostForOptions] = useState(null);
+  const [navigatedFromPostFeed, setNavigatedFromPostFeed] = useState(false);
   const flatListRef = useRef(null);
   const videoRefs = useRef({});
   const longPressTimers = useRef({});
@@ -56,8 +56,38 @@ const ClipsScreen = ({ navigation, user }) => {
   const heartAnimationRefs = useRef({});
   const scrollViewRef = useRef(null);
 
+  // Handle initial video from route params
   useEffect(() => {
-    loadPosts();
+    const handleInitialVideo = async () => {
+      if (route.params?.initialVideo) {
+        const { initialVideo } = route.params;
+        console.log('Initial video received:', initialVideo);
+        
+        // Clear the route params to prevent re-triggering
+        navigation.setParams({ initialVideo: undefined });
+        
+        // Load posts and then scroll to the specific video
+        await loadPosts();
+        
+        // Find the post in the loaded posts
+        const postIndex = posts.findIndex(post => post._id === initialVideo.post._id);
+        if (postIndex !== -1) {
+          setCurrentIndex(postIndex);
+          // Scroll to the specific video
+          setTimeout(() => {
+            flatListRef.current?.scrollToIndex({
+              index: postIndex,
+              animated: true,
+              viewPosition: 0.5
+            });
+          }, 500);
+        }
+      } else {
+        loadPosts();
+      }
+    };
+
+    handleInitialVideo();
     
     // Cleanup function to pause all videos when component unmounts
     return () => {
@@ -65,6 +95,34 @@ const ClipsScreen = ({ navigation, user }) => {
       clearAllTimers();
     };
   }, []);
+
+  // Handle route parameter changes for initial video
+  useEffect(() => {
+    if (route.params?.initialVideo && posts.length > 0) {
+      const { initialVideo } = route.params;
+      console.log('Route params changed, looking for video:', initialVideo.post._id);
+      
+      // Clear the route params to prevent re-triggering
+      navigation.setParams({ initialVideo: undefined });
+      
+      // Set flag that we navigated from Post Feed
+      setNavigatedFromPostFeed(true);
+      
+      // Find the post in the loaded posts
+      const postIndex = posts.findIndex(post => post._id === initialVideo.post._id);
+      if (postIndex !== -1) {
+        setCurrentIndex(postIndex);
+        // Scroll to the specific video
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: postIndex,
+            animated: true,
+            viewPosition: 0.5
+          });
+        }, 500);
+      }
+    }
+  }, [route.params?.initialVideo, posts.length]);
 
   // Keyboard listeners
   useEffect(() => {
@@ -263,6 +321,21 @@ const ClipsScreen = ({ navigation, user }) => {
       }
     }
   }).current;
+
+  // Handle video starting from beginning when navigated from Post Feed
+  useEffect(() => {
+    if (navigatedFromPostFeed && posts.length > 0 && currentIndex < posts.length) {
+      const currentPost = posts[currentIndex];
+      if (currentPost && currentPost.media[0].type === 'video') {
+        const videoRef = videoRefs.current[currentPost._id];
+        if (videoRef) {
+          // Start video from beginning
+          videoRef.setPositionAsync(0);
+          setNavigatedFromPostFeed(false); // Reset flag after use
+        }
+      }
+    }
+  }, [navigatedFromPostFeed, currentIndex, posts.length]);
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 80,
@@ -552,11 +625,9 @@ const ClipsScreen = ({ navigation, user }) => {
                 onPress={() => {
                   Alert.alert(
                     'Нэмэлт сонголт', 
-                    'Энэ клип дээр юу хийх вэ?',
+                    'Энэ функц удахгүй нэмэгдэнэ',
                     [
-                      { text: 'Хадгалах', onPress: () => console.log('Save pressed') },
-                      { text: 'Репорт', onPress: () => console.log('Report pressed') },
-                      { text: 'Болих', style: 'cancel' }
+                      { text: 'Ойлголоо', style: 'default' }
                     ]
                   );
                 }}
@@ -640,6 +711,17 @@ const ClipsScreen = ({ navigation, user }) => {
         snapToInterval={windowHeight - TAB_BAR_HEIGHT - 10}
         decelerationRate={Platform.OS === 'ios' ? 0 : 0.98}
         getItemLayout={(data, index) => ({ length: windowHeight - TAB_BAR_HEIGHT - 10, offset: (windowHeight - TAB_BAR_HEIGHT - 10) * index, index })}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#ffffff']}
+            tintColor="#ffffff"
+            title="Шинэчлэх..."
+            titleColor="#ffffff"
+            progressBackgroundColor="rgba(0, 0, 0, 0.3)"
+          />
+        }
       />
       
       {/* Comment Modal */}
