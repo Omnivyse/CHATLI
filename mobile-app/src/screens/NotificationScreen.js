@@ -25,13 +25,38 @@ const NotificationScreen = ({ navigation, user }) => {
 
   useEffect(() => {
     loadNotifications();
+    
     // Listen for real-time notifications
     const handleNotification = (data) => {
-      setNotifications((prev) => [data, ...prev]);
+      console.log('🔔 Real-time notification received:', data);
+      setNotifications((prev) => {
+        // Check if notification already exists to avoid duplicates
+        const notificationExists = prev.some(notification => notification._id === data._id);
+        if (notificationExists) {
+          return prev;
+        }
+        return [data, ...prev];
+      });
     };
+    
+    // Listen for notification updates (mark as read, etc.)
+    const handleNotificationUpdate = (data) => {
+      console.log('🔔 Real-time notification updated:', data);
+      setNotifications(prev => 
+        prev.map(notification => 
+          notification._id === data.notificationId 
+            ? { ...notification, ...data.updates }
+            : notification
+        )
+      );
+    };
+    
     socketService.onNotification(handleNotification);
+    socketService.on('notification_update', handleNotificationUpdate);
+    
     return () => {
       socketService.offNotification(handleNotification);
+      socketService.off('notification_update', handleNotificationUpdate);
     };
   }, []);
 

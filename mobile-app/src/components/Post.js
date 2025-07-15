@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
@@ -14,6 +15,8 @@ import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 import ImageViewerModal from './ImageViewerModal';
+import CommentSection from './CommentSection';
+import socketService from '../services/socket';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -34,38 +37,143 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [imageLoadError, setImageLoadError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
   const videoRef = useRef(null);
+  const likeTimeoutRef = useRef(null);
   
-  // Debug log the post structure
-  console.log('Post data structure:', {
-    id: post._id,
-    hasMedia: !!post.media,
-    mediaLength: post.media?.length,
-    hasImage: !!post.image,
-    hasVideo: !!post.video,
-    media: post.media,
-    image: post.image,
-    video: post.video
-  });
+  // Update local post when post prop changes
+  React.useEffect(() => {
+    if (post) {
+      setLocalPost(post);
+    }
+  }, [post]);
+
+  // Real-time socket listeners - optimized to prevent excessive re-renders
+  useEffect(() => {
+    // Listen for real-time like updates
+    const handlePostLiked = (data) => {
+      if (data.postId === post._id) {
+        setLocalPost(prevPost => {
+          // Only update if likes actually changed
+          if (JSON.stringify(prevPost.likes) !== JSON.stringify(data.likes)) {
+            const updatedPost = {
+              ...prevPost,
+              likes: data.likes
+            };
+            return updatedPost;
+          }
+          return prevPost;
+        });
+      }
+    };
+    
+    // Listen for real-time comment updates
+    const handleCommentAdded = (data) => {
+      if (data.postId === post._id) {
+        setLocalPost(prevPost => {
+          // Only update if comments actually changed
+          if (JSON.stringify(prevPost.comments) !== JSON.stringify(data.comments)) {
+            return {
+              ...prevPost,
+              comments: data.comments
+            };
+          }
+          return prevPost;
+        });
+      }
+    };
+    
+    // Listen for real-time post updates
+    const handlePostUpdated = (data) => {
+      if (data.postId === post._id) {
+        setLocalPost(prevPost => {
+          // Only update if there are actual changes
+          const hasChanges = Object.keys(data.updates).some(key => 
+            JSON.stringify(prevPost[key]) !== JSON.stringify(data.updates[key])
+          );
+          if (hasChanges) {
+            return {
+              ...prevPost,
+              ...data.updates
+            };
+          }
+          return prevPost;
+        });
+      }
+    };
+    
+    socketService.onPostLiked(handlePostLiked);
+    socketService.onCommentAdded(handleCommentAdded);
+    socketService.onPostUpdated(handlePostUpdated);
+    
+    return () => {
+      // Cleanup socket listeners
+      socketService.offPostLiked(handlePostLiked);
+      socketService.offCommentAdded(handleCommentAdded);
+      socketService.offPostUpdated(handlePostUpdated);
+    };
+  }, [post._id]);
+
+  // Sync with image viewer when it's open
+  React.useEffect(() => {
+    if (imageViewerVisible && localPost) {
+      // Ensure the image viewer has the latest post data
+      // The socket events will handle real-time updates
+    }
+  }, [imageViewerVisible, localPost]);
+  
+  // Sync state when image viewer closes
+  React.useEffect(() => {
+    if (!imageViewerVisible && localPost) {
+      // When image viewer closes, ensure we have the latest state
+      // The socket events will handle real-time updates
+    }
+  }, [imageViewerVisible, localPost]);
+  
+  // Cleanup timeouts when component unmounts
+  React.useEffect(() => {
+    return () => {
+      if (likeTimeoutRef.current) {
+        clearTimeout(likeTimeoutRef.current);
+        likeTimeoutRef.current = null;
+      }
+    };
+  }, []);
   
   const isOwner = localPost.author._id === user._id;
   const isLiked = localPost.likes.includes(user._id);
-
+  
   const handleLike = async () => {
     if (liking) return;
+    
+    // Clear any existing timeout
+    if (likeTimeoutRef.current) {
+      clearTimeout(likeTimeoutRef.current);
+    }
     
     setLiking(true);
     try {
       const response = await apiService.likePost(localPost._id);
       if (response.success) {
+        // Update local state immediately for better UX
         setLocalPost(prevPost => ({
           ...prevPost,
           likes: response.data.likes
         }));
+        
+        // Emit socket event for real-time updates
+        socketService.likePost(
+          localPost._id,
+          user._id,
+          localPost.author._id
+        );
       }
     } catch (error) {
       console.error('Like post error:', error);
-      Alert.alert('Алдаа', 'Лайк хийхэд алдаа гарлаа');
+      // Don't show alert for network errors, just log them
+      if (!error.message.includes('Network') && !error.message.includes('timeout')) {
+        Alert.alert('Алдаа', 'Лайк хийхэд алдаа гарлаа');
+      }
     } finally {
       setLiking(false);
     }
@@ -138,26 +246,14 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   };
 
   const renderMedia = () => {
+    // If no media and no content, don't show anything
     if (mediaArray.length === 0) {
-      return (
-        <View style={[styles.mediaContainer, { 
-          backgroundColor: '#f0f0f0', 
-          padding: 20, 
-          alignItems: 'center',
-          borderRadius: 8
-        }]}> 
-          <Text style={{ color: '#666', fontSize: 14 }}>No media found in this post</Text>
-        </View>
-      );
+      return null;
     }
 
     const currentMediaItem = mediaArray[currentMedia];
     if (!currentMediaItem) {
-      return (
-        <View style={[styles.mediaContainer, { backgroundColor: '#f0f0f0', padding: 20, alignItems: 'center', borderRadius: 8 }]}> 
-          <Text style={{ color: '#666', fontSize: 14 }}>No media found in this post</Text>
-        </View>
-      );
+      return null;
     }
     
     // Calculate aspect ratio for better display
@@ -240,7 +336,10 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
               />
               {/* Play button overlay */}
               <View style={styles.videoPlayOverlay}>
-                <Ionicons name="play-circle" size={50} color="#ffffff" />
+                <View style={styles.videoPlayButton}>
+                  <Ionicons name="play-circle" size={50} color="#ffffff" />
+                  <Text style={styles.videoPlayText}>Clips-д үзэх</Text>
+                </View>
               </View>
             </TouchableOpacity>
           )}
@@ -345,14 +444,18 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             name={isLiked ? "heart" : "heart-outline"}
             size={20}
             color={isLiked ? colors.error : colors.textSecondary}
+            style={liking ? { opacity: 0.5 } : {}}
           />
           <Text style={[styles.actionText, { color: colors.textSecondary }]}>{String(localPost.likes.length)}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setCommentModalVisible(true)}
+        >
           <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
           <Text style={[styles.actionText, { color: colors.textSecondary }]}>{String(localPost.comments?.length || 0)}</Text>
-                  </TouchableOpacity>
+        </TouchableOpacity>
         </View>
         
         {/* Image Viewer Modal */}
@@ -361,7 +464,33 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           initialIndex={currentMedia || 0}
           onClose={() => setImageViewerVisible(false)}
           visible={imageViewerVisible}
+          post={localPost}
+          user={user}
+          onPostUpdate={() => {
+            // Sync the post state when image viewer updates
+            // The socket events will handle real-time updates
+          }}
         />
+
+        {/* Comment Modal */}
+        <Modal
+          visible={commentModalVisible}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setCommentModalVisible(false)}
+        >
+          <CommentSection
+            post={localPost}
+            user={user}
+            onClose={() => setCommentModalVisible(false)}
+            onCommentAdded={(updatedComments) => {
+              setLocalPost(prevPost => ({
+                ...prevPost,
+                comments: updatedComments
+              }));
+            }}
+          />
+        </Modal>
       </View>
     );
   };
@@ -507,6 +636,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 12,
+  },
+  videoPlayButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlayText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
 

@@ -282,8 +282,8 @@ export default function App() {
     });
 
     return () => {
-      if (notificationListener.current) Notifications.removeNotificationSubscription(notificationListener.current);
-      if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current);
+      if (notificationListener.current) notificationListener.current.remove();
+      if (responseListener.current) responseListener.current.remove();
     };
   }, []);
 
@@ -312,20 +312,43 @@ export default function App() {
 
   const checkAuth = async () => {
     try {
+      // First, test the connection
+      console.log('🔍 Testing server connection...');
+      const healthCheck = await apiService.healthCheck();
+      if (!healthCheck.success) {
+        console.error('❌ Server connection failed:', healthCheck.message);
+        // Still continue with auth check, but log the issue
+      } else {
+        console.log('✅ Server connection successful');
+      }
+
       const token = await AsyncStorage.getItem('token');
       if (token) {
+        console.log('🔍 Checking authentication with stored token...');
         const response = await apiService.getCurrentUser();
         if (response.success) {
+          console.log('✅ Authentication successful');
           setUser(response.data.user);
           // Connect to socket
           socketService.connect(token);
         } else {
+          console.log('❌ Authentication failed, removing token');
           await AsyncStorage.removeItem('token');
         }
+      } else {
+        console.log('ℹ️ No stored token found');
       }
     } catch (error) {
       console.error('Auth check error:', error);
-      await AsyncStorage.removeItem('token');
+      // Clear all data on critical errors
+      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+        console.log('🌐 Network error detected, clearing data...');
+        await clearAllData();
+      } else {
+        // Just clear token for auth errors
+        await AsyncStorage.removeItem('token');
+      }
+      // Don't show error to user for auth check failures
     } finally {
       setLoading(false);
     }
@@ -359,6 +382,18 @@ export default function App() {
       setUser(null);
       socketService.disconnect();
       await AsyncStorage.removeItem('token');
+    }
+  };
+
+  const clearAllData = async () => {
+    try {
+      console.log('🧹 Clearing all stored data...');
+      await AsyncStorage.clear();
+      setUser(null);
+      socketService.disconnect();
+      console.log('✅ All data cleared');
+    } catch (error) {
+      console.error('Error clearing data:', error);
     }
   };
 

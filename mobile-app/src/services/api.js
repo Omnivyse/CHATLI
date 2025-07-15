@@ -11,6 +11,10 @@ const getApiUrl = () => {
 
 const API_URL = getApiUrl();
 
+// Debug: Log the API URL being used
+console.log('🔗 Mobile App API URL:', API_URL);
+console.log('🔗 Environment:', __DEV__ ? 'Development' : 'Production');
+
 class ApiService {
   constructor() {
     this._baseURL = API_URL;
@@ -29,6 +33,11 @@ class ApiService {
   async initializeToken() {
     try {
       this.token = await AsyncStorage.getItem('token');
+      if (this.token) {
+        console.log('🔍 Token found in storage');
+      } else {
+        console.log('ℹ️ No token found in storage');
+      }
     } catch (error) {
       console.error('Error initializing token:', error);
     }
@@ -41,6 +50,11 @@ class ApiService {
     } else {
       await AsyncStorage.removeItem('token');
     }
+  }
+
+  async clearToken() {
+    this.token = null;
+    await AsyncStorage.removeItem('token');
   }
 
   getHeaders() {
@@ -63,63 +77,99 @@ class ApiService {
       ...options,
     };
 
-    try {
-      console.log(`Making request to: ${url}`);
-      
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.')), 30000)
-      );
+    // Retry logic for failed requests
+    const maxRetries = 2;
+    let lastError;
 
-      // Make the request with timeout
-      const response = await Promise.race([
-        fetch(url, config),
-        timeoutPromise
-      ]);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Making request to: ${url} (attempt ${attempt + 1})`);
         
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || 'Серверийн алдаа';
-        } catch {
-          errorMessage = response.status === 404 ? 'Хуудас олдсонгүй' : 'Серверийн алдаа';
-        }
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.')), 30000)
+        );
 
-        // Handle auth errors gracefully
-        if (response.status === 401) {
-          await this.setToken(null);
-          if (endpoint === '/notifications') {
-            return { success: true, data: { notifications: [] } };
+        // Make the request with timeout
+        const response = await Promise.race([
+          fetch(url, config),
+          timeoutPromise
+        ]);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage;
+          
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || 'Серверийн алдаа';
+          } catch {
+            errorMessage = response.status === 404 ? 'Хуудас олдсонгүй' : 'Серверийн алдаа';
           }
-          throw new Error('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
+
+          // Handle auth errors gracefully
+          if (response.status === 401) {
+            await this.setToken(null);
+            if (endpoint === '/notifications') {
+              return { success: true, data: { notifications: [] } };
+            }
+            // For auth check, don't throw error, just return failure
+            if (endpoint === '/auth/me') {
+              return { success: false, message: 'Authentication failed' };
+            }
+            throw new Error('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
+          }
+          
+          throw new Error(errorMessage);
         }
-        
-        throw new Error(errorMessage);
-      }
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('API Error:', {
-        url,
-        error: error.message,
-        endpoint
-      });
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        lastError = error;
+        console.error(`API Error (attempt ${attempt + 1}):`, {
+          url,
+          error: error.message,
+          endpoint
+        });
 
-      // Provide user-friendly error messages
-      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
-        throw new Error('Интернет холболтоо шалгаад дахин оролдоно уу.');
-      }
-      
-      if (error.message.includes('timeout') || error.message.includes('Хүсэлт хугацаа')) {
-        throw new Error('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.');
-      }
+        // If this is the last attempt, throw the error
+        if (attempt === maxRetries) {
+          break;
+        }
 
-      throw error;
+        // If it's a network error or timeout, retry after a delay
+        if (error.message.includes('Network request failed') || 
+            error.message.includes('fetch') || 
+            error.message.includes('timeout') || 
+            error.message.includes('Application failed to respond')) {
+          
+          // Wait before retrying (exponential backoff)
+          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // For other errors, don't retry
+        break;
+      }
     }
+
+    // Provide user-friendly error messages
+    if (lastError.message.includes('Network request failed') || lastError.message.includes('fetch')) {
+      throw new Error('Интернет холболтоо шалгаад дахин оролдоно уу.');
+    }
+    
+    if (lastError.message.includes('timeout') || lastError.message.includes('Хүсэлт хугацаа')) {
+      throw new Error('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.');
+    }
+
+    if (lastError.message.includes('Application failed to respond')) {
+      throw new Error('Сервер хариулахад асуудал гарлаа. Дахин оролдоно уу.');
+    }
+
+    throw lastError;
   }
 
   // Auth endpoints
@@ -160,7 +210,14 @@ class ApiService {
   }
 
   async getCurrentUser() {
-    return this.request('/auth/me');
+    try {
+      return await this.request('/auth/me');
+    } catch (error) {
+      console.log('getCurrentUser error:', error.message);
+      // Clear token on any error
+      await this.clearToken();
+      return { success: false, message: 'Authentication failed' };
+    }
   }
 
   async updateProfile(profileData) {
@@ -421,7 +478,14 @@ class ApiService {
 
   // Health check
   async healthCheck() {
-    return this.request('/health');
+    try {
+      const response = await this.request('/health');
+      console.log('✅ Health check successful:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Health check failed:', error);
+      return { success: false, message: error.message };
+    }
   }
 
   // Message reactions

@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 
 import api from '../services/api';
+import CommentSection from '../components/CommentSection';
 
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
 const TAB_BAR_HEIGHT = 72; // matches App.js tabBarStyle height
@@ -41,13 +42,10 @@ const ClipsScreen = ({ navigation, user, route }) => {
   const [videoProgress, setVideoProgress] = useState({});
   const [mutedVideos, setMutedVideos] = useState({});
   const [heartAnimations, setHeartAnimations] = useState({});
-  const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
-  const [comments, setComments] = useState([]);
-  const [commentText, setCommentText] = useState('');
-  const [commentLoading, setCommentLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [navigatedFromPostFeed, setNavigatedFromPostFeed] = useState(false);
+  const [commentSectionVisible, setCommentSectionVisible] = useState(false);
   const flatListRef = useRef(null);
   const videoRefs = useRef({});
   const longPressTimers = useRef({});
@@ -62,26 +60,18 @@ const ClipsScreen = ({ navigation, user, route }) => {
       if (route.params?.initialVideo) {
         const { initialVideo } = route.params;
         console.log('Initial video received:', initialVideo);
+        console.log('Target post:', initialVideo.post);
+        console.log('Target post media:', initialVideo.post.media);
+        console.log('Target post video field:', initialVideo.post.video);
         
         // Clear the route params to prevent re-triggering
         navigation.setParams({ initialVideo: undefined });
         
-        // Load posts and then scroll to the specific video
-        await loadPosts();
+        // Set flag that we navigated from Post Feed
+        setNavigatedFromPostFeed(true);
         
-        // Find the post in the loaded posts
-        const postIndex = posts.findIndex(post => post._id === initialVideo.post._id);
-        if (postIndex !== -1) {
-          setCurrentIndex(postIndex);
-          // Scroll to the specific video
-          setTimeout(() => {
-            flatListRef.current?.scrollToIndex({
-              index: postIndex,
-              animated: true,
-              viewPosition: 0.5
-            });
-          }, 500);
-        }
+        // Load posts with the specific video positioned at the top
+        await loadPostsWithTargetVideo(initialVideo.post);
       } else {
         loadPosts();
       }
@@ -96,33 +86,7 @@ const ClipsScreen = ({ navigation, user, route }) => {
     };
   }, []);
 
-  // Handle route parameter changes for initial video
-  useEffect(() => {
-    if (route.params?.initialVideo && posts.length > 0) {
-      const { initialVideo } = route.params;
-      console.log('Route params changed, looking for video:', initialVideo.post._id);
-      
-      // Clear the route params to prevent re-triggering
-      navigation.setParams({ initialVideo: undefined });
-      
-      // Set flag that we navigated from Post Feed
-      setNavigatedFromPostFeed(true);
-      
-      // Find the post in the loaded posts
-      const postIndex = posts.findIndex(post => post._id === initialVideo.post._id);
-      if (postIndex !== -1) {
-        setCurrentIndex(postIndex);
-        // Scroll to the specific video
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({
-            index: postIndex,
-            animated: true,
-            viewPosition: 0.5
-          });
-        }, 500);
-      }
-    }
-  }, [route.params?.initialVideo, posts.length]);
+
 
   // Keyboard listeners
   useEffect(() => {
@@ -199,77 +163,113 @@ const ClipsScreen = ({ navigation, user, route }) => {
     doubleTapTimers.current = {};
   };
 
-  const openCommentModal = async (post) => {
-    setSelectedPost(post);
-    setCommentModalVisible(true);
-    setCommentText('');
-    setCommentLoading(true);
-    
-    try {
-      // Load comments for this post
-      const response = await api.getComments(post._id);
-      if (response.success) {
-        // Comments are included in the post data
-        setComments(response.data.post.comments || []);
-      }
-    } catch (error) {
-      console.error('Load comments error:', error);
-      setComments([]);
-    } finally {
-      setCommentLoading(false);
-    }
-  };
 
-  const closeCommentModal = () => {
-    setCommentModalVisible(false);
-    setSelectedPost(null);
-    setComments([]);
-    setCommentText('');
-  };
-
-  const submitComment = async () => {
-    if (!commentText.trim() || !selectedPost) return;
-    
-    setCommentLoading(true);
-    try {
-      const response = await api.addComment(selectedPost._id, commentText.trim());
-      if (response.success) {
-        // Add new comment to the list (comments are returned in response.data.comments)
-        setComments(response.data.comments || []);
-        setCommentText('');
-        
-        // Update post comment count
-        setPosts(prevPosts =>
-          prevPosts.map(post =>
-            post._id === selectedPost._id
-              ? { ...post, comments: response.data.comments || [] }
-              : post
-          )
-        );
-      }
-    } catch (error) {
-      console.error('Add comment error:', error);
-      Alert.alert('Алдаа', 'Сэтгэгдэл нэмэхэд алдаа гарлаа');
-    } finally {
-      setCommentLoading(false);
-    }
-  };
 
   const loadPosts = async () => {
     try {
       setLoading(true);
       const response = await api.getPosts();
       if (response.success) {
-        // Filter posts that have ONLY videos (no images)
-        const videoPosts = response.data.posts.filter(post => 
-          post.media && 
-          post.media.length > 0 && 
-          post.media[0].type === 'video'
+        // Filter posts that have videos (including mixed media posts)
+        const videoPosts = response.data.posts.filter(post => {
+          // Check if post has media array with videos
+          if (post.media && post.media.length > 0) {
+            return post.media.some(media => media.type === 'video');
+          }
+          // Fallback for legacy posts with video field
+          if (post.video) {
+            return true;
+          }
+          return false;
+        });
+        
+        // Remove duplicates based on _id
+        const uniquePosts = videoPosts.filter((post, index, self) => 
+          index === self.findIndex(p => p._id === post._id)
         );
-        setPosts(videoPosts);
+        
+        setPosts(uniquePosts);
       }
     } catch (error) {
       console.error('Load posts error:', error);
+      Alert.alert('Алдаа', 'Видео клипуудыг ачаалахад алдаа гарлаа');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPostsWithTargetVideo = async (targetPost) => {
+    try {
+      setLoading(true);
+      console.log('Loading posts with target video:', targetPost._id);
+      
+      const response = await api.getPosts();
+      if (response.success) {
+        console.log('Total posts from API:', response.data.posts.length);
+        
+        // Filter posts that have videos (including mixed media posts)
+        const videoPosts = response.data.posts.filter(post => {
+          // Check if post has media array with videos
+          if (post.media && post.media.length > 0) {
+            return post.media.some(media => media.type === 'video');
+          }
+          // Fallback for legacy posts with video field
+          if (post.video) {
+            return true;
+          }
+          return false;
+        });
+        
+        console.log('Video posts found:', videoPosts.length);
+        
+        // Remove duplicates based on _id
+        const uniquePosts = videoPosts.filter((post, index, self) => 
+          index === self.findIndex(p => p._id === post._id)
+        );
+        
+        console.log('Unique video posts:', uniquePosts.length);
+        
+        // Find the target post in the list
+        const targetIndex = uniquePosts.findIndex(post => post._id === targetPost._id);
+        console.log('Target post index in video posts:', targetIndex);
+        
+        if (targetIndex !== -1) {
+          // Reorder the array to put target video at the top
+          const reorderedPosts = [
+            uniquePosts[targetIndex], // Target video first
+            ...uniquePosts.slice(0, targetIndex), // Videos before target
+            ...uniquePosts.slice(targetIndex + 1) // Videos after target
+          ];
+          
+          console.log('Reordered posts, target at index 0');
+          setPosts(reorderedPosts);
+          setCurrentIndex(0); // Target video is now at index 0
+          
+          // No need to scroll since it's already at the top
+          console.log('Target video positioned at top of clips');
+        } else {
+          // Target post not found in the filtered video posts
+          // Check if the target post itself has video content
+          const hasVideo = (targetPost.media && targetPost.media.some(m => m.type === 'video')) || targetPost.video;
+          console.log('Target post has video:', hasVideo);
+          console.log('Target post media:', targetPost.media);
+          console.log('Target post video field:', targetPost.video);
+          
+          if (hasVideo) {
+            // Add the target post to the beginning since it has video content
+            console.log('Target post has video content, adding to beginning');
+            setPosts([targetPost, ...uniquePosts]);
+            setCurrentIndex(0);
+          } else {
+            // Target post doesn't have video content, just load normal posts
+            console.log('Target post has no video content, loading normal posts');
+            setPosts(uniquePosts);
+            setCurrentIndex(0);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Load posts with target video error:', error);
       Alert.alert('Алдаа', 'Видео клипуудыг ачаалахад алдаа гарлаа');
     } finally {
       setLoading(false);
@@ -313,10 +313,14 @@ const ClipsScreen = ({ navigation, user, route }) => {
       
       // Play current video if it exists and not manually paused
       const currentPost = posts[index];
-      if (currentPost && currentPost.media[0].type === 'video') {
-        const videoRef = videoRefs.current[currentPost._id];
-        if (videoRef && !pausedVideos[currentPost._id]) {
-          videoRef.playAsync();
+      if (currentPost) {
+        // Check if post has video media
+        const hasVideo = (currentPost.media && currentPost.media.some(m => m.type === 'video')) || currentPost.video;
+        if (hasVideo) {
+          const videoRef = videoRefs.current[currentPost._id];
+          if (videoRef && !pausedVideos[currentPost._id]) {
+            videoRef.playAsync();
+          }
         }
       }
     }
@@ -326,12 +330,16 @@ const ClipsScreen = ({ navigation, user, route }) => {
   useEffect(() => {
     if (navigatedFromPostFeed && posts.length > 0 && currentIndex < posts.length) {
       const currentPost = posts[currentIndex];
-      if (currentPost && currentPost.media[0].type === 'video') {
-        const videoRef = videoRefs.current[currentPost._id];
-        if (videoRef) {
-          // Start video from beginning
-          videoRef.setPositionAsync(0);
-          setNavigatedFromPostFeed(false); // Reset flag after use
+      if (currentPost) {
+        // Check if post has video media
+        const hasVideo = (currentPost.media && currentPost.media.some(m => m.type === 'video')) || currentPost.video;
+        if (hasVideo) {
+          const videoRef = videoRefs.current[currentPost._id];
+          if (videoRef) {
+            // Start video from beginning
+            videoRef.setPositionAsync(0);
+            setNavigatedFromPostFeed(false); // Reset flag after use
+          }
         }
       }
     }
@@ -501,7 +509,28 @@ const ClipsScreen = ({ navigation, user, route }) => {
   };
 
     const renderClipItem = ({ item, index }) => {
-    const media = item.media[0];
+    console.log(`Rendering clip item ${index}:`, item._id);
+    console.log('Item media:', item.media);
+    console.log('Item video field:', item.video);
+    
+    // Find the video media item
+    let media = null;
+    if (item.media && item.media.length > 0) {
+      media = item.media.find(m => m.type === 'video') || item.media[0];
+      console.log('Found media from media array:', media);
+    } else if (item.video) {
+      // Fallback for legacy posts
+      media = { type: 'video', url: item.video };
+      console.log('Found media from video field:', media);
+    }
+    
+    if (!media) {
+      console.log('No media found for item:', item._id);
+      return null; // Skip rendering if no video found
+    }
+    
+    console.log('Final media for rendering:', media);
+    
     const isLiked = item.likes.includes(user._id);
     
     return (
@@ -611,7 +640,10 @@ const ClipsScreen = ({ navigation, user, route }) => {
               
               <TouchableOpacity 
                 style={styles.actionButton}
-                onPress={() => openCommentModal(item)}
+                onPress={() => {
+                  setSelectedPost(item);
+                  setCommentSectionVisible(true);
+                }}
                 activeOpacity={0.7}
               >
                 <View style={styles.actionIconContainer}>
@@ -692,12 +724,23 @@ const ClipsScreen = ({ navigation, user, route }) => {
     );
   }
 
+  // Debug: Show posts count
+  console.log('Posts to render:', posts.length);
+  console.log('Current index:', currentIndex);
+
   return (
     <View style={styles.rootContainer}>
       <FlatList
         ref={flatListRef}
         data={posts}
-        keyExtractor={item => (item && item._id ? String(item._id) : String(Math.random()))}
+        keyExtractor={(item, index) => {
+          // Use _id if available, otherwise use index as fallback
+          if (item && item._id) {
+            return `post-${item._id}`;
+          }
+          // Use index as fallback, but make it unique
+          return `post-index-${index}-${Date.now()}`;
+        }}
         renderItem={renderClipItem}
         pagingEnabled
         showsVerticalScrollIndicator={false}
@@ -724,96 +767,30 @@ const ClipsScreen = ({ navigation, user, route }) => {
         }
       />
       
-      {/* Comment Modal */}
+      {/* Comment Section Modal */}
       <Modal
-        visible={commentModalVisible}
+        visible={commentSectionVisible}
         animationType="slide"
-        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
-        onRequestClose={closeCommentModal}
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCommentSectionVisible(false)}
       >
-        <KeyboardAvoidingView 
-          style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-        >
-          <SafeAreaView style={styles.modalSafeArea}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={closeCommentModal} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="#000" />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Сэтгэгдэл</Text>
-              <View style={styles.placeholder} />
-            </View>
-            
-            {/* Comments List */}
-            <ScrollView 
-              ref={scrollViewRef}
-              style={styles.commentsContainer}
-              contentContainerStyle={styles.commentsContentContainer}
-              showsVerticalScrollIndicator={false}
-            >
-              {commentLoading ? (
-                <View style={styles.loadingComments}>
-                  <ActivityIndicator size="large" color="#666" />
-                </View>
-              ) : comments.length === 0 ? (
-                <View style={styles.emptyComments}>
-                  <Ionicons name="chatbubble-outline" size={48} color="#ccc" />
-                  <Text style={styles.emptyCommentsText}>Сэтгэгдэл байхгүй</Text>
-                  <Text style={styles.emptyCommentsSubtext}>Эхний сэтгэгдлээ үлдэээрэй</Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={comments}
-                  keyExtractor={item => item._id}
-                  renderItem={({ item }) => (
-                    <View style={styles.commentItem}>
-                      <Image
-                        source={{ uri: item.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' }}
-                        style={styles.commentAvatar}
-                      />
-                      <View style={styles.commentContent}>
-                        <View style={styles.commentHeader}>
-                          <Text style={styles.commentAuthor}>{safeText(item.author?.name || 'Unknown')}</Text>
-                          <Text style={styles.commentTime}>{safeText(formatTimeAgo(item.createdAt))}</Text>
-                        </View>
-                        <Text style={styles.commentText}>{safeText(item.content)}</Text>
-                      </View>
-                    </View>
-                  )}
-                  showsVerticalScrollIndicator={false}
-                />
-              )}
-            </ScrollView>
-            
-            {/* Comment Input */}
-            <View style={styles.commentInputContainer}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Сэтгэгдэл бичих..."
-                placeholderTextColor="#999"
-                value={commentText}
-                onChangeText={setCommentText}
-                multiline
-                maxLength={500}
-                returnKeyType="send"
-                blurOnSubmit={false}
-              />
-              <TouchableOpacity
-                style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
-                onPress={submitComment}
-                disabled={!commentText.trim() || commentLoading}
-              >
-                {commentLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="send" size={20} color="#fff" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </KeyboardAvoidingView>
+        {selectedPost && (
+          <CommentSection
+            post={selectedPost}
+            user={user}
+            onClose={() => setCommentSectionVisible(false)}
+            onCommentAdded={(updatedComments) => {
+              // Update the post in the posts array
+              setPosts(prevPosts =>
+                prevPosts.map(post =>
+                  post._id === selectedPost._id
+                    ? { ...post, comments: updatedComments }
+                    : post
+                )
+              );
+            }}
+          />
+        )}
       </Modal>
     </View>
   );

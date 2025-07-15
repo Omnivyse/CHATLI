@@ -16,7 +16,9 @@ class SocketService {
     if (__DEV__ && DEV_SOCKET_URL) {
       return DEV_SOCKET_URL;
     }
-    return SOCKET_URL || 'https://chatli-production.up.railway.app';
+    const socketURL = SOCKET_URL || 'https://chatli-production.up.railway.app';
+    console.log('🔗 Mobile App Socket URL:', socketURL);
+    return socketURL;
   }
 
   connect(token) {
@@ -56,6 +58,17 @@ class SocketService {
       if (token) {
         console.log('🔐 Authenticating socket with token...');
         this.socket.emit('authenticate', token);
+        
+        // Listen for authentication result
+        this.socket.once('authenticated', (data) => {
+          console.log('✅ Socket authenticated successfully:', data);
+        });
+        
+        this.socket.once('authentication_failed', (error) => {
+          console.error('❌ Socket authentication failed:', error);
+          // Disconnect if authentication fails
+          this.disconnect();
+        });
       }
 
       // Re-register all existing listeners
@@ -310,14 +323,20 @@ class SocketService {
   // Comment post
   commentPost(postId, commentBy, postOwner, commentText) {
     if (this.socket && this.isConnected) {
+      console.log('💬 Emitting comment_post:', { postId, commentBy, postOwner, commentText });
       this.socket.emit('comment_post', { postId, commentBy, postOwner, commentText });
+    } else {
+      console.warn('⚠️ Cannot comment post - socket not connected');
     }
   }
 
   // Follow user
   followUser(followedUserId, followedBy) {
     if (this.socket && this.isConnected) {
+      console.log('👥 Emitting follow_user:', { followedUserId, followedBy });
       this.socket.emit('follow_user', { followedUserId, followedBy });
+    } else {
+      console.warn('⚠️ Cannot follow user - socket not connected');
     }
   }
 
@@ -328,6 +347,88 @@ class SocketService {
 
   offNotification(callback) {
     this.off('notification', callback);
+  }
+
+  // Listen for real-time comment updates
+  onCommentAdded(callback) {
+    this.on('comment_added', callback);
+  }
+
+  offCommentAdded(callback) {
+    this.off('comment_added', callback);
+  }
+
+  // Listen for real-time like updates
+  onPostLiked(callback) {
+    this.on('post_liked', callback);
+  }
+
+  offPostLiked(callback) {
+    this.off('post_liked', callback);
+  }
+
+  // Listen for real-time post updates
+  onPostUpdated(callback) {
+    this.on('post_updated', callback);
+  }
+
+  offPostUpdated(callback) {
+    this.off('post_updated', callback);
+  }
+
+  // Join post room for real-time updates
+  joinPostRoom(postId) {
+    if (this.socket && this.isConnected) {
+      console.log('📝 Joining post room:', postId);
+      this.socket.emit('join_post_room', postId);
+      
+      this.socket.once('post_room_joined', (data) => {
+        console.log('✅ Successfully joined post room:', data);
+      });
+      
+      this.socket.once('post_room_error', (error) => {
+        console.error('❌ Failed to join post room:', error);
+      });
+    } else {
+      console.warn('⚠️ Cannot join post room - socket not connected');
+    }
+  }
+
+  // Leave post room
+  leavePostRoom(postId) {
+    if (this.socket && this.isConnected) {
+      console.log('📝 Leaving post room:', postId);
+      this.socket.emit('leave_post_room', postId);
+    } else {
+      console.warn('⚠️ Cannot leave post room - socket not connected');
+    }
+  }
+
+  // Listen for user status updates
+  onUserStatusUpdate(callback) {
+    this.on('user_status_update', callback);
+  }
+
+  offUserStatusUpdate(callback) {
+    this.off('user_status_update', callback);
+  }
+
+  // Listen for new messages in chats
+  onNewMessage(callback) {
+    this.on('new_message', callback);
+  }
+
+  offNewMessage(callback) {
+    this.off('new_message', callback);
+  }
+
+  // Listen for typing indicators
+  onTypingIndicator(callback) {
+    this.on('typing_indicator', callback);
+  }
+
+  offTypingIndicator(callback) {
+    this.off('typing_indicator', callback);
   }
 }
 

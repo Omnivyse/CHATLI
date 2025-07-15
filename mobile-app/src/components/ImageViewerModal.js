@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,78 +20,287 @@ const ImageViewerModal = ({
   images = [],
   initialIndex = 0,
   onClose,
-  visible = false
+  visible = false,
+  post = null,
+  user = null,
+  onPostUpdate = null
 }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
+  const [localPost, setLocalPost] = useState(post);
+  const [currentImageIndex, setCurrentImageIndex] = useState(initialIndex);
+  const modalRef = useRef(null);
+  
   // All hooks must be called before any early return!
   const pan = useRef(new Animated.ValueXY()).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const backgroundOpacity = useRef(new Animated.Value(1)).current;
+  
+  // Define navigation functions early to avoid reference issues
+  const goToNextImage = useCallback(() => {
+    if (currentImageIndex < images.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1);
+    }
+  }, [currentImageIndex, images.length]);
+
+  const goToPreviousImage = useCallback(() => {
+    if (currentImageIndex > 0) {
+      setCurrentImageIndex(currentImageIndex - 1);
+    }
+  }, [currentImageIndex]);
+
+  const canGoNext = currentImageIndex < images.length - 1;
+  const canGoPrevious = currentImageIndex > 0;
+  
+  // Clean up animations when modal closes
+  React.useEffect(() => {
+    // Always call this effect, but only reset when modal closes
+    if (!visible) {
+      // Reset animation values
+      pan.setValue({ x: 0, y: 0 });
+      opacity.setValue(1);
+      backgroundOpacity.setValue(1);
+    }
+  }, [visible]);
+  
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2,
+      onStartShouldSetPanResponder: () => visible, // Only respond when modal is visible
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (!visible) return false; // Don't respond if modal is not visible
+        // Respond to any significant movement
+        return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
+      },
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: pan.x._value,
+          y: pan.y._value,
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
       onPanResponderMove: Animated.event(
         [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false }
+        { 
+          useNativeDriver: false,
+          listener: (_, gestureState) => {
+            // Animate opacity based on downward movement (for dismiss)
+            if (gestureState.dy > 0) {
+              const progress = Math.min(gestureState.dy / 150, 1);
+              const newOpacity = 1 - progress * 0.4;
+              const newBackgroundOpacity = 1 - progress * 0.6;
+              
+              opacity.setValue(newOpacity);
+              backgroundOpacity.setValue(newBackgroundOpacity);
+            }
+          }
+        }
       ),
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 80) {
-          onClose();
-        } else {
+        pan.flattenOffset();
+        
+        // Handle horizontal navigation (left/right swipes)
+        if (Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 40) {
+          if (gestureState.dx > 0 && canGoPrevious) {
+            // Swipe right - go to previous image
+            goToPreviousImage();
+          } else if (gestureState.dx < 0 && canGoNext) {
+            // Swipe left - go to next image
+            goToNextImage();
+          }
+          
+          // Reset position
           Animated.spring(pan, {
             toValue: { x: 0, y: 0 },
             useNativeDriver: false,
+            tension: 100,
+            friction: 8,
           }).start();
+          return;
+        }
+        
+        // Handle vertical dismiss (downward swipes)
+        if (gestureState.dy > 60 || gestureState.vy > 0.2) {
+          // Close the modal
+          Animated.parallel([
+            Animated.timing(pan, {
+              toValue: { x: 0, y: screenHeight },
+              duration: 200,
+              useNativeDriver: false,
+            }),
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: false,
+            }),
+            Animated.timing(backgroundOpacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: false,
+            })
+          ]).start(() => onClose());
+        } else {
+          // Snap back to center
+          Animated.parallel([
+            Animated.spring(pan, {
+              toValue: { x: 0, y: 0 },
+              useNativeDriver: false,
+              tension: 100,
+              friction: 8,
+            }),
+            Animated.spring(opacity, {
+              toValue: 1,
+              useNativeDriver: false,
+              tension: 100,
+              friction: 8,
+            }),
+            Animated.spring(backgroundOpacity, {
+              toValue: 1,
+              useNativeDriver: false,
+              tension: 100,
+              friction: 8,
+            })
+          ]).start();
         }
       },
       onPanResponderTerminate: () => {
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-        }).start();
+        pan.flattenOffset();
+        Animated.parallel([
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: false,
+            tension: 100,
+            friction: 8,
+          }),
+          Animated.spring(opacity, {
+            toValue: 1,
+            useNativeDriver: false,
+            tension: 100,
+            friction: 8,
+          }),
+          Animated.spring(backgroundOpacity, {
+            toValue: 1,
+            useNativeDriver: false,
+            tension: 100,
+            friction: 8,
+          })
+        ]).start();
       },
     })
   ).current;
 
+  // Update local post when post prop changes
+  React.useEffect(() => {
+    if (post) {
+      setLocalPost(post);
+    }
+  }, [post]);
+
+  // Reset state when modal becomes visible/invisible
+  React.useEffect(() => {
+    if (visible) {
+      // Reset states when modal opens
+      setCurrentImageIndex(initialIndex);
+      // Ensure we have the latest post data when modal opens
+      if (post) {
+        setLocalPost(post);
+      }
+    }
+  }, [visible, initialIndex, post]);
+
+  // Clean up when modal closes
+  React.useEffect(() => {
+    if (!visible) {
+      // Reset animation values when modal closes
+      pan.setValue({ x: 0, y: 0 });
+      opacity.setValue(1);
+      backgroundOpacity.setValue(1);
+    }
+  }, [visible]);
+
+  const currentImage = images[currentImageIndex];
+  
+  // Memoize the current image to prevent unnecessary re-renders
+  const memoizedCurrentImage = React.useMemo(() => currentImage, [currentImage?.url, currentImageIndex]);
+
   // Only return null after all hooks are declared
   if (!visible || images.length === 0) return null;
 
-  const currentImage = images[initialIndex];
-
   return (
     <Modal
+      ref={modalRef}
       visible={visible}
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      statusBarTranslucent={true}
+      hardwareAccelerated={true}
     >
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <Animated.View 
+        style={{ 
+          flex: 1, 
+          backgroundColor: '#000',
+          opacity: backgroundOpacity
+        }}
+        {...panResponder.panHandlers}
+      >
         {/* Overlay Header */}
         <View style={styles.overlayHeader} pointerEvents="box-none">
-          <TouchableOpacity onPress={onClose} style={styles.headerButton}>
+          <TouchableOpacity 
+            onPress={onClose}
+            style={styles.headerButton}
+          >
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.counter}>
-                            {String(initialIndex + 1)} / {String(images.length)}
+            {String(currentImageIndex + 1)} / {String(images.length)}
           </Text>
         </View>
         {/* Centered and Movable Image */}
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Animated.View
+        <Animated.View 
+          style={{ 
+            flex: 1, 
+            justifyContent: 'center', 
+            alignItems: 'center',
+            transform: pan.getTranslateTransform(),
+            opacity: opacity,
+          }}
+        >
+          <Image
+            source={{ uri: memoizedCurrentImage.url }}
             style={{
-              transform: pan.getTranslateTransform(),
+              width: screenWidth,
+              height: screenHeight * 0.95,
             }}
-            {...panResponder.panHandlers}
-          >
-            <Image
-              source={{ uri: currentImage.url }}
-              style={{
-                width: screenWidth,
-                height: screenHeight * 0.95,
-              }}
-              resizeMode="contain"
-            />
-          </Animated.View>
-        </View>
-      </View>
+            resizeMode="contain"
+            key={`image-${currentImageIndex}-${memoizedCurrentImage.url}`}
+          />
+          
+          {/* Navigation Buttons */}
+          {images.length > 1 && (
+            <>
+              {/* Previous Button */}
+              {canGoPrevious && (
+                <TouchableOpacity
+                  style={[styles.navButton, styles.navButtonLeft]}
+                  onPress={goToPreviousImage}
+                >
+                  <Ionicons name="chevron-back" size={30} color="#fff" />
+                </TouchableOpacity>
+              )}
+              
+              {/* Next Button */}
+              {canGoNext && (
+                <TouchableOpacity
+                  style={[styles.navButton, styles.navButtonRight]}
+                  onPress={goToNextImage}
+                >
+                  <Ionicons name="chevron-forward" size={30} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };
@@ -120,6 +329,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
     marginRight: 8,
+  },
+  navButton: {
+    position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -25 }],
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  navButtonLeft: {
+    left: 20,
+  },
+  navButtonRight: {
+    right: 20,
   },
 });
 
