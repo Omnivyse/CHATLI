@@ -31,7 +31,7 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? [process.env.FRONTEND_URL, 'https://chatli.vercel.app', 'https://chatli-mobile.vercel.app'].filter(Boolean)
+      ? [process.env.FRONTEND_URL, 'https://chatli.vercel.app', 'https://chatli-mobile.vercel.app', 'https://www.chatli.mn', 'https://chatli.mn'].filter(Boolean)
       : ["http://localhost:3000", "http://localhost:3001", "http://localhost:19006"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
@@ -93,6 +93,8 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://www.chatli.mn',
+      'https://chatli.mn',
       process.env.FRONTEND_URL
     ].filter(Boolean);
 
@@ -100,6 +102,8 @@ const corsOptions = {
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.log('CORS blocked origin:', origin);
+        console.log('Allowed origins:', allowedOrigins);
         callback(new Error('Not allowed by CORS'), false);
       }
     } else {
