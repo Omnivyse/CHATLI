@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -28,6 +30,13 @@ const PostFeedScreen = ({ user, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [dimensions, setDimensions] = useState(Dimensions.get('window'));
+  
+  // Dropdown and filter states
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedFeed, setSelectedFeed] = useState('latest'); // 'latest', 'top'
+  const [selectedPeriod, setSelectedPeriod] = useState('all'); // 'all', 'week', 'month'
+  const [showPeriodFilter, setShowPeriodFilter] = useState(false);
+  const [dropdownAnimation] = useState(new Animated.Value(0));
 
   const fetchPosts = async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -36,7 +45,19 @@ const PostFeedScreen = ({ user, navigation }) => {
     try {
       const response = await apiService.getPosts();
       if (response.success) {
-        setPosts(response.data.posts);
+        let fetchedPosts = response.data.posts;
+        
+        // Apply sorting based on selected feed type
+        if (selectedFeed === 'top') {
+          fetchedPosts = sortPostsByReactions(fetchedPosts);
+        }
+        
+        // Apply time period filter
+        if (selectedPeriod !== 'all') {
+          fetchedPosts = filterPostsByPeriod(fetchedPosts, selectedPeriod);
+        }
+        
+        setPosts(fetchedPosts);
       } else {
         setError(response.message || 'Алдаа гарлаа');
       }
@@ -49,6 +70,37 @@ const PostFeedScreen = ({ user, navigation }) => {
     }
   };
 
+  // Sort posts by reactions (likes + comments)
+  const sortPostsByReactions = (postsToSort) => {
+    return [...postsToSort].sort((a, b) => {
+      const aReactions = (a.likes?.length || 0) + (a.comments?.length || 0);
+      const bReactions = (b.likes?.length || 0) + (b.comments?.length || 0);
+      return bReactions - aReactions; // Highest first
+    });
+  };
+
+  // Filter posts by time period
+  const filterPostsByPeriod = (postsToFilter, period) => {
+    const now = new Date();
+    const filterDate = new Date();
+    
+    switch (period) {
+      case 'week':
+        filterDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        filterDate.setMonth(now.getMonth() - 1);
+        break;
+      default:
+        return postsToFilter;
+    }
+    
+    return postsToFilter.filter(post => {
+      const postDate = new Date(post.createdAt);
+      return postDate >= filterDate;
+    });
+  };
+
   useEffect(() => {
     fetchPosts();
     
@@ -58,13 +110,22 @@ const PostFeedScreen = ({ user, navigation }) => {
     });
 
     return () => subscription?.remove();
-  }, []);
+  }, [selectedFeed, selectedPeriod]);
 
   useFocusEffect(
     useCallback(() => {
       fetchPosts();
     }, [])
   );
+
+  // Animate dropdown
+  useEffect(() => {
+    Animated.timing(dropdownAnimation, {
+      toValue: showDropdown ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [showDropdown]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -73,6 +134,40 @@ const PostFeedScreen = ({ user, navigation }) => {
 
   const handlePostUpdate = () => {
     fetchPosts();
+  };
+
+  const toggleDropdown = () => {
+    setShowDropdown(!showDropdown);
+  };
+
+  const selectFeed = (feedType) => {
+    setSelectedFeed(feedType);
+    setShowDropdown(false);
+    fetchPosts();
+  };
+
+  const selectPeriod = (period) => {
+    setSelectedPeriod(period);
+    setShowPeriodFilter(false);
+    fetchPosts();
+  };
+
+  const getFeedTitle = () => {
+    if (selectedFeed === 'top') {
+      return 'Top Feeds';
+    }
+    return 'CHATLI';
+  };
+
+  const getPeriodTitle = () => {
+    switch (selectedPeriod) {
+      case 'week':
+        return '7 хоног';
+      case 'month':
+        return '1 сар';
+      default:
+        return 'Бүх';
+    }
   };
 
   // Get responsive styles based on current dimensions
@@ -136,7 +231,9 @@ const PostFeedScreen = ({ user, navigation }) => {
             />
           ))
         ) : (
-          <Text>No posts to show</Text>
+          <View style={styles.centerContainer}>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No posts to show</Text>
+          </View>
         )}
       </View>
     );
@@ -153,10 +250,42 @@ const PostFeedScreen = ({ user, navigation }) => {
         backgroundColor: colors.surface,
         borderBottomColor: colors.border
       }]}>
-        <Text style={[styles.appName, { 
-          fontSize: responsiveStyles.appNameSize,
-          color: colors.text 
-        }]}>CHATLI</Text>
+        {/* CHATLI Title with Dropdown */}
+        <TouchableOpacity 
+          style={styles.titleContainer}
+          onPress={toggleDropdown}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.appName, { 
+            fontSize: responsiveStyles.appNameSize,
+            color: colors.text 
+          }]}>{getFeedTitle()}</Text>
+          <Ionicons 
+            name={showDropdown ? "chevron-up" : "chevron-down"} 
+            size={20} 
+            color={colors.text} 
+            style={styles.dropdownIcon}
+          />
+        </TouchableOpacity>
+
+        {/* Period Filter Button */}
+        {selectedFeed === 'top' && (
+          <TouchableOpacity 
+            style={[styles.periodButton, { backgroundColor: colors.surfaceVariant }]}
+            onPress={() => setShowPeriodFilter(!showPeriodFilter)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.periodButtonText, { color: colors.text }]}>
+              {getPeriodTitle()}
+            </Text>
+            <Ionicons 
+              name={showPeriodFilter ? "chevron-up" : "chevron-down"} 
+              size={16} 
+              color={colors.text} 
+            />
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity 
           style={[styles.searchButton, { backgroundColor: colors.surfaceVariant }]}
           onPress={() => navigation.navigate('UserSearch')}
@@ -164,6 +293,125 @@ const PostFeedScreen = ({ user, navigation }) => {
           <Ionicons name="search" size={responsiveStyles.searchButtonSize} color={colors.primary} />
         </TouchableOpacity>
       </View>
+
+      {/* Backdrop for closing dropdowns */}
+      {(showDropdown || showPeriodFilter) && (
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={() => {
+            setShowDropdown(false);
+            setShowPeriodFilter(false);
+          }}
+        />
+      )}
+
+      {/* Dropdown Menu */}
+      <Animated.View 
+        style={[
+          styles.dropdown,
+          {
+            opacity: dropdownAnimation,
+            transform: [{
+              translateY: dropdownAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-20, 0],
+              })
+            }],
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            position: 'absolute',
+            top: 80, // Position below header
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+          }
+        ]}
+        pointerEvents={showDropdown ? 'auto' : 'none'}
+      >
+        <TouchableOpacity 
+          style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+          onPress={() => selectFeed('latest')}
+        >
+          <Ionicons name="time" size={20} color={colors.text} />
+          <Text style={[styles.dropdownItemText, { color: colors.text }]}>Latest Posts</Text>
+          {selectedFeed === 'latest' && (
+            <Ionicons name="checkmark" size={20} color={colors.primary} />
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+          onPress={() => selectFeed('top')}
+        >
+          <Ionicons name="trending-up" size={20} color={colors.text} />
+          <Text style={[styles.dropdownItemText, { color: colors.text }]}>Top Feeds</Text>
+          {selectedFeed === 'top' && (
+            <Ionicons name="checkmark" size={20} color={colors.primary} />
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.dropdownItem}
+          onPress={() => {
+            setShowDropdown(false);
+            // Navigate to Event update code (you can implement this)
+            Alert.alert('Event Update', 'Event update code functionality will be implemented here');
+          }}
+        >
+          <Ionicons name="code" size={20} color={colors.text} />
+          <Text style={[styles.dropdownItemText, { color: colors.text }]}>Event Update Code</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Period Filter Dropdown */}
+      {showPeriodFilter && selectedFeed === 'top' && (
+        <Animated.View 
+          style={[
+            styles.periodDropdown,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              position: 'absolute',
+              top: 80, // Position below header
+              left: 0,
+              right: 0,
+              zIndex: 9999,
+            }
+          ]}
+        >
+          <TouchableOpacity 
+            style={[styles.periodDropdownItem, { borderBottomColor: colors.border }]}
+            onPress={() => selectPeriod('all')}
+          >
+            <Text style={[styles.periodDropdownItemText, { color: colors.text }]}>Бүх</Text>
+            {selectedPeriod === 'all' && (
+              <Ionicons name="checkmark" size={20} color={colors.primary} />
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.periodDropdownItem, { borderBottomColor: colors.border }]}
+            onPress={() => selectPeriod('week')}
+          >
+            <Text style={[styles.periodDropdownItemText, { color: colors.text }]}>7 хоног</Text>
+            {selectedPeriod === 'week' && (
+              <Ionicons name="checkmark" size={20} color={colors.primary} />
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.periodDropdownItem}
+            onPress={() => selectPeriod('month')}
+          >
+            <Text style={[styles.periodDropdownItemText, { color: colors.text }]}>1 сар</Text>
+            {selectedPeriod === 'month' && (
+              <Ionicons name="checkmark" size={20} color={colors.primary} />
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      )}
       
       <ScrollView
         style={[styles.scrollView, { backgroundColor: colors.background }]}
@@ -213,6 +461,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+    position: 'relative',
+    zIndex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -222,11 +472,36 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
     backgroundColor: '#ffffff',
+    position: 'relative',
+    zIndex: 9997,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-start',
   },
   appName: {
     fontWeight: 'bold',
     color: '#000000',
     letterSpacing: 1,
+  },
+  dropdownIcon: {
+    marginLeft: 8,
+  },
+  periodButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginLeft: 10,
+  },
+  periodButtonText: {
+    fontSize: 14,
+    marginRight: 5,
   },
   searchButton: {
     padding: 8,
@@ -288,6 +563,79 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  dropdown: {
+    zIndex: 9999,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 20,
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    minHeight: 50,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    marginLeft: 10,
+    flex: 1,
+  },
+  periodDropdown: {
+    zIndex: 9999,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 20,
+    maxHeight: 150,
+  },
+  periodDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    minHeight: 45,
+  },
+  periodDropdownItemText: {
+    fontSize: 16,
+    marginLeft: 10,
+    flex: 1,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    zIndex: 9998,
   },
 });
 

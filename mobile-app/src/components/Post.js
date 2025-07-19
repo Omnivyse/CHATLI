@@ -21,14 +21,6 @@ import socketService from '../services/socket';
 const { width: screenWidth } = Dimensions.get('window');
 
 const Post = ({ post, user, onPostUpdate, navigation }) => {
-  if (
-    !post ||
-    typeof post !== 'object' ||
-    !post.author ||
-    typeof post.author !== 'object'
-  ) {
-    return <Text>Invalid post data</Text>;
-  }
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [localPost, setLocalPost] = useState(post);
@@ -40,6 +32,16 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const videoRef = useRef(null);
   const likeTimeoutRef = useRef(null);
+  
+  // Check for invalid post data after hooks are declared
+  if (
+    !post ||
+    typeof post !== 'object' ||
+    !post.author ||
+    typeof post.author !== 'object'
+  ) {
+    return <Text>Invalid post data</Text>;
+  }
   
   // Update local post when post prop changes
   React.useEffect(() => {

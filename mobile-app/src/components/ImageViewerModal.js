@@ -35,6 +35,8 @@ const ImageViewerModal = ({
   const pan = useRef(new Animated.ValueXY()).current;
   const opacity = useRef(new Animated.Value(1)).current;
   const backgroundOpacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const dismissHintOpacity = useRef(new Animated.Value(0)).current;
   
   // Define navigation functions early to avoid reference issues
   const goToNextImage = useCallback(() => {
@@ -60,18 +62,71 @@ const ImageViewerModal = ({
       pan.setValue({ x: 0, y: 0 });
       opacity.setValue(1);
       backgroundOpacity.setValue(1);
+      scale.setValue(1);
+      dismissHintOpacity.setValue(0);
     }
   }, [visible]);
   
+  // Show dismiss hint when modal opens
+  React.useEffect(() => {
+    if (visible) {
+      // Show hint briefly
+      Animated.sequence([
+        Animated.timing(dismissHintOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+        Animated.delay(2000), // Show for 2 seconds
+        Animated.timing(dismissHintOpacity, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: false,
+        })
+      ]).start();
+    }
+  }, [visible]);
+
+  // Test function for debugging dismiss gesture
+  const testDismissGesture = () => {
+    console.log('🧪 Testing dismiss gesture manually');
+    Animated.parallel([
+      Animated.timing(pan, {
+        toValue: { x: 0, y: screenHeight * 0.3 },
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(backgroundOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(scale, {
+        toValue: 0.8,
+        duration: 300,
+        useNativeDriver: false,
+      })
+    ]).start(() => {
+      console.log('✅ Test dismiss completed');
+      onClose();
+    });
+  };
+  
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => visible, // Only respond when modal is visible
+      onStartShouldSetPanResponder: () => true, // Always respond to start
       onMoveShouldSetPanResponder: (_, gestureState) => {
         if (!visible) return false; // Don't respond if modal is not visible
         // Respond to any significant movement
-        return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
+        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onPanResponderGrant: () => {
+        console.log('🔍 PanResponder granted - gesture started');
         pan.setOffset({
           x: pan.x._value,
           y: pan.y._value,
@@ -83,23 +138,58 @@ const ImageViewerModal = ({
         { 
           useNativeDriver: false,
           listener: (_, gestureState) => {
-            // Animate opacity based on downward movement (for dismiss)
+            console.log('🔍 Gesture move:', { dx: gestureState.dx, dy: gestureState.dy });
+            
+            // Enhanced dismiss gesture with better visual feedback
             if (gestureState.dy > 0) {
-              const progress = Math.min(gestureState.dy / 150, 1);
-              const newOpacity = 1 - progress * 0.4;
-              const newBackgroundOpacity = 1 - progress * 0.6;
+              // Calculate dismiss progress (0 to 1)
+              const dismissProgress = Math.min(gestureState.dy / 200, 1);
+              
+              // Animate opacity based on downward movement
+              const newOpacity = 1 - dismissProgress * 0.5;
+              const newBackgroundOpacity = 1 - dismissProgress * 0.8;
+              const newScale = 1 - dismissProgress * 0.1; // Slight scale down effect
               
               opacity.setValue(newOpacity);
               backgroundOpacity.setValue(newBackgroundOpacity);
+              scale.setValue(newScale);
+              
+              // Add resistance as user drags down
+              if (gestureState.dy > 100) {
+                const resistance = 0.3;
+                pan.y.setValue(gestureState.dy * resistance + 100 * (1 - resistance));
+              }
+            } else if (gestureState.dy < 0) {
+              // Slight resistance for upward movement
+              const resistance = 0.5;
+              pan.y.setValue(gestureState.dy * resistance);
+            }
+            
+            // Handle horizontal movement for navigation
+            if (Math.abs(gestureState.dx) > Math.abs(gestureState.dy)) {
+              // Allow horizontal movement for navigation
+              pan.x.setValue(gestureState.dx);
             }
           }
         }
       ),
       onPanResponderRelease: (_, gestureState) => {
+        console.log('🔍 PanResponder released:', { 
+          dx: gestureState.dx, 
+          dy: gestureState.dy, 
+          vx: gestureState.vx, 
+          vy: gestureState.vy 
+        });
+        
         pan.flattenOffset();
         
+        // Enhanced dismiss threshold detection
+        const dismissThreshold = 80; // Reduced threshold for easier dismissal
+        const velocityThreshold = 0.3; // Reduced velocity threshold
+        
         // Handle horizontal navigation (left/right swipes)
-        if (Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 40) {
+        if (Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 50) {
+          console.log('🔄 Horizontal navigation detected');
           if (gestureState.dx > 0 && canGoPrevious) {
             // Swipe right - go to previous image
             goToPreviousImage();
@@ -108,38 +198,7 @@ const ImageViewerModal = ({
             goToNextImage();
           }
           
-          // Reset position
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-            tension: 100,
-            friction: 8,
-          }).start();
-          return;
-        }
-        
-        // Handle vertical dismiss (downward swipes)
-        if (gestureState.dy > 60 || gestureState.vy > 0.2) {
-          // Close the modal
-          Animated.parallel([
-            Animated.timing(pan, {
-              toValue: { x: 0, y: screenHeight },
-              duration: 200,
-              useNativeDriver: false,
-            }),
-            Animated.timing(opacity, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: false,
-            }),
-            Animated.timing(backgroundOpacity, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: false,
-            })
-          ]).start(() => onClose());
-        } else {
-          // Snap back to center
+          // Reset position with smooth animation
           Animated.parallel([
             Animated.spring(pan, {
               toValue: { x: 0, y: 0 },
@@ -158,30 +217,105 @@ const ImageViewerModal = ({
               useNativeDriver: false,
               tension: 100,
               friction: 8,
+            }),
+            Animated.spring(scale, {
+              toValue: 1,
+              useNativeDriver: false,
+              tension: 100,
+              friction: 8,
+            })
+          ]).start();
+          return;
+        }
+        
+        // Handle vertical dismiss (downward swipes) with enhanced logic
+        if (gestureState.dy > dismissThreshold || gestureState.vy > velocityThreshold) {
+          console.log('📱 Dismiss gesture detected - closing modal');
+          // Close the modal with enhanced animation
+          Animated.parallel([
+            Animated.timing(pan, {
+              toValue: { x: 0, y: screenHeight * 0.3 }, // Move down more for better effect
+              duration: 300,
+              useNativeDriver: false,
+            }),
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 300,
+              useNativeDriver: false,
+            }),
+            Animated.timing(backgroundOpacity, {
+              toValue: 0,
+              duration: 300,
+              useNativeDriver: false,
+            }),
+            Animated.timing(scale, {
+              toValue: 0.8,
+              duration: 300,
+              useNativeDriver: false,
+            })
+          ]).start(() => {
+            console.log('✅ Modal closed via swipe down');
+            onClose();
+          });
+        } else {
+          console.log('🔄 Gesture cancelled - snapping back');
+          // Snap back to center with enhanced spring animation
+          Animated.parallel([
+            Animated.spring(pan, {
+              toValue: { x: 0, y: 0 },
+              useNativeDriver: false,
+              tension: 120,
+              friction: 9,
+            }),
+            Animated.spring(opacity, {
+              toValue: 1,
+              useNativeDriver: false,
+              tension: 120,
+              friction: 9,
+            }),
+            Animated.spring(backgroundOpacity, {
+              toValue: 1,
+              useNativeDriver: false,
+              tension: 120,
+              friction: 9,
+            }),
+            Animated.spring(scale, {
+              toValue: 1,
+              useNativeDriver: false,
+              tension: 120,
+              friction: 9,
             })
           ]).start();
         }
       },
       onPanResponderTerminate: () => {
+        console.log('🔍 PanResponder terminated');
         pan.flattenOffset();
+        // Enhanced reset animation
         Animated.parallel([
           Animated.spring(pan, {
             toValue: { x: 0, y: 0 },
             useNativeDriver: false,
-            tension: 100,
-            friction: 8,
+            tension: 120,
+            friction: 9,
           }),
           Animated.spring(opacity, {
             toValue: 1,
             useNativeDriver: false,
-            tension: 100,
-            friction: 8,
+            tension: 120,
+            friction: 9,
           }),
           Animated.spring(backgroundOpacity, {
             toValue: 1,
             useNativeDriver: false,
-            tension: 100,
-            friction: 8,
+            tension: 120,
+            friction: 9,
+          }),
+          Animated.spring(scale, {
+            toValue: 1,
+            useNativeDriver: false,
+            tension: 120,
+            friction: 9,
           })
         ]).start();
       },
@@ -214,6 +348,7 @@ const ImageViewerModal = ({
       pan.setValue({ x: 0, y: 0 });
       opacity.setValue(1);
       backgroundOpacity.setValue(1);
+      scale.setValue(1);
     }
   }, [visible]);
 
@@ -254,16 +389,28 @@ const ImageViewerModal = ({
           <Text style={styles.counter}>
             {String(currentImageIndex + 1)} / {String(images.length)}
           </Text>
+          {/* Debug button - remove in production */}
+          <TouchableOpacity 
+            onPress={testDismissGesture}
+            style={styles.headerButton}
+          >
+            <Ionicons name="arrow-down" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
+        
         {/* Centered and Movable Image */}
         <Animated.View 
           style={{ 
             flex: 1, 
             justifyContent: 'center', 
             alignItems: 'center',
-            transform: pan.getTranslateTransform(),
+            transform: [
+              ...pan.getTranslateTransform(),
+              { scale: scale }
+            ],
             opacity: opacity,
           }}
+          pointerEvents="box-none"
         >
           <Image
             source={{ uri: memoizedCurrentImage.url }}
@@ -273,6 +420,7 @@ const ImageViewerModal = ({
             }}
             resizeMode="contain"
             key={`image-${currentImageIndex}-${memoizedCurrentImage.url}`}
+            pointerEvents="none"
           />
           
           {/* Navigation Buttons */}
@@ -283,6 +431,7 @@ const ImageViewerModal = ({
                 <TouchableOpacity
                   style={[styles.navButton, styles.navButtonLeft]}
                   onPress={goToPreviousImage}
+                  pointerEvents="auto"
                 >
                   <Ionicons name="chevron-back" size={30} color="#fff" />
                 </TouchableOpacity>
@@ -293,12 +442,30 @@ const ImageViewerModal = ({
                 <TouchableOpacity
                   style={[styles.navButton, styles.navButtonRight]}
                   onPress={goToNextImage}
+                  pointerEvents="auto"
                 >
                   <Ionicons name="chevron-forward" size={30} color="#fff" />
                 </TouchableOpacity>
               )}
             </>
           )}
+        </Animated.View>
+        
+        {/* Dismiss Hint (shows briefly when modal opens) */}
+        <Animated.View 
+          style={[
+            styles.dismissHint,
+            {
+              opacity: dismissHintOpacity,
+              transform: [{ translateY: dismissHintOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0]
+              })}]
+            }
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.dismissHintText}>Swipe down to dismiss</Text>
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -347,6 +514,24 @@ const styles = StyleSheet.create({
   },
   navButtonRight: {
     right: 20,
+  },
+  dismissHint: {
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  dismissHintText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
 });
 
