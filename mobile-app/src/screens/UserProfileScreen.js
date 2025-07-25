@@ -207,7 +207,9 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
         <View style={styles.errorContainer}>
           <Ionicons name="person-outline" size={64} color={colors.textTertiary} />
           <Text style={[styles.errorTitle, { color: colors.text }]}>Алдаа гарлаа</Text>
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>
+          {error && typeof error === 'string' ? error : 'Алдаа гарлаа'}
+        </Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadUserProfile}
@@ -253,7 +255,9 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>{profileUser.name}</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {profileUser.name && typeof profileUser.name === 'string' ? profileUser.name : 'Unknown User'}
+        </Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -287,11 +291,17 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
             )}
           </View>
           
-          <Text style={[styles.userName, { color: colors.text }]}>{profileUser.name}</Text>
-          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{profileUser.username}</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>
+          {profileUser.name && typeof profileUser.name === 'string' ? profileUser.name : 'Unknown User'}
+        </Text>
+          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
+          @{profileUser.username && typeof profileUser.username === 'string' ? profileUser.username : 'unknown'}
+        </Text>
           
           {profileUser.bio && (
-            <Text style={[styles.userBio, { color: colors.textSecondary }]}>{profileUser.bio}</Text>
+            <Text style={[styles.userBio, { color: colors.textSecondary }]}>
+          {profileUser.bio && typeof profileUser.bio === 'string' ? profileUser.bio : ''}
+        </Text>
           )}
 
           <View style={styles.statsContainer}>

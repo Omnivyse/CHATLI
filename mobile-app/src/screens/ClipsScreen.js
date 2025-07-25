@@ -464,10 +464,10 @@ const ClipsScreen = ({ navigation, user, route }) => {
       
       const diffInSeconds = Math.floor((now - date) / 1000);
       
-      if (diffInSeconds < 60) return `${diffInSeconds}с`;
-      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}м`;
-      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}ц`;
-      return `${Math.floor(diffInSeconds / 86400)}ө`;
+      if (diffInSeconds < 60) return String(diffInSeconds) + 'с';
+      if (diffInSeconds < 3600) return String(Math.floor(diffInSeconds / 60)) + 'м';
+      if (diffInSeconds < 86400) return String(Math.floor(diffInSeconds / 3600)) + 'ц';
+      return String(Math.floor(diffInSeconds / 86400)) + 'ө';
     } catch (error) {
       console.warn('formatTimeAgo error:', error, 'dateString:', dateString);
       return '0с';
@@ -479,8 +479,8 @@ const ClipsScreen = ({ navigation, user, route }) => {
       if (likesCount === null || likesCount === undefined) return '0';
       const count = Number(likesCount) || 0;
       if (count < 1000) return count.toString();
-      if (count < 1000000) return `${(count / 1000).toFixed(1)}k`;
-      return `${(count / 1000000).toFixed(1)}M`;
+      if (count < 1000000) return (count / 1000).toFixed(1) + 'k';
+      return (count / 1000000).toFixed(1) + 'M';
     } catch (error) {
       console.warn('formatViewCount error:', error, 'likesCount:', likesCount);
       return '0';

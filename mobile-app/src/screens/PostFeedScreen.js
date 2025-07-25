@@ -35,7 +35,6 @@ const PostFeedScreen = ({ user, navigation }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedFeed, setSelectedFeed] = useState('latest'); // 'latest', 'top'
   const [selectedPeriod, setSelectedPeriod] = useState('all'); // 'all', 'week', 'month'
-  const [showPeriodFilter, setShowPeriodFilter] = useState(false);
   const [dropdownAnimation] = useState(new Animated.Value(0));
 
   const fetchPosts = async (isRefresh = false) => {
@@ -148,7 +147,6 @@ const PostFeedScreen = ({ user, navigation }) => {
 
   const selectPeriod = (period) => {
     setSelectedPeriod(period);
-    setShowPeriodFilter(false);
     fetchPosts();
   };
 
@@ -192,6 +190,18 @@ const PostFeedScreen = ({ user, navigation }) => {
   const responsiveStyles = getResponsiveStyles();
 
   const renderContent = () => {
+    // Debug: Check if user prop is valid
+    if (!user || typeof user !== 'object') {
+      console.warn('PostFeedScreen: Invalid user prop:', user);
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            User data is invalid
+          </Text>
+        </View>
+      );
+    }
+
     if (loading && !refreshing) {
       return (
         <View style={styles.centerContainer}>
@@ -205,7 +215,9 @@ const PostFeedScreen = ({ user, navigation }) => {
     if (error) {
       return (
         <View style={styles.centerContainer}>
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {error && typeof error === 'string' ? error : 'Алдаа гарлаа'}
+          </Text>
         </View>
       );
     }
@@ -218,23 +230,42 @@ const PostFeedScreen = ({ user, navigation }) => {
       );
     }
 
+    // Debug: Check posts data
+    const validPosts = posts.filter(post => {
+      if (!post || typeof post !== 'object') {
+        console.warn('PostFeedScreen: Invalid post:', post);
+        return false;
+      }
+      if (!post._id || typeof post._id !== 'string') {
+        console.warn('PostFeedScreen: Post missing _id:', post);
+        return false;
+      }
+      if (!post.author || typeof post.author !== 'object') {
+        console.warn('PostFeedScreen: Post missing author:', post);
+        return false;
+      }
+      return true;
+    });
+
+    if (validPosts.length === 0) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No valid posts to show</Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.postsContainer}>
-        {Array.isArray(posts) && posts.filter(post => post && post._id && post.author).length > 0 ? (
-          posts.filter(post => post && post._id && post.author).map((post) => (
-            <Post
-              key={post._id}
-              post={post}
-              user={user}
-              onPostUpdate={handlePostUpdate}
-              navigation={navigation}
-            />
-          ))
-        ) : (
-          <View style={styles.centerContainer}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No posts to show</Text>
-          </View>
-        )}
+        {validPosts.map((post) => (
+          <Post
+            key={post._id}
+            post={post}
+            user={user}
+            onPostUpdate={handlePostUpdate}
+            navigation={navigation}
+          />
+        ))}
       </View>
     );
   };
@@ -268,23 +299,7 @@ const PostFeedScreen = ({ user, navigation }) => {
           />
         </TouchableOpacity>
 
-        {/* Period Filter Button */}
-        {selectedFeed === 'top' && (
-          <TouchableOpacity 
-            style={[styles.periodButton, { backgroundColor: colors.surfaceVariant }]}
-            onPress={() => setShowPeriodFilter(!showPeriodFilter)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.periodButtonText, { color: colors.text }]}>
-              {getPeriodTitle()}
-            </Text>
-            <Ionicons 
-              name={showPeriodFilter ? "chevron-up" : "chevron-down"} 
-              size={16} 
-              color={colors.text} 
-            />
-          </TouchableOpacity>
-        )}
+
 
         <TouchableOpacity 
           style={[styles.searchButton, { backgroundColor: colors.surfaceVariant }]}
@@ -295,13 +310,12 @@ const PostFeedScreen = ({ user, navigation }) => {
       </View>
 
       {/* Backdrop for closing dropdowns */}
-      {(showDropdown || showPeriodFilter) && (
+      {showDropdown && (
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
           onPress={() => {
             setShowDropdown(false);
-            setShowPeriodFilter(false);
           }}
         />
       )}
@@ -322,9 +336,11 @@ const PostFeedScreen = ({ user, navigation }) => {
             borderColor: colors.border,
             position: 'absolute',
             top: 80, // Position below header
-            left: 0,
-            right: 0,
+            left: responsiveStyles.headerPadding,
+            right: responsiveStyles.headerPadding,
             zIndex: 9999,
+            maxWidth: responsiveStyles.maxContentWidth,
+            alignSelf: 'center',
           }
         ]}
         pointerEvents={showDropdown ? 'auto' : 'none'}
@@ -332,6 +348,7 @@ const PostFeedScreen = ({ user, navigation }) => {
         <TouchableOpacity 
           style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
           onPress={() => selectFeed('latest')}
+          activeOpacity={0.7}
         >
           <Ionicons name="time" size={20} color={colors.text} />
           <Text style={[styles.dropdownItemText, { color: colors.text }]}>Latest Posts</Text>
@@ -343,6 +360,7 @@ const PostFeedScreen = ({ user, navigation }) => {
         <TouchableOpacity 
           style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
           onPress={() => selectFeed('top')}
+          activeOpacity={0.7}
         >
           <Ionicons name="trending-up" size={20} color={colors.text} />
           <Text style={[styles.dropdownItemText, { color: colors.text }]}>Top Feeds</Text>
@@ -352,65 +370,93 @@ const PostFeedScreen = ({ user, navigation }) => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.dropdownItem}
+          style={[styles.dropdownItem, { borderBottomWidth: 0 }]}
           onPress={() => {
             setShowDropdown(false);
-            // Navigate to Event update code (you can implement this)
-            Alert.alert('Event Update', 'Event update code functionality will be implemented here');
+            // Navigate to Events (you can implement this)
+            Alert.alert('Events', 'Events functionality will be implemented here');
           }}
+          activeOpacity={0.7}
         >
-          <Ionicons name="code" size={20} color={colors.text} />
-          <Text style={[styles.dropdownItemText, { color: colors.text }]}>Event Update Code</Text>
+          <Ionicons name="calendar" size={20} color={colors.text} />
+          <Text style={[styles.dropdownItemText, { color: colors.text }]}>Events</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Period Filter Dropdown */}
-      {showPeriodFilter && selectedFeed === 'top' && (
-        <Animated.View 
-          style={[
-            styles.periodDropdown,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              position: 'absolute',
-              top: 80, // Position below header
-              left: 0,
-              right: 0,
-              zIndex: 9999,
-            }
-          ]}
-        >
-          <TouchableOpacity 
-            style={[styles.periodDropdownItem, { borderBottomColor: colors.border }]}
-            onPress={() => selectPeriod('all')}
-          >
-            <Text style={[styles.periodDropdownItemText, { color: colors.text }]}>Бүх</Text>
-            {selectedPeriod === 'all' && (
-              <Ionicons name="checkmark" size={20} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.periodDropdownItem, { borderBottomColor: colors.border }]}
-            onPress={() => selectPeriod('week')}
-          >
-            <Text style={[styles.periodDropdownItemText, { color: colors.text }]}>7 хоног</Text>
-            {selectedPeriod === 'week' && (
-              <Ionicons name="checkmark" size={20} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.periodDropdownItem}
-            onPress={() => selectPeriod('month')}
-          >
-            <Text style={[styles.periodDropdownItemText, { color: colors.text }]}>1 сар</Text>
-            {selectedPeriod === 'month' && (
-              <Ionicons name="checkmark" size={20} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-        </Animated.View>
+      {/* Time Category Filter - Fixed at top */}
+      {selectedFeed === 'top' && (
+        <View style={[styles.timeFilterContainer, { 
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border 
+        }]}>
+          <View style={[styles.timeFilterContent, {
+            maxWidth: responsiveStyles.maxContentWidth,
+            alignSelf: 'center',
+            width: '100%',
+            paddingHorizontal: responsiveStyles.headerPadding,
+          }]}>
+            <TouchableOpacity 
+              style={[
+                styles.timeFilterButton,
+                selectedPeriod === 'all' && { 
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary 
+                },
+                { borderColor: colors.border }
+              ]}
+              onPress={() => selectPeriod('all')}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.timeFilterButtonText,
+                { color: selectedPeriod === 'all' ? colors.textInverse : colors.text }
+              ]}>
+                Бүх
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.timeFilterButton,
+                selectedPeriod === 'week' && { 
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary 
+                },
+                { borderColor: colors.border }
+              ]}
+              onPress={() => selectPeriod('week')}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.timeFilterButtonText,
+                { color: selectedPeriod === 'week' ? colors.textInverse : colors.text }
+              ]}>
+                7 хоног
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.timeFilterButton,
+                selectedPeriod === 'month' && { 
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary 
+                },
+                { borderColor: colors.border }
+              ]}
+              onPress={() => selectPeriod('month')}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.timeFilterButtonText,
+                { color: selectedPeriod === 'month' ? colors.textInverse : colors.text }
+              ]}>
+                1 сар
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
       
       <ScrollView
@@ -489,20 +535,7 @@ const styles = StyleSheet.create({
   dropdownIcon: {
     marginLeft: 8,
   },
-  periodButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginLeft: 10,
-  },
-  periodButtonText: {
-    fontSize: 14,
-    marginRight: 5,
-  },
+
   searchButton: {
     padding: 8,
     borderRadius: 8,
@@ -566,68 +599,42 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     zIndex: 9999,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
     backgroundColor: '#ffffff',
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 20,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
     maxHeight: 200,
+    marginHorizontal: 20,
   },
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 5,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
-    minHeight: 50,
+    minHeight: 56,
+    marginHorizontal: 8,
+    borderRadius: 8,
   },
   dropdownItemText: {
     fontSize: 16,
-    marginLeft: 10,
+    fontWeight: '500',
+    marginLeft: 12,
     flex: 1,
   },
-  periodDropdown: {
-    zIndex: 9999,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#ffffff',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 20,
-    maxHeight: 150,
-  },
-  periodDropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    minHeight: 45,
-  },
-  periodDropdownItemText: {
-    fontSize: 16,
-    marginLeft: 10,
-    flex: 1,
-  },
+
   backdrop: {
     position: 'absolute',
     top: 0,
@@ -636,6 +643,34 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.3)',
     zIndex: 9998,
+  },
+  timeFilterContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+  },
+  timeFilterContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeFilterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeFilterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

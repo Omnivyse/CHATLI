@@ -90,7 +90,7 @@ const RegisterScreen = ({ navigation, onLogin }) => {
         Toast.show({
           type: 'success',
           text1: 'Амжилттай бүртгэгдлээ',
-          text2: `Тавтай морил, ${response.data.user.name}!`,
+          text2: 'Тавтай морил, ' + (response.data.user.name && typeof response.data.user.name === 'string' ? response.data.user.name : 'User') + '!',
         });
         
         onLogin(response.data.user, { isNewUser: true });
@@ -142,7 +142,7 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                   editable={!loading}
                 />
               </View>
-              {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
+              {errors.name && typeof errors.name === 'string' ? <Text style={styles.errorText}>{errors.name}</Text> : null}
             </View>
 
             <View style={styles.inputContainer}>
@@ -159,7 +159,7 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                   editable={!loading}
                 />
               </View>
-              {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+              {errors.username && typeof errors.username === 'string' ? <Text style={styles.errorText}>{errors.username}</Text> : null}
             </View>
 
             <View style={styles.inputContainer}>
@@ -177,7 +177,7 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                   editable={!loading}
                 />
               </View>
-              {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+              {errors.email && typeof errors.email === 'string' ? <Text style={styles.errorText}>{errors.email}</Text> : null}
             </View>
 
             <View style={styles.inputContainer}>

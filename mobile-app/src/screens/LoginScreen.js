@@ -259,7 +259,7 @@ const LoginScreen = ({ onLogin }) => {
                 />
               </View>
               
-              {error ? (
+              {error && typeof error === 'string' ? (
                 <Text style={styles.errorText}>{error}</Text>
               ) : null}
               

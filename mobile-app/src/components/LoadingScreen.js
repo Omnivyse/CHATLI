@@ -7,7 +7,9 @@ const LoadingScreen = ({ message = "Ачаалж байна..." }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <ActivityIndicator size="large" color="#000000" />
-        <Text style={styles.message}>{message}</Text>
+        <Text style={styles.message}>
+          {message && typeof message === 'string' ? message : 'Ачаалж байна...'}
+        </Text>
       </View>
     </SafeAreaView>
   );

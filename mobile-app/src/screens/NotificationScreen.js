@@ -150,13 +150,13 @@ const NotificationScreen = ({ navigation, user }) => {
     if (diffInMinutes < 1) {
       return 'одоо';
     } else if (diffInMinutes < 60) {
-      return `${diffInMinutes}м өмнө`;
+      return String(diffInMinutes) + 'м өмнө';
     } else if (diffInHours < 24) {
-      return `${diffInHours}ц өмнө`;
+      return String(diffInHours) + 'ц өмнө';
     } else if (diffInDays === 1) {
       return 'өчигдөр';
     } else if (diffInDays < 7) {
-      return `${diffInDays} өдөр өмнө`;
+      return String(diffInDays) + ' өдөр өмнө';
     } else {
       return date.toLocaleDateString('mn-MN');
     }
@@ -230,7 +230,9 @@ const NotificationScreen = ({ navigation, user }) => {
       {/* Notifications */}
       {error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>
+          {error && typeof error === 'string' ? error : 'Алдаа гарлаа'}
+        </Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadNotifications}

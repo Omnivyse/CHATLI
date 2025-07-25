@@ -155,7 +155,7 @@ const CreatePostScreen = ({ navigation, user }) => {
       formData.append('file', {
         uri: mediaItem.uri,
         type: mediaItem.type === 'image' ? 'image/jpeg' : 'video/mp4',
-        name: `media_${Date.now()}.${mediaItem.type === 'image' ? 'jpg' : 'mp4'}`,
+        name: 'media_' + String(Date.now()) + '.' + (mediaItem.type === 'image' ? 'jpg' : 'mp4'),
       });
 
       const response = await api.uploadFile(formData);
@@ -304,8 +304,12 @@ const CreatePostScreen = ({ navigation, user }) => {
                 style={styles.userAvatar}
               />
               <View style={styles.userInfo}>
-                <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
-                <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{user.username}</Text>
+                <Text style={[styles.userName, { color: colors.text }]}>
+          {user.name && typeof user.name === 'string' ? user.name : 'Unknown User'}
+        </Text>
+                <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
+          @{user.username && typeof user.username === 'string' ? user.username : 'unknown'}
+        </Text>
               </View>
             </View>
 

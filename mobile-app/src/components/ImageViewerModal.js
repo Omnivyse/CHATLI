@@ -387,7 +387,7 @@ const ImageViewerModal = ({
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.counter}>
-            {String(currentImageIndex + 1)} / {String(images.length)}
+            {typeof currentImageIndex === 'number' ? String(currentImageIndex + 1) : '1'} / {Array.isArray(images) ? String(images.length) : '0'}
           </Text>
           {/* Debug button - remove in production */}
           <TouchableOpacity 
@@ -465,7 +465,9 @@ const ImageViewerModal = ({
           ]}
           pointerEvents="none"
         >
-          <Text style={styles.dismissHintText}>Swipe down to dismiss</Text>
+          <Text style={styles.dismissHintText}>
+            {typeof 'Swipe down to dismiss' === 'string' ? 'Swipe down to dismiss' : 'Tap to dismiss'}
+          </Text>
         </Animated.View>
       </Animated.View>
     </Modal>

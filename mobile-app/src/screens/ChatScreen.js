@@ -539,7 +539,9 @@ const ChatScreen = ({ navigation, route, user }) => {
             : { backgroundColor: colors.surfaceVariant }
         ]}>
           {!isMyMessage && (
-            <Text style={[styles.senderName, { color: colors.textSecondary }]}>{message.sender.name}</Text>
+            <Text style={[styles.senderName, { color: colors.textSecondary }]}>
+              {message.sender?.name && typeof message.sender.name === 'string' ? message.sender.name : 'Unknown User'}
+            </Text>
           )}
           <Text style={[
             styles.messageText,
@@ -547,7 +549,7 @@ const ChatScreen = ({ navigation, route, user }) => {
               ? { color: colors.textInverse }
               : { color: colors.text }
           ]}>
-            {message.content.text}
+            {message.content?.text && typeof message.content.text === 'string' ? message.content.text : 'Message content unavailable'}
           </Text>
         </View>
         
@@ -562,8 +564,12 @@ const ChatScreen = ({ navigation, route, user }) => {
               
               return Object.entries(reactionGroups).map(([emoji, count]) => (
                 <View key={emoji} style={[styles.reactionBadge, { backgroundColor: colors.surface }]}>
-                  <Text style={styles.reactionEmoji}>{emoji}</Text>
-                  <Text style={[styles.reactionCount, { color: colors.textSecondary }]}>{count}</Text>
+                  <Text style={styles.reactionEmoji}>
+                    {typeof emoji === 'string' ? emoji : '👍'}
+                  </Text>
+                  <Text style={[styles.reactionCount, { color: colors.textSecondary }]}>
+                    {typeof count === 'number' ? String(count) : '0'}
+                  </Text>
                 </View>
               ));
             })()}
@@ -608,10 +614,10 @@ const ChatScreen = ({ navigation, route, user }) => {
                 const chat = await api.getChat(chatId);
                 if (chat.success && chat.data.chat.type === 'direct') {
                   const otherUser = chat.data.chat.participants.find(p => p._id !== user._id);
-                  if (otherUser) {
+                  if (otherUser && otherUser._id) {
                     navigation.navigate('UserProfile', {
                       userId: otherUser._id,
-                      userName: otherUser.name
+                      userName: otherUser.name && typeof otherUser.name === 'string' ? otherUser.name : 'Unknown User'
                     });
                   }
                 } else if (chat.success && chat.data.chat.type === 'group') {
@@ -624,7 +630,7 @@ const ChatScreen = ({ navigation, route, user }) => {
             }}
           >
             <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-              {chatTitle}
+              {chatTitle && typeof chatTitle === 'string' ? chatTitle : 'Chat'}
             </Text>
           </TouchableOpacity>
           <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Онлайн</Text>

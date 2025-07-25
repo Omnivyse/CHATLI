@@ -133,7 +133,7 @@ const ChatListScreen = ({ navigation, user }) => {
     const sender = chat.lastMessage.sender;
     const isOwnMessage = sender?._id === user._id;
     
-    return isOwnMessage ? `Та: ${chat.lastMessage.text}` : chat.lastMessage.text;
+          return isOwnMessage ? 'Та: ' + (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '') : (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '');
   };
 
   const getDisplayDate = (timestamp) => {
@@ -149,13 +149,13 @@ const ChatListScreen = ({ navigation, user }) => {
     if (diffInMinutes < 1) {
       return 'одоо';
     } else if (diffInMinutes < 60) {
-      return `${diffInMinutes}м`;
+      return String(diffInMinutes) + 'м';
     } else if (diffInHours < 24) {
-      return `${diffInHours}ц`;
+      return String(diffInHours) + 'ц';
     } else if (diffInDays === 1) {
       return 'өчигдөр';
     } else if (diffInDays < 7) {
-      return `${diffInDays} өдөр`;
+      return String(diffInDays) + ' өдөр';
     } else {
       return date.toLocaleDateString('mn-MN', { 
         month: 'short', 
@@ -302,7 +302,9 @@ const ChatListScreen = ({ navigation, user }) => {
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+          {error && typeof error === 'string' ? error : 'Алдаа гарлаа'}
+        </Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadChats}

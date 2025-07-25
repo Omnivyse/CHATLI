@@ -97,6 +97,11 @@ export const getSystemTheme = () => {
 
 // Theme object with colors
 export const getThemeColors = (theme) => {
+  if (!theme || typeof theme !== 'string') {
+    console.warn('getThemeColors: Invalid theme parameter:', theme);
+    return lightColors; // Fallback to light colors
+  }
+  
   return theme === 'dark' ? darkColors : lightColors;
 };
 

@@ -1,26 +1,38 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   TouchableOpacity,
   Image,
-  StyleSheet,
+  Modal,
   Alert,
   Dimensions,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
-import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
-import ImageViewerModal from './ImageViewerModal';
-import CommentSection from './CommentSection';
 import socketService from '../services/socket';
+import apiService from '../services/api';
+import CommentSection from './CommentSection';
+import ImageViewerModal from './ImageViewerModal';
+import TempClipsModal from './TempClipsModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const Post = ({ post, user, onPostUpdate, navigation }) => {
+  // Debug: Validate props
+  if (!post || typeof post !== 'object') {
+    console.warn('Post component: Invalid post prop:', post);
+    return null;
+  }
+
+  if (!user || typeof user !== 'object') {
+    console.warn('Post component: Invalid user prop:', user);
+    return null;
+  }
+
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [localPost, setLocalPost] = useState(post);
@@ -30,6 +42,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [tempClipsModalVisible, setTempClipsModalVisible] = useState(false);
   const videoRef = useRef(null);
   const likeTimeoutRef = useRef(null);
   
@@ -142,8 +155,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
     };
   }, []);
   
-  const isOwner = localPost.author._id === user._id;
-  const isLiked = localPost.likes.includes(user._id);
+  const isOwner = localPost.author?._id === user?._id;
+  const isLiked = Array.isArray(localPost.likes) && user?._id && localPost.likes.includes(user._id);
   
   const handleLike = async () => {
     if (liking) return;
@@ -164,11 +177,13 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         }));
         
         // Emit socket event for real-time updates
-        socketService.likePost(
-          localPost._id,
-          user._id,
-          localPost.author._id
-        );
+        if (localPost._id && user?._id && localPost.author?._id) {
+          socketService.likePost(
+            localPost._id,
+            user._id,
+            localPost.author._id
+          );
+        }
       }
     } catch (error) {
       console.error('Like post error:', error);
@@ -192,8 +207,10 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await apiService.deletePost(localPost._id);
-              onPostUpdate && onPostUpdate();
+              if (localPost._id) {
+                await apiService.deletePost(localPost._id);
+                onPostUpdate && onPostUpdate();
+              }
             } catch (error) {
               Alert.alert('Алдаа', 'Пост устгахад алдаа гарлаа');
             }
@@ -213,9 +230,9 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       const days = Math.floor(diff / 86400000);
 
       if (minutes < 1) return 'яг одоо';
-      if (minutes < 60) return `${minutes}м`;
-      if (hours < 24) return `${hours}ц`;
-      if (days < 7) return `${days}ө`;
+      if (minutes < 60) return String(minutes) + 'м';
+      if (hours < 24) return String(hours) + 'ц';
+      if (days < 7) return String(days) + 'ө';
       return date.toLocaleDateString('mn-MN');
     } catch (error) {
       return 'яг одоо';
@@ -247,6 +264,10 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
     setImageViewerVisible(true);
   };
 
+  const handleVideoPress = () => {
+    setTempClipsModalVisible(true);
+  };
+
   const renderMedia = () => {
     // If no media and no content, don't show anything
     if (mediaArray.length === 0) {
@@ -273,9 +294,11 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 borderColor: colors.border 
               }]}> 
                 <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
-                <Text style={[styles.imageErrorText, { color: colors.textSecondary }]}>Зураг ачаалахад алдаа гарлаа</Text>
+                <Text style={[styles.imageErrorText, { color: colors.textSecondary }]}>
+                  {typeof 'Зураг ачаалахад алдаа гарлаа' === 'string' ? 'Зураг ачаалахад алдаа гарлаа' : 'Image load error'}
+                </Text>
                 <Text style={[styles.imageErrorText, { color: colors.textSecondary, fontSize: 12 }]}>
-                  URL: {currentMediaItem.url || 'Unknown URL'}
+                  URL: {currentMediaItem.url && typeof currentMediaItem.url === 'string' ? currentMediaItem.url : 'Unknown URL'}
                 </Text>
               </View>
             ) : (
@@ -302,18 +325,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             )
           ) : (
             <TouchableOpacity 
-              onPress={() => {
-                // Navigate to Clips section with this video
-                if (navigation) {
-                  navigation.navigate('Clips', {
-                    initialVideo: {
-                      post: localPost,
-                      mediaIndex: currentMedia,
-                      mediaItem: currentMediaItem
-                    }
-                  });
-                }
-              }}
+              onPress={handleVideoPress}
               activeOpacity={0.9}
             >
               <Video
@@ -340,7 +352,9 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
               <View style={styles.videoPlayOverlay}>
                 <View style={styles.videoPlayButton}>
                   <Ionicons name="play-circle" size={50} color="#ffffff" />
-                  <Text style={styles.videoPlayText}>Clips-д үзэх</Text>
+                  <Text style={styles.videoPlayText}>
+                    {typeof 'Clips-д үзэх' === 'string' ? 'Clips-д үзэх' : 'View in Clips'}
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -399,15 +413,15 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         <TouchableOpacity 
           style={styles.userInfo}
           onPress={() => {
-            if (navigation && localPost.author?._id !== user._id) {
+            if (navigation && localPost.author?._id && user?._id && localPost.author._id !== user._id) {
               navigation.navigate('UserProfile', {
-                userId: localPost.author?._id || '',
-                userName: localPost.author?.name || 'Unknown User'
+                userId: localPost.author._id,
+                userName: localPost.author?.name && typeof localPost.author.name === 'string' ? localPost.author.name : 'Unknown User'
               });
             }
           }}
         >
-          {localPost.author.avatar ? (
+          {localPost.author?.avatar ? (
             <Image source={{ uri: localPost.author.avatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
@@ -415,8 +429,12 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             </View>
           )}
           <View style={styles.userDetails}>
-            <Text style={[styles.userName, { color: colors.text }]}>{localPost.author?.name || 'Unknown User'}</Text>
-            <Text style={[styles.postTime, { color: colors.textSecondary }]}>{formatRelativeTime(localPost.createdAt || new Date())}</Text>
+            <Text style={[styles.userName, { color: colors.text }]}>
+              {localPost.author?.name && typeof localPost.author.name === 'string' ? localPost.author.name : 'Unknown User'}
+            </Text>
+            <Text style={[styles.postTime, { color: colors.textSecondary }]}>
+              {formatRelativeTime(localPost.createdAt || new Date())}
+            </Text>
           </View>
         </TouchableOpacity>
         
@@ -428,12 +446,59 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       </View>
 
       {/* Post Content */}
-      {localPost.content && (
-        <Text style={[styles.content, { color: colors.text }]}>{localPost.content || ''}</Text>
+      {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
+        <Text style={[styles.content, { color: colors.text }]}>
+          {localPost.content}
+        </Text>
       )}
 
-      {/* Post Media */}
-      {renderMedia()}
+      {/* Post Media - Simple Safe Version */}
+      {mediaArray.length > 0 && mediaArray[currentMedia] && (
+        <View style={styles.mediaContainer}>
+          {mediaArray[currentMedia].type === 'image' ? (
+            <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+              <Image
+                source={{ uri: mediaArray[currentMedia].url }}
+                style={{
+                  width: '100%',
+                  height: 250,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              onPress={handleVideoPress}
+              activeOpacity={0.9}
+            >
+              <Video
+                source={{ uri: mediaArray[currentMedia].url }}
+                style={{
+                  width: '100%',
+                  height: 200,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+                useNativeControls
+                resizeMode="contain"
+              />
+              {/* Play button overlay */}
+              <View style={styles.videoPlayOverlay}>
+                <View style={styles.videoPlayButton}>
+                  <Ionicons name="play-circle" size={50} color="#ffffff" />
+                  <Text style={styles.videoPlayText}>
+                    {typeof 'Clips-д үзэх' === 'string' ? 'Clips-д үзэх' : 'View in Clips'}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Post Actions */}
       <View style={styles.actions}>
@@ -448,7 +513,9 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             color={isLiked ? colors.error : colors.textSecondary}
             style={liking ? { opacity: 0.5 } : {}}
           />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{String(localPost.likes.length)}</Text>
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+            {Array.isArray(localPost.likes) ? String(localPost.likes.length) : '0'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -456,46 +523,63 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           onPress={() => setCommentModalVisible(true)}
         >
           <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>{String(localPost.comments?.length || 0)}</Text>
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+            {Array.isArray(localPost.comments) ? String(localPost.comments.length) : '0'}
+          </Text>
         </TouchableOpacity>
-        </View>
-        
-        {/* Image Viewer Modal */}
-        <ImageViewerModal
-          images={mediaArray.filter(item => item.type === 'image')}
-          initialIndex={currentMedia || 0}
-          onClose={() => setImageViewerVisible(false)}
-          visible={imageViewerVisible}
+      </View>
+      
+      {/* Image Viewer Modal */}
+      <ImageViewerModal
+        images={mediaArray.filter(item => item.type === 'image')}
+        initialIndex={currentMedia || 0}
+        onClose={() => setImageViewerVisible(false)}
+        visible={imageViewerVisible}
+        post={localPost}
+        user={user}
+        onPostUpdate={() => {
+          // Sync the post state when image viewer updates
+          // The socket events will handle real-time updates
+        }}
+      />
+
+      {/* Comment Modal */}
+      <Modal
+        visible={commentModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCommentModalVisible(false)}
+      >
+        <CommentSection
           post={localPost}
           user={user}
-          onPostUpdate={() => {
-            // Sync the post state when image viewer updates
-            // The socket events will handle real-time updates
+          onClose={() => setCommentModalVisible(false)}
+          onCommentAdded={(updatedComments) => {
+            setLocalPost(prevPost => ({
+              ...prevPost,
+              comments: updatedComments
+            }));
           }}
         />
+      </Modal>
 
-        {/* Comment Modal */}
-        <Modal
-          visible={commentModalVisible}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setCommentModalVisible(false)}
-        >
-          <CommentSection
-            post={localPost}
-            user={user}
-            onClose={() => setCommentModalVisible(false)}
-            onCommentAdded={(updatedComments) => {
-              setLocalPost(prevPost => ({
-                ...prevPost,
-                comments: updatedComments
-              }));
-            }}
-          />
-        </Modal>
-      </View>
-    );
-  };
+      {/* Temporary Clips Modal */}
+      <TempClipsModal
+        visible={tempClipsModalVisible}
+        onClose={() => setTempClipsModalVisible(false)}
+        clickedVideo={{
+          _id: localPost._id,
+          url: mediaArray[currentMedia]?.url,
+          title: localPost.content || 'Untitled Video',
+          author: localPost.author
+        }}
+        allVideos={[]} // We'll enhance this later to show all videos
+        user={user}
+        post={localPost}
+      />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

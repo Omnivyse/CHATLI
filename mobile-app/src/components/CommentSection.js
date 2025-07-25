@@ -156,10 +156,10 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
       
       const diffInSeconds = Math.floor((now - date) / 1000);
       
-      if (diffInSeconds < 60) return `${diffInSeconds}с`;
-      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}м`;
-      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}ц`;
-      return `${Math.floor(diffInSeconds / 86400)}ө`;
+      if (diffInSeconds < 60) return String(diffInSeconds) + 'с';
+      if (diffInSeconds < 3600) return String(Math.floor(diffInSeconds / 60)) + 'м';
+      if (diffInSeconds < 86400) return String(Math.floor(diffInSeconds / 3600)) + 'ц';
+      return String(Math.floor(diffInSeconds / 86400)) + 'ө';
     } catch (error) {
       return '0с';
     }
@@ -176,14 +176,14 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
       <View style={styles.commentContent}>
         <View style={styles.commentHeader}>
           <Text style={[styles.commentAuthor, { color: colors.text }]}>
-            {item.author?.name || 'Unknown User'}
+            {item.author?.name && typeof item.author.name === 'string' ? item.author.name : 'Unknown User'}
           </Text>
           <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
             {formatTimeAgo(item.createdAt)}
           </Text>
         </View>
         <Text style={[styles.commentText, { color: colors.text }]}>
-          {item.content}
+          {item.content && typeof item.content === 'string' ? item.content : 'Comment content unavailable'}
         </Text>
       </View>
     </View>
@@ -196,7 +196,7 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
         Сэтгэгдэл байхгүй
       </Text>
       <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-        Эхний сэтгэгдлээ үлдэээрэй
+        Эхний сэтгэгдлээ үлдээгээрэй
       </Text>
     </View>
   );
@@ -214,7 +214,7 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Сэтгэгдэл ({comments.length})
+            Сэтгэгдэл ({Array.isArray(comments) ? comments.length : 0})
           </Text>
           <View style={styles.placeholder} />
         </View>

@@ -108,11 +108,17 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
             )}
           </View>
           
-          <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
-          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{user.username}</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>
+          {user.name && typeof user.name === 'string' ? user.name : 'Unknown User'}
+        </Text>
+          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
+          @{user.username && typeof user.username === 'string' ? user.username : 'unknown'}
+        </Text>
           
           {user.bio && (
-            <Text style={[styles.userBio, { color: colors.textSecondary }]}>{user.bio}</Text>
+            <Text style={[styles.userBio, { color: colors.textSecondary }]}>
+          {user.bio && typeof user.bio === 'string' ? user.bio : ''}
+        </Text>
           )}
 
           <View style={styles.statsContainer}>

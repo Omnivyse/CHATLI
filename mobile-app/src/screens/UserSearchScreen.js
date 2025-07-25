@@ -173,12 +173,12 @@ const UserSearchScreen = ({ navigation, user }) => {
         
         <View style={styles.userInfo}>
           <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
-            {targetUser.name}
+            {targetUser.name && typeof targetUser.name === 'string' ? targetUser.name : 'Unknown User'}
           </Text>
           <Text style={[styles.userUsername, { color: colors.textSecondary }]} numberOfLines={1}>
-            @{targetUser.username}
+            @{targetUser.username && typeof targetUser.username === 'string' ? targetUser.username : 'unknown'}
           </Text>
-          {targetUser.bio && (
+          {targetUser.bio && typeof targetUser.bio === 'string' && (
             <Text style={[styles.userBio, { color: colors.textTertiary }]} numberOfLines={2}>
               {targetUser.bio}
             </Text>
@@ -240,7 +240,7 @@ const UserSearchScreen = ({ navigation, user }) => {
         
         <View style={styles.followingInfo}>
           <Text style={[styles.followingName, { color: colors.text }]} numberOfLines={1}>
-            {targetUser.name}
+            {targetUser.name && typeof targetUser.name === 'string' ? targetUser.name : 'Unknown User'}
           </Text>
           <View style={[
             styles.onlineIndicator,
