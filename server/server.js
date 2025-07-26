@@ -467,6 +467,20 @@ io.on('connection', (socket) => {
   socket.on('like_post', async (data) => {
     const { postId, likedBy, postOwner } = data;
     try {
+      // Check if notification already exists (within last 5 minutes)
+      const existingNotification = await Notification.findOne({
+        user: postOwner,
+        type: 'like',
+        from: likedBy,
+        post: postId,
+        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Last 5 minutes
+      });
+      
+      if (existingNotification) {
+        console.log(`🔔 Like notification already exists for user_${postOwner}, skipping duplicate`);
+        return;
+      }
+      
       // Create notification in DB
       const notification = await Notification.create({
         user: postOwner,
@@ -495,6 +509,20 @@ io.on('connection', (socket) => {
   socket.on('comment_post', async (data) => {
     const { postId, commentBy, postOwner, commentText } = data;
     try {
+      // Check if notification already exists (within last 5 minutes)
+      const existingNotification = await Notification.findOne({
+        user: postOwner,
+        type: 'comment',
+        from: commentBy,
+        post: postId,
+        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Last 5 minutes
+      });
+      
+      if (existingNotification) {
+        console.log(`🔔 Comment notification already exists for user_${postOwner}, skipping duplicate`);
+        return;
+      }
+      
       const notification = await Notification.create({
         user: postOwner,
         type: 'comment',
@@ -523,6 +551,19 @@ io.on('connection', (socket) => {
   socket.on('follow_user', async (data) => {
     const { followedUserId, followedBy } = data;
     try {
+      // Check if notification already exists (within last 5 minutes)
+      const existingNotification = await Notification.findOne({
+        user: followedUserId,
+        type: 'follow',
+        from: followedBy,
+        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Last 5 minutes
+      });
+      
+      if (existingNotification) {
+        console.log(`🔔 Follow notification already exists for user_${followedUserId}, skipping duplicate`);
+        return;
+      }
+      
       const notification = await Notification.create({
         user: followedUserId,
         type: 'follow',

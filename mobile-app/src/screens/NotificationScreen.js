@@ -37,12 +37,26 @@ const NotificationScreen = ({ navigation, user }) => {
       }
       
       setNotifications((prev) => {
-        // Check if notification already exists to avoid duplicates
-        const notificationExists = prev.some(notification => 
+        // Check for duplicates by ID first
+        const notificationExistsById = prev.some(notification => 
           notification && notification._id && notification._id === data._id
         );
-        if (notificationExists) {
-          console.log('🔔 Notification already exists, skipping duplicate');
+        if (notificationExistsById) {
+          console.log('🔔 Notification already exists by ID, skipping duplicate');
+          return prev;
+        }
+        
+        // Check for duplicates by content (same type, same post, same from user)
+        const notificationExistsByContent = prev.some(notification => 
+          notification && 
+          notification.type === data.type &&
+          notification.post === data.post &&
+          notification.from === data.from &&
+          // Check if it's within the last 5 minutes to avoid blocking legitimate new notifications
+          new Date(notification.createdAt).getTime() > new Date().getTime() - 5 * 60 * 1000
+        );
+        if (notificationExistsByContent) {
+          console.log('🔔 Similar notification exists, skipping duplicate');
           return prev;
         }
         
@@ -233,9 +247,11 @@ const NotificationScreen = ({ navigation, user }) => {
         <Text style={[styles.notificationTitle, { color: colors.text }]}>
           {notification.title || 'Шинэ мэдэгдэл'}
         </Text>
-        <Text style={[styles.notificationMessage, { color: colors.textSecondary }]}>
-          {notification.message || 'Мэдэгдлийн дэлгэрэнгүй мэдээлэл'}
-        </Text>
+        {notification.message && (
+          <Text style={[styles.notificationMessage, { color: colors.textSecondary }]}>
+            {notification.message}
+          </Text>
+        )}
         <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>
           {formatNotificationTime(notification.createdAt)}
         </Text>
