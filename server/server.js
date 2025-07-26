@@ -467,20 +467,23 @@ io.on('connection', (socket) => {
   socket.on('like_post', async (data) => {
     const { postId, likedBy, postOwner } = data;
     try {
-      // Create notification in DB (optional)
-      await Notification.create({
+      // Create notification in DB
+      const notification = await Notification.create({
         user: postOwner,
         type: 'like',
         from: likedBy,
         post: postId,
         createdAt: new Date(),
       });
-      // Emit real-time notification to post owner
+      
+      // Emit real-time notification to post owner with _id
       io.to(`user_${postOwner}`).emit('notification', {
+        _id: notification._id,
         type: 'like',
         from: likedBy,
         post: postId,
         createdAt: new Date(),
+        isRead: false,
       });
       console.log(`🔔 Like notification sent to user_${postOwner}`);
     } catch (err) {
@@ -492,7 +495,7 @@ io.on('connection', (socket) => {
   socket.on('comment_post', async (data) => {
     const { postId, commentBy, postOwner, commentText } = data;
     try {
-      await Notification.create({
+      const notification = await Notification.create({
         user: postOwner,
         type: 'comment',
         from: commentBy,
@@ -500,12 +503,15 @@ io.on('connection', (socket) => {
         comment: commentText,
         createdAt: new Date(),
       });
+      
       io.to(`user_${postOwner}`).emit('notification', {
+        _id: notification._id,
         type: 'comment',
         from: commentBy,
         post: postId,
         comment: commentText,
         createdAt: new Date(),
+        isRead: false,
       });
       console.log(`🔔 Comment notification sent to user_${postOwner}`);
     } catch (err) {
@@ -517,16 +523,19 @@ io.on('connection', (socket) => {
   socket.on('follow_user', async (data) => {
     const { followedUserId, followedBy } = data;
     try {
-      await Notification.create({
+      const notification = await Notification.create({
         user: followedUserId,
         type: 'follow',
         from: followedBy,
         createdAt: new Date(),
       });
+      
       io.to(`user_${followedUserId}`).emit('notification', {
+        _id: notification._id,
         type: 'follow',
         from: followedBy,
         createdAt: new Date(),
+        isRead: false,
       });
       console.log(`🔔 Follow notification sent to user_${followedUserId}`);
     } catch (err) {

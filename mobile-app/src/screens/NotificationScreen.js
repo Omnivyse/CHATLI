@@ -29,25 +29,51 @@ const NotificationScreen = ({ navigation, user }) => {
     // Listen for real-time notifications
     const handleNotification = (data) => {
       console.log('🔔 Real-time notification received:', data);
+      
+      // Validate notification data
+      if (!data || !data._id) {
+        console.warn('Invalid notification data received:', data);
+        return;
+      }
+      
       setNotifications((prev) => {
         // Check if notification already exists to avoid duplicates
-        const notificationExists = prev.some(notification => notification._id === data._id);
+        const notificationExists = prev.some(notification => 
+          notification && notification._id && notification._id === data._id
+        );
         if (notificationExists) {
+          console.log('🔔 Notification already exists, skipping duplicate');
           return prev;
         }
-        return [data, ...prev];
+        
+        // Add new notification at the beginning
+        const newNotifications = [data, ...prev];
+        
+        // Limit to prevent too many notifications
+        if (newNotifications.length > 50) {
+          return newNotifications.slice(0, 50);
+        }
+        
+        return newNotifications;
       });
     };
     
     // Listen for notification updates (mark as read, etc.)
     const handleNotificationUpdate = (data) => {
       console.log('🔔 Real-time notification updated:', data);
+      
+      // Validate update data
+      if (!data || !data.notificationId) {
+        console.warn('Invalid notification update data:', data);
+        return;
+      }
+      
       setNotifications(prev => 
         prev.map(notification => 
-          notification._id === data.notificationId 
+          notification && notification._id === data.notificationId 
             ? { ...notification, ...data.updates }
             : notification
-        )
+        ).filter(notification => notification !== null)
       );
     };
     
@@ -65,7 +91,18 @@ const NotificationScreen = ({ navigation, user }) => {
       setError('');
       const response = await api.getNotifications();
       if (response.success) {
-        setNotifications(response.data.notifications);
+        // Filter out invalid notifications and ensure unique IDs
+        const validNotifications = (response.data.notifications || [])
+          .filter(notification => notification && notification._id)
+          .reduce((unique, notification) => {
+            const exists = unique.find(n => n._id === notification._id);
+            if (!exists) {
+              unique.push(notification);
+            }
+            return unique;
+          }, []);
+        
+        setNotifications(validNotifications);
       } else {
         setError('Мэдэгдэл ачаалахад алдаа гарлаа');
       }
@@ -84,6 +121,12 @@ const NotificationScreen = ({ navigation, user }) => {
   };
 
   const handleMarkAsRead = async (notificationId) => {
+    // Validate notification ID
+    if (!notificationId || notificationId === 'undefined' || notificationId === undefined) {
+      console.error('Invalid notification ID:', notificationId);
+      return;
+    }
+    
     try {
       await api.markNotificationRead(notificationId);
       setNotifications(prev => 
@@ -162,15 +205,22 @@ const NotificationScreen = ({ navigation, user }) => {
     }
   };
 
-  const renderNotification = ({ item: notification }) => (
-    <TouchableOpacity
-      style={[
-        styles.notificationItem,
-        { backgroundColor: colors.surface, borderBottomColor: colors.border },
-        !notification.isRead && { backgroundColor: colors.surfaceVariant }
-      ]}
-      onPress={() => handleMarkAsRead(notification._id)}
-    >
+  const renderNotification = ({ item: notification, index }) => {
+    // Validate notification data
+    if (!notification || !notification._id) {
+      console.warn('Invalid notification data:', notification);
+      return null;
+    }
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.notificationItem,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+          !notification.isRead && { backgroundColor: colors.surfaceVariant }
+        ]}
+        onPress={() => handleMarkAsRead(notification._id)}
+      >
       <View style={styles.notificationIcon}>
         <Ionicons
           name={getNotificationIcon(notification.type)}
@@ -195,7 +245,8 @@ const NotificationScreen = ({ navigation, user }) => {
         <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
       )}
     </TouchableOpacity>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -250,9 +301,9 @@ const NotificationScreen = ({ navigation, user }) => {
         </View>
       ) : (
         <FlatList
-          data={notifications}
+          data={notifications.filter(notification => notification && notification._id)}
           renderItem={renderNotification}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item, index) => item._id || `notification-${index}`}
           style={styles.notificationsList}
           refreshControl={
             <RefreshControl
@@ -263,6 +314,9 @@ const NotificationScreen = ({ navigation, user }) => {
             />
           }
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
         />
       )}
     </SafeAreaView>

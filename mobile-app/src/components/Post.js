@@ -348,15 +348,6 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 resizeMode="contain"
                 isLooping={false}
               />
-              {/* Play button overlay */}
-              <View style={styles.videoPlayOverlay}>
-                <View style={styles.videoPlayButton}>
-                  <Ionicons name="play-circle" size={50} color="#ffffff" />
-                  <Text style={styles.videoPlayText}>
-                    {typeof 'Clips-д үзэх' === 'string' ? 'Clips-д үзэх' : 'View in Clips'}
-                  </Text>
-                </View>
-              </View>
             </TouchableOpacity>
           )}
           
@@ -486,15 +477,6 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 useNativeControls
                 resizeMode="contain"
               />
-              {/* Play button overlay */}
-              <View style={styles.videoPlayOverlay}>
-                <View style={styles.videoPlayButton}>
-                  <Ionicons name="play-circle" size={50} color="#ffffff" />
-                  <Text style={styles.videoPlayText}>
-                    {typeof 'Clips-д үзэх' === 'string' ? 'Clips-д үзэх' : 'View in Clips'}
-                  </Text>
-                </View>
-              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -711,28 +693,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  videoPlayOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
-  },
-  videoPlayButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoPlayText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-    textAlign: 'center',
   },
 });
 

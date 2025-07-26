@@ -336,6 +336,12 @@ class ApiService {
   }
 
   async markNotificationRead(notificationId) {
+    // Validate notification ID
+    if (!notificationId || notificationId === 'undefined' || notificationId === undefined) {
+      console.error('Invalid notification ID provided:', notificationId);
+      throw new Error('Invalid notification ID');
+    }
+    
     return this.request(`/notifications/${notificationId}/read`, {
       method: 'POST',
     });
