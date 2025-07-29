@@ -267,6 +267,41 @@ router.delete('/users/:userId', authenticateAdmin, async (req, res) => {
     const Chat = require('../models/Chat');
     const Notification = require('../models/Notification');
     const Analytics = require('../models/Analytics');
+    const { deleteMultipleFiles } = require('../config/cloudinary');
+
+    // First, get all posts by this user to extract media URLs for Cloudinary deletion
+    const userPosts = await Post.find({ author: userId });
+    const mediaUrls = [];
+    
+    // Extract all media URLs from user's posts
+    userPosts.forEach(post => {
+      if (post.media && Array.isArray(post.media)) {
+        post.media.forEach(mediaItem => {
+          if (mediaItem.url && typeof mediaItem.url === 'string') {
+            mediaUrls.push(mediaItem.url);
+          }
+        });
+      }
+    });
+
+    // Delete media files from Cloudinary if any exist
+    let cloudinaryDeletionResults = [];
+    if (mediaUrls.length > 0) {
+      console.log(`Deleting ${mediaUrls.length} media files from Cloudinary for user ${userId}`);
+      cloudinaryDeletionResults = await deleteMultipleFiles(mediaUrls);
+      
+      // Log deletion results
+      const successfulDeletions = cloudinaryDeletionResults.filter(result => result.success);
+      const failedDeletions = cloudinaryDeletionResults.filter(result => !result.success);
+      
+      if (successfulDeletions.length > 0) {
+        console.log(`Successfully deleted ${successfulDeletions.length} files from Cloudinary`);
+      }
+      
+      if (failedDeletions.length > 0) {
+        console.log(`Failed to delete ${failedDeletions.length} files from Cloudinary:`, failedDeletions);
+      }
+    }
 
     await Promise.allSettled([
       // Delete all posts by this user
@@ -315,7 +350,16 @@ router.delete('/users/:userId', authenticateAdmin, async (req, res) => {
     ]);
     
     console.log(`User ${userId} and all related data deleted successfully`);
-    res.json({ message: 'User deleted successfully' });
+    res.json({ 
+      message: 'User deleted successfully',
+      data: {
+        cloudinaryDeletionResults: {
+          total: mediaUrls.length,
+          successful: cloudinaryDeletionResults.filter(result => result.success).length,
+          failed: cloudinaryDeletionResults.filter(result => !result.success).length
+        }
+      }
+    });
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });

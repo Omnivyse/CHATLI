@@ -535,22 +535,39 @@ router.delete('/delete-account', auth, async (req, res) => {
     const Post = require('../models/Post');
     const Chat = require('../models/Chat');
     const Notification = require('../models/Notification');
-    const { deleteFile } = require('../config/cloudinary');
+    const { deleteMultipleFiles, extractPublicIdFromUrl } = require('../config/cloudinary');
 
     // Delete user's posts and their media from Cloudinary
     const userPosts = await Post.find({ author: user._id });
-    for (const post of userPosts) {
-      // Delete media from Cloudinary
-      if (post.media && post.media.length > 0) {
-        for (const mediaItem of post.media) {
-          if (mediaItem.publicId) {
-            try {
-              await deleteFile(mediaItem.publicId);
-            } catch (error) {
-              console.error('Error deleting media from Cloudinary:', error);
-            }
+    const mediaUrls = [];
+    
+    // Extract all media URLs from user's posts
+    userPosts.forEach(post => {
+      if (post.media && Array.isArray(post.media)) {
+        post.media.forEach(mediaItem => {
+          if (mediaItem.url && typeof mediaItem.url === 'string') {
+            mediaUrls.push(mediaItem.url);
           }
-        }
+        });
+      }
+    });
+
+    // Delete media files from Cloudinary if any exist
+    let cloudinaryDeletionResults = [];
+    if (mediaUrls.length > 0) {
+      console.log(`Deleting ${mediaUrls.length} media files from Cloudinary for user ${user._id}`);
+      cloudinaryDeletionResults = await deleteMultipleFiles(mediaUrls);
+      
+      // Log deletion results
+      const successfulDeletions = cloudinaryDeletionResults.filter(result => result.success);
+      const failedDeletions = cloudinaryDeletionResults.filter(result => !result.success);
+      
+      if (successfulDeletions.length > 0) {
+        console.log(`Successfully deleted ${successfulDeletions.length} files from Cloudinary`);
+      }
+      
+      if (failedDeletions.length > 0) {
+        console.log(`Failed to delete ${failedDeletions.length} files from Cloudinary:`, failedDeletions);
       }
     }
     
@@ -577,19 +594,28 @@ router.delete('/delete-account', auth, async (req, res) => {
     });
 
     // Delete user's avatar and cover image from Cloudinary
-    if (user.avatarPublicId) {
-      try {
-        await deleteFile(user.avatarPublicId);
-      } catch (error) {
-        console.error('Error deleting avatar from Cloudinary:', error);
-      }
+    const profileImageUrls = [];
+    if (user.avatar) {
+      profileImageUrls.push(user.avatar);
     }
-    
-    if (user.coverImagePublicId) {
-      try {
-        await deleteFile(user.coverImagePublicId);
-      } catch (error) {
-        console.error('Error deleting cover image from Cloudinary:', error);
+    if (user.coverImage) {
+      profileImageUrls.push(user.coverImage);
+    }
+
+    if (profileImageUrls.length > 0) {
+      console.log(`Deleting ${profileImageUrls.length} profile images from Cloudinary for user ${user._id}`);
+      const profileImageDeletionResults = await deleteMultipleFiles(profileImageUrls);
+      
+      // Log deletion results
+      const successfulProfileDeletions = profileImageDeletionResults.filter(result => result.success);
+      const failedProfileDeletions = profileImageDeletionResults.filter(result => !result.success);
+      
+      if (successfulProfileDeletions.length > 0) {
+        console.log(`Successfully deleted ${successfulProfileDeletions.length} profile images from Cloudinary`);
+      }
+      
+      if (failedProfileDeletions.length > 0) {
+        console.log(`Failed to delete ${failedProfileDeletions.length} profile images from Cloudinary:`, failedProfileDeletions);
       }
     }
 

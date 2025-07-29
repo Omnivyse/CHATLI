@@ -4,6 +4,7 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const { auth, optionalAuth } = require('../middleware/auth');
 const Notification = require('../models/Notification');
+const { deleteMultipleFiles } = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -171,8 +172,50 @@ router.delete('/:id', auth, async (req, res) => {
     if (String(post.author) !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Та зөвшөөрөлгүй байна' });
     }
+
+    // Extract media URLs for Cloudinary deletion
+    const mediaUrls = [];
+    if (post.media && Array.isArray(post.media)) {
+      post.media.forEach(mediaItem => {
+        if (mediaItem.url && typeof mediaItem.url === 'string') {
+          mediaUrls.push(mediaItem.url);
+        }
+      });
+    }
+
+    // Delete media files from Cloudinary
+    let cloudinaryDeletionResults = [];
+    if (mediaUrls.length > 0) {
+      console.log(`Deleting ${mediaUrls.length} media files from Cloudinary for post ${post._id}`);
+      cloudinaryDeletionResults = await deleteMultipleFiles(mediaUrls);
+      
+      // Log deletion results
+      const successfulDeletions = cloudinaryDeletionResults.filter(result => result.success);
+      const failedDeletions = cloudinaryDeletionResults.filter(result => !result.success);
+      
+      if (successfulDeletions.length > 0) {
+        console.log(`Successfully deleted ${successfulDeletions.length} files from Cloudinary`);
+      }
+      
+      if (failedDeletions.length > 0) {
+        console.log(`Failed to delete ${failedDeletions.length} files from Cloudinary:`, failedDeletions);
+      }
+    }
+
+    // Delete the post from database
     await post.deleteOne();
-    res.json({ success: true, message: 'Пост устгагдлаа' });
+    
+    res.json({ 
+      success: true, 
+      message: 'Пост устгагдлаа',
+      data: {
+        cloudinaryDeletionResults: {
+          total: mediaUrls.length,
+          successful: cloudinaryDeletionResults.filter(result => result.success).length,
+          failed: cloudinaryDeletionResults.filter(result => !result.success).length
+        }
+      }
+    });
   } catch (error) {
     console.error('Delete post error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
@@ -245,12 +288,59 @@ router.put('/:id', auth, async (req, res) => {
     if (String(post.author) !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Та зөвшөөрөлгүй байна' });
     }
+    
     const { content, media } = req.body;
+    let cloudinaryDeletionResults = [];
+    
+    // Handle media changes and deletion
+    if (Array.isArray(media)) {
+      // Find media files that are being removed
+      const currentMediaUrls = post.media ? post.media.map(item => item.url).filter(Boolean) : [];
+      const newMediaUrls = media.map(item => item.url).filter(Boolean);
+      
+      // Find URLs that exist in current media but not in new media (removed files)
+      const removedMediaUrls = currentMediaUrls.filter(url => !newMediaUrls.includes(url));
+      
+      // Delete removed media files from Cloudinary
+      if (removedMediaUrls.length > 0) {
+        console.log(`Deleting ${removedMediaUrls.length} removed media files from Cloudinary for post ${post._id}`);
+        cloudinaryDeletionResults = await deleteMultipleFiles(removedMediaUrls);
+        
+        // Log deletion results
+        const successfulDeletions = cloudinaryDeletionResults.filter(result => result.success);
+        const failedDeletions = cloudinaryDeletionResults.filter(result => !result.success);
+        
+        if (successfulDeletions.length > 0) {
+          console.log(`Successfully deleted ${successfulDeletions.length} removed files from Cloudinary`);
+        }
+        
+        if (failedDeletions.length > 0) {
+          console.log(`Failed to delete ${failedDeletions.length} removed files from Cloudinary:`, failedDeletions);
+        }
+      }
+      
+      // Update post media
+      post.media = media;
+    }
+    
+    // Update content if provided
     if (typeof content === 'string') post.content = content;
-    if (Array.isArray(media)) post.media = media;
+    
     await post.save();
     await post.populate('author', 'name avatar');
-    res.json({ success: true, message: 'Пост амжилттай засагдлаа', data: { post } });
+    
+    res.json({ 
+      success: true, 
+      message: 'Пост амжилттай засагдлаа', 
+      data: { 
+        post,
+        cloudinaryDeletionResults: {
+          total: cloudinaryDeletionResults.length,
+          successful: cloudinaryDeletionResults.filter(result => result.success).length,
+          failed: cloudinaryDeletionResults.filter(result => !result.success).length
+        }
+      }
+    });
   } catch (error) {
     console.error('Edit post error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
