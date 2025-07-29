@@ -27,7 +27,7 @@ router.post('/', auth, [
       media: Array.isArray(media) ? media : []
     });
     await post.save();
-    await post.populate('author', 'name avatar');
+    await post.populate('author', 'name avatar isVerified');
     res.status(201).json({ success: true, message: 'Пост үүслээ', data: { post } });
   } catch (error) {
     console.error('Create post error:', error);
@@ -40,7 +40,7 @@ router.get('/', auth, async (req, res) => {
   try {
     let posts = await Post.find()
       .sort({ createdAt: -1 })
-      .populate('author', 'name avatar privateProfile followers');
+      .populate('author', 'name avatar privateProfile followers isVerified');
     
     // Filter out posts from deleted users and private users
     posts = posts.filter(post => {
@@ -89,8 +89,8 @@ router.get('/', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate('author', 'name avatar')
-      .populate('comments.author', 'name avatar');
+      .populate('author', 'name avatar isVerified')
+      .populate('comments.author', 'name avatar isVerified');
     if (!post) return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
     res.json({ success: true, data: { post } });
   } catch (error) {
@@ -116,7 +116,7 @@ router.post('/:id/comment', auth, [
     };
     post.comments.push(comment);
     await post.save();
-    await post.populate('comments.author', 'name avatar');
+    await post.populate('comments.author', 'name avatar isVerified');
     // Create notification for post author (if not self)
     if (String(post.author) !== String(req.user._id)) {
       await Notification.create({
@@ -271,8 +271,8 @@ router.get('/user/:userId', auth, async (req, res) => {
     }
     const posts = await Post.find({ author: req.params.userId })
       .sort({ createdAt: -1 })
-      .populate('author', 'name avatar')
-      .populate('comments.author', 'name avatar');
+      .populate('author', 'name avatar isVerified')
+      .populate('comments.author', 'name avatar isVerified');
     res.json({ success: true, data: { posts } });
   } catch (error) {
     console.error('Get user posts error:', error);
@@ -327,7 +327,7 @@ router.put('/:id', auth, async (req, res) => {
     if (typeof content === 'string') post.content = content;
     
     await post.save();
-    await post.populate('author', 'name avatar');
+    await post.populate('author', 'name avatar isVerified');
     
     res.json({ 
       success: true, 
