@@ -28,11 +28,11 @@ const AdminDashboard = ({ isOpen, onClose }) => {
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({
-    totalUsers: 2,
-    onlineUsers: 1,
-    offlineUsers: 1,
+    totalUsers: 0,
+    onlineUsers: 0,
+    offlineUsers: 0,
     pendingReports: 0,
-    newUsersToday: 1,
+    newUsersToday: 0,
     totalPageViews: 0,
     pageViewsToday: 0,
     totalMessages: 0,
@@ -81,7 +81,7 @@ const AdminDashboard = ({ isOpen, onClose }) => {
 
   const loadAnalytics = useCallback(async () => {
     try {
-      const [dailyStats, popularPages, deviceStats, realtimeData] = await Promise.all([
+      const [dailyStats, popularPages, deviceStats, realtimeData] = await Promise.allSettled([
         apiService.getAnalyticsDailyStats(7),
         apiService.getAnalyticsPopularPages(10),
         apiService.getAnalyticsDeviceStats(7),
@@ -89,15 +89,24 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       ]);
 
       setAnalyticsData({
-        dailyStats: dailyStats.dailyStats || [],
-        popularPages: popularPages.popularPages || [],
-        deviceStats: deviceStats.deviceStats || [],
-        browserStats: deviceStats.browserStats || [],
-        mobileStats: deviceStats.mobileStats || [],
-        realtimeData: realtimeData || {}
+        dailyStats: dailyStats.status === 'fulfilled' ? (dailyStats.value.dailyStats || []) : [],
+        popularPages: popularPages.status === 'fulfilled' ? (popularPages.value.popularPages || []) : [],
+        deviceStats: deviceStats.status === 'fulfilled' ? (deviceStats.value.deviceStats || []) : [],
+        browserStats: deviceStats.status === 'fulfilled' ? (deviceStats.value.browserStats || []) : [],
+        mobileStats: deviceStats.status === 'fulfilled' ? (deviceStats.value.mobileStats || []) : [],
+        realtimeData: realtimeData.status === 'fulfilled' ? (realtimeData.value || {}) : {}
       });
     } catch (error) {
       console.error('Load analytics error:', error);
+      // Set empty data on error
+      setAnalyticsData({
+        dailyStats: [],
+        popularPages: [],
+        deviceStats: [],
+        browserStats: [],
+        mobileStats: [],
+        realtimeData: {}
+      });
     }
   }, []);
 
@@ -112,16 +121,16 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       }
     } catch (error) {
       console.error('Load stats error:', error);
-      // Don't fallback to calculated stats to avoid infinite loops
+      // Keep existing stats on error
     }
-  }, []); // Remove dependency on users and reports
+  }, []);
 
   const loadDashboardData = useCallback(async () => {
     if (loading) return; // Prevent multiple simultaneous loads
     
     setLoading(true);
     try {
-      await Promise.all([
+      await Promise.allSettled([
         loadUsers(),
         loadReports(),
         loadStats(),
@@ -136,10 +145,10 @@ const AdminDashboard = ({ isOpen, onClose }) => {
 
   // Only load data when modal opens
   useEffect(() => {
-    if (isOpen && !loading) {
+    if (isOpen) {
       loadDashboardData();
     }
-  }, [isOpen, loadDashboardData, loading]);
+  }, [isOpen, loadDashboardData]);
 
   const handleDeleteUser = async (userId) => {
     if (deletingUser === userId) return; // Prevent multiple calls

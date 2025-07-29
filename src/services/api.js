@@ -418,17 +418,22 @@ class ApiService {
 
   // Admin endpoints
   async adminLogin(credentials) {
-    const response = await this.request('/admin/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+    try {
+      const response = await this.request('/admin/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
 
-    if (response.token) {
-      // Store admin token separately
-      localStorage.setItem('adminToken', response.token);
+      if (response.token) {
+        // Store admin token separately
+        localStorage.setItem('adminToken', response.token);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Admin login error:', error);
+      throw error;
     }
-
-    return response;
   }
 
   async adminLogout() {
@@ -447,38 +452,90 @@ class ApiService {
   }
 
   async verifyAdminToken() {
-    const adminToken = localStorage.getItem('adminToken');
-    if (!adminToken) {
-      throw new Error('No admin token found');
-    }
-
-    const response = await fetch(`${this.baseURL}/admin/verify`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
 
-    return response.json();
+      const response = await fetch(`${this.baseURL}/admin/verify`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Verify admin token error:', error);
+      return { valid: false };
+    }
   }
 
   async getAdminStats() {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/stats`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
-    return response.json();
+      
+      const response = await fetch(`${this.baseURL}/admin/stats`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Admin stats error:', error);
+      // Return default stats on error
+      return {
+        totalUsers: 0,
+        onlineUsers: 0,
+        offlineUsers: 0,
+        pendingReports: 0,
+        newUsersToday: 0,
+        totalPageViews: 0,
+        pageViewsToday: 0,
+        totalMessages: 0,
+        messagesTotal: 0,
+        totalPosts: 0,
+        postsToday: 0,
+        activeUsersToday: 0,
+        avgSessionDuration: 0
+      };
+    }
   }
 
   async getAllUsersAdmin(page = 1, limit = 20, search = '') {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
-    return response.json();
+      
+      const response = await fetch(`${this.baseURL}/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Get all users admin error:', error);
+      return { users: [] };
+    }
   }
 
   async deleteUserAdmin(userId) {
@@ -493,13 +550,27 @@ class ApiService {
   }
 
   async getAdminReports(page = 1, limit = 20, status = '') {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/reports?page=${page}&limit=${limit}&status=${status}`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
-    return response.json();
+      
+      const response = await fetch(`${this.baseURL}/admin/reports?page=${page}&limit=${limit}&status=${status}`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Get admin reports error:', error);
+      return { reports: [] };
+    }
   }
 
   async updateAdminReportStatus(reportId, status, adminNotes = '') {
@@ -517,23 +588,51 @@ class ApiService {
 
   // Analytics endpoints
   async getAnalyticsDailyStats(days = 7) {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/analytics/daily?days=${days}`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
-    return response.json();
+      
+      const response = await fetch(`${this.baseURL}/admin/analytics/daily?days=${days}`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Analytics daily stats error:', error);
+      return { dailyStats: [] };
+    }
   }
 
   async getAnalyticsPopularPages(limit = 10) {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/analytics/pages?limit=${limit}`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
-    return response.json();
+      
+      const response = await fetch(`${this.baseURL}/admin/analytics/pages?limit=${limit}`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Analytics popular pages error:', error);
+      return { popularPages: [] };
+    }
   }
 
   async getAnalyticsUserActivity(days = 30) {
@@ -547,23 +646,57 @@ class ApiService {
   }
 
   async getAnalyticsDeviceStats(days = 7) {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/analytics/devices?days=${days}`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
-    return response.json();
+      
+      const response = await fetch(`${this.baseURL}/admin/analytics/devices?days=${days}`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Analytics device stats error:', error);
+      return { deviceStats: [], browserStats: [], mobileStats: [] };
+    }
   }
 
   async getAnalyticsRealtime() {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/analytics/realtime`, {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('No admin token found');
       }
-    });
-    return response.json();
+      
+      const response = await fetch(`${this.baseURL}/admin/analytics/realtime`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Analytics realtime error:', error);
+      return {
+        last24HourEvents: 0,
+        lastHourEvents: 0,
+        activeUsers: 0,
+        currentOnlineUsers: 0,
+        recentErrors: []
+      };
+    }
   }
 
   async trackAnalyticsEvent(eventData) {
