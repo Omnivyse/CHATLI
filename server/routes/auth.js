@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { auth, optionalAuth } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -132,31 +133,56 @@ router.post('/register', [
     });
 
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'Хэрэглэгч аль хэдийн бүртгэлтэй байна'
-      });
+      if (existingUser.email === email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Энэ имэйл хаяг аль хэдийн бүртгэлтэй байна'
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Энэ хэрэглэгчийн нэр аль хэдийн ашиглагдаж байна'
+        });
+      }
     }
 
-    // Create new user
+    // Generate verification token
+    const verificationToken = emailService.generateVerificationToken();
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Create new user (not verified yet)
     const user = new User({
       name,
       username,
       email,
-      password
+      password,
+      emailVerified: false,
+      verificationToken,
+      verificationExpires
     });
 
     await user.save();
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Send verification email
+    const emailResult = await emailService.sendVerificationEmail(email, name, verificationToken);
+    
+    if (!emailResult.success) {
+      console.error('Failed to send verification email:', emailResult.error);
+      // Don't fail registration, just log the error
+    }
 
     res.status(201).json({
       success: true,
-      message: 'Хэрэглэгч амжилттай бүртгэгдлээ',
+      message: 'Бүртгэл амжилттай үүслээ. Имэйл хаягаа шалгаж баталгаажуулна уу.',
       data: {
-        user,
-        token
+        user: {
+          _id: user._id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          emailVerified: user.emailVerified
+        },
+        emailSent: emailResult.success
       }
     });
   } catch (error) {
@@ -207,6 +233,18 @@ router.post('/login', [
       return res.status(400).json({
         success: false,
         message: 'Имэйл эсвэл нууц үг буруу байна'
+      });
+    }
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Имэйл хаягаа баталгаажуулна уу. Имэйл хаягаа шалгаж баталгаажуулах холбоосыг дарна уу.',
+        data: {
+          emailVerified: false,
+          email: user.email
+        }
       });
     }
 
@@ -677,6 +715,142 @@ router.post('/push-token', auth, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to update push token' 
+    });
+  }
+});
+
+// @route   POST /api/auth/verify-email
+// @desc    Verify email with token
+// @access  Public
+router.post('/verify-email', [
+  body('token')
+    .notEmpty()
+    .withMessage('Баталгаажуулах токен оруулна уу')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Оролтын алдаа',
+        errors: errors.array()
+      });
+    }
+
+    const { token } = req.body;
+
+    // Find user with this verification token
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Баталгаажуулах холбоос хүчингүй эсвэл хугацаа дууссан байна'
+      });
+    }
+
+    // Verify the user
+    user.emailVerified = true;
+    user.verificationToken = null;
+    user.verificationExpires = null;
+    await user.save();
+
+    // Generate token for automatic login
+    const loginToken = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: 'Имэйл хаяг амжилттай баталгаажлаа',
+      data: {
+        user: {
+          _id: user._id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          emailVerified: user.emailVerified
+        },
+        token: loginToken
+      }
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/auth/resend-verification
+// @desc    Resend verification email
+// @access  Public
+router.post('/resend-verification', [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Зөв имэйл оруулна уу')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Оролтын алдаа',
+        errors: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Энэ имэйл хаягтай хэрэглэгч олдсонгүй'
+      });
+    }
+
+    // Check if already verified
+    if (user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Имэйл хаяг аль хэдийн баталгаажсан байна'
+      });
+    }
+
+    // Generate new verification token
+    const verificationToken = emailService.generateVerificationToken();
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update user with new token
+    user.verificationToken = verificationToken;
+    user.verificationExpires = verificationExpires;
+    await user.save();
+
+    // Send verification email
+    const emailResult = await emailService.sendVerificationEmail(email, user.name, verificationToken);
+    
+    if (!emailResult.success) {
+      console.error('Failed to resend verification email:', emailResult.error);
+      return res.status(500).json({
+        success: false,
+        message: 'Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Баталгаажуулах имэйл дахин илгээгдлээ'
+    });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
     });
   }
 });

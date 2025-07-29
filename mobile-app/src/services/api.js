@@ -209,6 +209,39 @@ class ApiService {
     }
   }
 
+  // Email verification methods
+  async verifyEmail(token) {
+    try {
+      const response = await this.request('/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token })
+      });
+      
+      // If verification successful, set the token for automatic login
+      if (response.success && response.data.token) {
+        await this.setToken(response.data.token);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Email verification error:', error);
+      throw error;
+    }
+  }
+
+  async resendVerificationEmail(email) {
+    try {
+      const response = await this.request('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      return response;
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      throw error;
+    }
+  }
+
   async getCurrentUser() {
     try {
       return await this.request('/auth/me');

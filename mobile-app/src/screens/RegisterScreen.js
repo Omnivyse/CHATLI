@@ -89,11 +89,14 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       if (response.success) {
         Toast.show({
           type: 'success',
-          text1: 'Амжилттай бүртгэгдлээ',
-          text2: 'Тавтай морил, ' + (response.data.user.name && typeof response.data.user.name === 'string' ? response.data.user.name : 'User') + '!',
+          text1: 'Бүртгэл амжилттай үүслээ',
+          text2: 'Имэйл хаягаа шалгаж баталгаажуулна уу',
         });
         
-        onLogin(response.data.user, { isNewUser: true });
+        // Navigate to email verification screen
+        navigation.navigate('EmailVerification', {
+          email: formData.email
+        });
       } else {
         Toast.show({
           type: 'error',

@@ -82,6 +82,14 @@ const LoginScreen = ({ onLogin }) => {
         if (res.success) {
           onLogin(res.data.user, { isNewUser: false });
         } else {
+          // Check if it's an email verification error
+          if (res.data && res.data.emailVerified === false) {
+            // Navigate to email verification screen
+            navigation.navigate('EmailVerification', {
+              email: email
+            });
+            return;
+          }
           setError(res.message || 'Нэвтрэхэд алдаа гарлаа');
         }
       } else {
