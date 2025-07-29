@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,17 +24,14 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const [resendLoading, setResendLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [verificationCode, setVerificationCode] = useState(['', '', '', '', '']);
+  const [codeError, setCodeError] = useState('');
+  const inputRefs = useRef([]);
 
   useEffect(() => {
-    // Get email from route params or navigation state
+    // Get email from route params
     const emailFromRoute = route.params?.email || '';
     setEmail(emailFromRoute);
-
-    // Check if we have a verification token in the URL
-    const token = route.params?.token;
-    if (token) {
-      handleVerification(token);
-    }
 
     // Start countdown for resend button
     setCountdown(60);
@@ -49,10 +48,43 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleVerification = async (token) => {
+  const handleCodeChange = (text, index) => {
+    if (text.length > 1) {
+      text = text[0];
+    }
+
+    const newCode = [...verificationCode];
+    newCode[index] = text;
+    setVerificationCode(newCode);
+    setCodeError('');
+
+    // Auto-focus next input
+    if (text && index < 4) {
+      inputRefs.current[index + 1]?.focus();
+    }
+
+    // Auto-submit when all digits are entered
+    if (index === 4 && text && newCode.every(digit => digit !== '')) {
+      handleVerification();
+    }
+  };
+
+  const handleKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace' && !verificationCode[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerification = async () => {
+    const code = verificationCode.join('');
+    if (code.length !== 5) {
+      setCodeError('5 оронтой код оруулна уу');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await api.verifyEmail(token);
+      const response = await api.verifyEmail(code, email);
       
       if (response.success) {
         Alert.alert(
@@ -72,11 +104,11 @@ const EmailVerificationScreen = ({ navigation, route }) => {
           ]
         );
       } else {
-        Alert.alert('Алдаа', response.message || 'Баталгаажуулалт амжилтгүй болсон');
+        setCodeError(response.message || 'Баталгаажуулалт амжилтгүй болсон');
       }
     } catch (error) {
       console.error('Verification error:', error);
-      Alert.alert('Алдаа', 'Баталгаажуулалт амжилтгүй болсон. Дахин оролдоно уу.');
+      setCodeError('Баталгаажуулалт амжилтгүй болсон. Дахин оролдоно уу.');
     } finally {
       setLoading(false);
     }
@@ -92,6 +124,10 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       if (response.success) {
         Alert.alert('Амжилттай', 'Баталгаажуулах имэйл дахин илгээгдлээ');
         setCountdown(60); // Start countdown again
+        setVerificationCode(['', '', '', '', '']); // Clear code
+        setCodeError(''); // Clear error
+        // Focus first input
+        inputRefs.current[0]?.focus();
       } else {
         Alert.alert('Алдаа', response.message || 'Имэйл илгээхэд алдаа гарлаа');
       }
@@ -112,11 +148,18 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     navigation.navigate('Login');
   };
 
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <TouchableOpacity 
@@ -144,8 +187,55 @@ const EmailVerificationScreen = ({ navigation, route }) => {
           </Text>
 
           <Text style={[styles.description, { color: colors.textSecondary }]}>
-            {email ? `"${email}" хаяг руу баталгаажуулах имэйл илгээгдлээ.` : 'Имэйл хаягаа шалгаж баталгаажуулах холбоосыг дарна уу.'}
+            {email ? `"${email}" хаяг руу баталгаажуулах имэйл илгээгдлээ.` : 'Имэйл хаягаа шалгаж баталгаажуулах кодыг оруулна уу.'}
           </Text>
+
+          {/* Verification Code Input */}
+          <View style={styles.codeContainer}>
+            <Text style={[styles.codeLabel, { color: colors.text }]}>
+              5 оронтой код оруулна уу
+            </Text>
+            
+            <View style={styles.codeInputContainer}>
+              {verificationCode.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  style={[
+                    styles.codeInput,
+                    { 
+                      backgroundColor: colors.surface,
+                      borderColor: codeError ? colors.error : colors.border,
+                      color: colors.text
+                    }
+                  ]}
+                  value={digit}
+                  onChangeText={(text) => handleCodeChange(text, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  keyboardType="numeric"
+                  maxLength={1}
+                  selectTextOnFocus
+                  editable={!loading}
+                />
+              ))}
+            </View>
+            
+            {codeError ? (
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {codeError}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Timer */}
+          {countdown > 0 && (
+            <View style={styles.timerContainer}>
+              <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+              <Text style={[styles.timerText, { color: colors.textSecondary }]}>
+                Код {formatTime(countdown)} минутын дараа дуусна
+              </Text>
+            </View>
+          )}
 
           <View style={styles.stepsContainer}>
             <View style={styles.step}>
@@ -162,7 +252,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
                 <Text style={[styles.stepNumberText, { color: colors.textInverse }]}>2</Text>
               </View>
               <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-                "Имэйл баталгаажуулах" товчийг дарна уу
+                5 оронтой кодыг оруулна уу
               </Text>
             </View>
 
@@ -215,7 +305,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
                   color={colors.textInverse} 
                 />
                 <Text style={[styles.resendButtonText, { color: colors.textInverse }]}>
-                  {countdown > 0 ? `${countdown} секунд` : 'Дахин илгээх'}
+                  {countdown > 0 ? `${formatTime(countdown)}` : 'Дахин илгээх'}
                 </Text>
               </>
             )}
@@ -277,12 +367,52 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
     lineHeight: 24,
+  },
+  codeContainer: {
+    width: '100%',
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  codeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  codeInputContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  codeInput: {
+    width: 50,
+    height: 60,
+    borderWidth: 2,
+    borderRadius: 12,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+    gap: 8,
+  },
+  timerText: {
+    fontSize: 14,
   },
   stepsContainer: {
     width: '100%',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   step: {
     flexDirection: 'row',

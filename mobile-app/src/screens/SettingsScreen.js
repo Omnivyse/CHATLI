@@ -241,16 +241,21 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
               borderColor: colors.error + '20' 
             }]}
             onPress={() => {
+              console.log('Logout button pressed, onLogout function:', !!onLogout);
               if (onLogout) {
                 Alert.alert(
                   'Гарах',
                   'Та гарахдаа итгэлтэй байна уу?',
                   [
                     { text: 'Болих', style: 'cancel' },
-                    { text: 'Гарах', style: 'destructive', onPress: onLogout },
+                    { text: 'Гарах', style: 'destructive', onPress: () => {
+                      console.log('Logout confirmed, calling onLogout function');
+                      onLogout();
+                    }},
                   ]
                 );
               } else {
+                console.error('onLogout function not provided to SettingsScreen');
                 Alert.alert('Logout', 'onLogout function not provided!');
               }
             }}

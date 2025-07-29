@@ -288,12 +288,13 @@ function MainStackNavigator({ user, onLogout }) {
       
       <Stack.Screen 
         name="Settings" 
-        component={SettingsScreen}
         options={{ 
           title: 'Тохиргоо',
           headerBackTitleVisible: false,
         }}
-      />
+      >
+        {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} />}
+      </Stack.Screen>
       
       <Stack.Screen 
         name="UserProfile"
@@ -456,16 +457,22 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    console.log('🔄 handleLogout called');
     try {
       // Track logout event
       analyticsService.trackUserLogout();
+      console.log('📊 Analytics tracked');
+      
       await apiService.logout();
+      console.log('✅ API logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout error:', error);
     } finally {
+      console.log('🧹 Cleaning up user session...');
       setUser(null);
       socketService.disconnect();
       await AsyncStorage.removeItem('token');
+      console.log('✅ Logout cleanup complete');
     }
   };
 

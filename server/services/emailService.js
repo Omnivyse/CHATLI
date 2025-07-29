@@ -32,8 +32,13 @@ class EmailService {
     return crypto.randomBytes(32).toString('hex');
   }
 
+  // Generate 5-digit verification code
+  generateVerificationCode() {
+    return Math.floor(10000 + Math.random() * 90000).toString();
+  }
+
   // Create verification email HTML
-  createVerificationEmailHTML(username, verificationUrl) {
+  createVerificationEmailHTML(username, verificationCode) {
     return `
       <!DOCTYPE html>
       <html lang="mn">
@@ -116,18 +121,21 @@ class EmailService {
           <div class="content">
             <p>Сайн байна уу, <strong>${username}</strong>!</p>
             
-            <p>CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх товчийг дарна уу:</p>
+            <p>CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:</p>
             
             <div style="text-align: center;">
-              <a href="${verificationUrl}" class="button">Имэйл баталгаажуулах</a>
+              <div style="background-color: #f8f9fa; border: 2px solid #007bff; border-radius: 10px; padding: 20px; margin: 20px 0; display: inline-block;">
+                <div style="font-size: 32px; font-weight: bold; color: #007bff; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                  ${verificationCode}
+                </div>
+              </div>
             </div>
             
             <div class="warning">
               <strong>Анхааруулга:</strong> Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм. Энэ тохиолдолд дахин бүртгүүлнэ үү.
             </div>
             
-            <p>Хэрэв товч ажиллахгүй бол, доорх холбоосыг хуулж тайзны хаяг мөрөнд оруулна уу:</p>
-            <p style="word-break: break-all; color: #007bff;">${verificationUrl}</p>
+            <p>Энэ кодыг 1 минутын дотор оруулна уу. Хугацаа дууссаны дараа шинэ код хүсэх боломжтой.</p>
           </div>
           
           <div class="footer">
@@ -141,17 +149,17 @@ class EmailService {
   }
 
   // Create verification email text version
-  createVerificationEmailText(username, verificationUrl) {
+  createVerificationEmailText(username, verificationCode) {
     return `
 CHATLI - Имэйл баталгаажуулалт
 
 Сайн байна уу, ${username}!
 
-CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх холбоосыг дарна уу:
+CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
 
-${verificationUrl}
+Код: ${verificationCode}
 
-Хэрэв холбоос ажиллахгүй бол, дээрх URL-ийг хуулж тайзны хаяг мөрөнд оруулна уу.
+Энэ кодыг 1 минутын дотор оруулна уу. Хугацаа дууссаны дараа шинэ код хүсэх боломжтой.
 
 Анхааруулга: Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм.
 
@@ -162,23 +170,21 @@ ${verificationUrl}
   }
 
   // Send verification email
-  async sendVerificationEmail(email, username, verificationToken) {
+  async sendVerificationEmail(email, username, verificationCode) {
     try {
       if (!this.transporter) {
         console.log('📧 Email service not available, logging instead');
         console.log('📧 Verification email would be sent to:', email);
-        console.log('📧 Verification token:', verificationToken);
+        console.log('📧 Verification code:', verificationCode);
         return { success: true, message: 'Email logged (service not configured)' };
       }
-
-      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
       
       const mailOptions = {
         from: `"CHATLI" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'CHATLI - Имэйл баталгаажуулалт',
-        html: this.createVerificationEmailHTML(username, verificationUrl),
-        text: this.createVerificationEmailText(username, verificationUrl)
+        html: this.createVerificationEmailHTML(username, verificationCode),
+        text: this.createVerificationEmailText(username, verificationCode)
       };
 
       const result = await this.transporter.sendMail(mailOptions);

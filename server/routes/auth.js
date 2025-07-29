@@ -146,9 +146,9 @@ router.post('/register', [
       }
     }
 
-    // Generate verification token
-    const verificationToken = emailService.generateVerificationToken();
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Generate verification code
+    const verificationCode = emailService.generateVerificationCode();
+    const verificationExpires = new Date(Date.now() + 60 * 1000); // 1 minute
 
     // Create new user (not verified yet)
     const user = new User({
@@ -157,14 +157,14 @@ router.post('/register', [
       email,
       password,
       emailVerified: false,
-      verificationToken,
+      verificationCode,
       verificationExpires
     });
 
     await user.save();
 
     // Send verification email
-    const emailResult = await emailService.sendVerificationEmail(email, name, verificationToken);
+    const emailResult = await emailService.sendVerificationEmail(email, name, verificationCode);
     
     if (!emailResult.success) {
       console.error('Failed to send verification email:', emailResult.error);
@@ -720,12 +720,17 @@ router.post('/push-token', auth, async (req, res) => {
 });
 
 // @route   POST /api/auth/verify-email
-// @desc    Verify email with token
+// @desc    Verify email with code
 // @access  Public
 router.post('/verify-email', [
-  body('token')
-    .notEmpty()
-    .withMessage('Баталгаажуулах токен оруулна уу')
+  body('code')
+    .isLength({ min: 5, max: 5 })
+    .isNumeric()
+    .withMessage('5 оронтой код оруулна уу'),
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Зөв имэйл оруулна уу')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -737,24 +742,25 @@ router.post('/verify-email', [
       });
     }
 
-    const { token } = req.body;
+    const { code, email } = req.body;
 
-    // Find user with this verification token
+    // Find user with this verification code
     const user = await User.findOne({
-      verificationToken: token,
+      email: email,
+      verificationCode: code,
       verificationExpires: { $gt: new Date() }
     });
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Баталгаажуулах холбоос хүчингүй эсвэл хугацаа дууссан байна'
+        message: 'Баталгаажуулах код буруу эсвэл хугацаа дууссан байна'
       });
     }
 
     // Verify the user
     user.emailVerified = true;
-    user.verificationToken = null;
+    user.verificationCode = null;
     user.verificationExpires = null;
     await user.save();
 
@@ -822,17 +828,17 @@ router.post('/resend-verification', [
       });
     }
 
-    // Generate new verification token
-    const verificationToken = emailService.generateVerificationToken();
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Generate new verification code
+    const verificationCode = emailService.generateVerificationCode();
+    const verificationExpires = new Date(Date.now() + 60 * 1000); // 1 minute
 
-    // Update user with new token
-    user.verificationToken = verificationToken;
+    // Update user with new code
+    user.verificationCode = verificationCode;
     user.verificationExpires = verificationExpires;
     await user.save();
 
     // Send verification email
-    const emailResult = await emailService.sendVerificationEmail(email, user.name, verificationToken);
+    const emailResult = await emailService.sendVerificationEmail(email, user.name, verificationCode);
     
     if (!emailResult.success) {
       console.error('Failed to resend verification email:', emailResult.error);

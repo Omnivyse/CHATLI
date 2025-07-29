@@ -210,11 +210,11 @@ class ApiService {
   }
 
   // Email verification methods
-  async verifyEmail(token) {
+  async verifyEmail(code, email) {
     try {
       const response = await this.request('/auth/verify-email', {
         method: 'POST',
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ code, email })
       });
       
       // If verification successful, set the token for automatic login
