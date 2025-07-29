@@ -3,7 +3,7 @@ import { StatusBar, Platform } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, Alert, LogBox, Platform as RNPlatform } from 'react-native';
+import { View, Text, Alert, LogBox, Platform as RNPlatform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
@@ -70,6 +70,54 @@ function MainTabNavigator({ user, onLogout }) {
             iconName = focused ? 'notifications' : 'notifications-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
+          }
+
+          // Special handling for Profile tab to show user avatar
+          if (route.name === 'Profile') {
+            return (
+              <View style={{ 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                flex: 1,
+                width: '100%',
+                paddingVertical: 4
+              }}>
+                {user?.avatar ? (
+                  <Image
+                    source={{ uri: user.avatar }}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      borderWidth: focused ? 2 : 0,
+                      borderColor: focused ? color : 'transparent',
+                    }}
+                    resizeMode="cover"
+                    onError={() => {
+                      // If image fails to load, it will fall back to the default icon
+                      console.log('Profile avatar failed to load');
+                    }}
+                  />
+                ) : (
+                  <View style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: focused ? color : tabBarColors.inactiveTintColor,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderWidth: focused ? 2 : 0,
+                    borderColor: focused ? color : 'transparent',
+                  }}>
+                    <Ionicons 
+                      name={iconName} 
+                      size={16} 
+                      color={focused ? tabBarColors.backgroundColor : color}
+                    />
+                  </View>
+                )}
+              </View>
+            );
           }
 
           return (

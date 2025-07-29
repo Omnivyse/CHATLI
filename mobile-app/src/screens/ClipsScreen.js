@@ -46,6 +46,8 @@ const ClipsScreen = ({ navigation, user, route }) => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [navigatedFromPostFeed, setNavigatedFromPostFeed] = useState(false);
   const [commentSectionVisible, setCommentSectionVisible] = useState(false);
+  const [followingStatus, setFollowingStatus] = useState({}); // Track following status for each user
+  const [followLoading, setFollowLoading] = useState({}); // Track loading state for follow buttons
   const flatListRef = useRef(null);
   const videoRefs = useRef({});
   const longPressTimers = useRef({});
@@ -189,6 +191,9 @@ const ClipsScreen = ({ navigation, user, route }) => {
         );
         
         setPosts(uniquePosts);
+        
+        // Initialize following status for all post authors
+        await initializeFollowingStatus(uniquePosts);
       }
     } catch (error) {
       console.error('Load posts error:', error);
@@ -245,6 +250,9 @@ const ClipsScreen = ({ navigation, user, route }) => {
           setPosts(reorderedPosts);
           setCurrentIndex(0); // Target video is now at index 0
           
+          // Initialize following status for all post authors
+          await initializeFollowingStatus(reorderedPosts);
+          
           // No need to scroll since it's already at the top
           console.log('Target video positioned at top of clips');
         } else {
@@ -258,13 +266,20 @@ const ClipsScreen = ({ navigation, user, route }) => {
           if (hasVideo) {
             // Add the target post to the beginning since it has video content
             console.log('Target post has video content, adding to beginning');
-            setPosts([targetPost, ...uniquePosts]);
+            const finalPosts = [targetPost, ...uniquePosts];
+            setPosts(finalPosts);
             setCurrentIndex(0);
+            
+            // Initialize following status for all post authors
+            await initializeFollowingStatus(finalPosts);
           } else {
             // Target post doesn't have video content, just load normal posts
             console.log('Target post has no video content, loading normal posts');
             setPosts(uniquePosts);
             setCurrentIndex(0);
+            
+            // Initialize following status for all post authors
+            await initializeFollowingStatus(uniquePosts);
           }
         }
       }
@@ -296,6 +311,67 @@ const ClipsScreen = ({ navigation, user, route }) => {
       }
     } catch (error) {
       console.error('Like post error:', error);
+    }
+  };
+
+  const handleFollow = async (userId) => {
+    try {
+      setFollowLoading(prev => ({ ...prev, [userId]: true }));
+      
+      const isFollowing = followingStatus[userId];
+      const response = isFollowing 
+        ? await api.unfollowUser(userId)
+        : await api.followUser(userId);
+      
+      if (response.success) {
+        setFollowingStatus(prev => ({
+          ...prev,
+          [userId]: !isFollowing
+        }));
+        
+        // Update the user's followers count in posts if available
+        setPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.author._id === userId
+              ? {
+                  ...post,
+                  author: {
+                    ...post.author,
+                    followers: response.data.followers || post.author.followers
+                  }
+                }
+              : post
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Follow/Unfollow error:', error);
+      Alert.alert('Алдаа', 'Дагах/Дагахаа болих үйлдэл амжилтгүй болсон');
+    } finally {
+      setFollowLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const initializeFollowingStatus = async (posts) => {
+    try {
+      // Get current user's following list
+      const followingResponse = await api.getFollowing();
+      if (followingResponse.success) {
+        const followingList = followingResponse.data.following || [];
+        const followingIds = followingList.map(user => user._id || user);
+        
+        // Initialize following status for all post authors
+        const newFollowingStatus = {};
+        posts.forEach(post => {
+          if (post.author && post.author._id) {
+            newFollowingStatus[post.author._id] = followingIds.includes(post.author._id);
+          }
+        });
+        
+        setFollowingStatus(newFollowingStatus);
+      }
+    } catch (error) {
+      console.error('Error initializing following status:', error);
     }
   };
 
@@ -691,8 +767,24 @@ const ClipsScreen = ({ navigation, user, route }) => {
               </View>
               {/* Only show follow button if it's not the current user's post */}
               {item.author._id !== user._id && (
-                <TouchableOpacity style={styles.followButton}>
-                  <Text style={styles.followButtonText}>Дагах</Text>
+                <TouchableOpacity 
+                  style={[
+                    styles.followButton,
+                    followingStatus[item.author._id] && styles.followingButton
+                  ]}
+                  onPress={() => handleFollow(item.author._id)}
+                  disabled={followLoading[item.author._id]}
+                >
+                  {followLoading[item.author._id] ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={[
+                      styles.followButtonText,
+                      followingStatus[item.author._id] && styles.followingButtonText
+                    ]}>
+                      {followingStatus[item.author._id] ? 'Дагасан' : 'Дагах'}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
@@ -1009,6 +1101,14 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
     fontWeight: '700',
+  },
+  followingButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
+  followingButtonText: {
+    color: '#ffffff',
   },
   actionButton: {
     alignItems: 'center',

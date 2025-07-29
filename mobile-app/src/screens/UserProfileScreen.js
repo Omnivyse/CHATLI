@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   FlatList,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,8 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [error, setError] = useState('');
+  const [profileImageViewerVisible, setProfileImageViewerVisible] = useState(false);
+  const [coverImageViewerVisible, setCoverImageViewerVisible] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
@@ -263,7 +266,11 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
 
       <ScrollView style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
-        <View style={[styles.coverImageContainer, { backgroundColor: profileUser.coverImage ? undefined : (theme === 'dark' ? '#111' : '#f0f0f0') }] }>
+        <TouchableOpacity 
+          style={[styles.coverImageContainer, { backgroundColor: profileUser.coverImage ? undefined : (theme === 'dark' ? '#111' : '#f0f0f0') }]}
+          onPress={() => profileUser.coverImage && setCoverImageViewerVisible(true)}
+          activeOpacity={profileUser.coverImage ? 0.9 : 1}
+        >
           {profileUser.coverImage ? (
             <Image 
               source={{ uri: profileUser.coverImage }} 
@@ -275,13 +282,18 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
               {/* Optionally add a white/gray icon or text here for fallback */}
             </View>
           )}
-        </View>
+        </TouchableOpacity>
         
         {/* Profile Info */}
         <View style={[styles.profileSection, { backgroundColor: colors.surface }]}>
           <View style={styles.avatarContainer}>
             {profileUser.avatar ? (
-              <Image source={{ uri: profileUser.avatar }} style={styles.avatar} />
+              <TouchableOpacity 
+                onPress={() => setProfileImageViewerVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Image source={{ uri: profileUser.avatar }} style={styles.avatar} />
+              </TouchableOpacity>
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[styles.avatarText, { color: colors.text }]}>
@@ -394,6 +406,78 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           )}
         </View>
       </ScrollView>
+
+      {/* Profile Image Viewer Modal */}
+      <Modal
+        visible={profileImageViewerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setProfileImageViewerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.profileImageModalOverlay}
+          activeOpacity={1}
+          onPress={() => setProfileImageViewerVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.profileImageModalContent}
+            activeOpacity={1}
+            onPress={() => {}} // Prevent closing when tapping the image
+          >
+            {profileUser?.avatar ? (
+              <Image
+                source={{ uri: profileUser.avatar }}
+                style={styles.profileImageModalImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={[styles.profileImageModalPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+                <Ionicons name="person" size={80} color={colors.textSecondary} />
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.profileImageModalCloseButton}
+              onPress={() => setProfileImageViewerVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Cover Image Viewer Modal */}
+      <Modal
+        visible={coverImageViewerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCoverImageViewerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.coverImageModalOverlay}
+          activeOpacity={1}
+          onPress={() => setCoverImageViewerVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.coverImageModalContent}
+            activeOpacity={1}
+            onPress={() => {}} // Prevent closing when tapping the image
+          >
+            {profileUser?.coverImage ? (
+              <Image
+                source={{ uri: profileUser.coverImage }}
+                style={styles.coverImageModalImage}
+                resizeMode="contain"
+              />
+            ) : null}
+            <TouchableOpacity
+              style={styles.coverImageModalCloseButton}
+              onPress={() => setCoverImageViewerVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -641,6 +725,73 @@ const styles = StyleSheet.create({
   },
   postsList: {
     paddingHorizontal: 20,
+  },
+  profileImageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageModalContent: {
+    width: '90%',
+    height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  profileImageModalImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  profileImageModalPlaceholder: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageModalCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  coverImageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coverImageModalContent: {
+    width: '95%',
+    height: '70%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  coverImageModalImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  coverImageModalCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });
 

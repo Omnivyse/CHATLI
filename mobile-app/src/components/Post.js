@@ -43,6 +43,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [tempClipsModalVisible, setTempClipsModalVisible] = useState(false);
+  const [profileImageViewerVisible, setProfileImageViewerVisible] = useState(false);
   const videoRef = useRef(null);
   const likeTimeoutRef = useRef(null);
   
@@ -274,123 +275,161 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       return null;
     }
 
-    const currentMediaItem = mediaArray[currentMedia];
-    if (!currentMediaItem) {
-      return null;
-    }
-    
-    // Calculate aspect ratio for better display
-    const aspectRatio = currentMediaItem.width && currentMediaItem.height 
-      ? currentMediaItem.width / currentMediaItem.height 
-      : 1.5; // Default aspect ratio
-    
-    return (
-      <View style={styles.mediaContainer}>
-        <View style={[styles.mediaWrapper, { width: '100%' }]}> {/* Ensure wrapper is 100% width */}
-          {currentMediaItem.type === 'image' ? (
-            imageLoadError ? (
-              <View style={[styles.mediaImage, styles.imageErrorContainer, { 
-                backgroundColor: colors.surfaceVariant,
-                borderColor: colors.border 
-              }]}> 
-                <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
-                <Text style={[styles.imageErrorText, { color: colors.textSecondary }]}>
-                  {typeof 'Зураг ачаалахад алдаа гарлаа' === 'string' ? 'Зураг ачаалахад алдаа гарлаа' : 'Image load error'}
-                </Text>
-                <Text style={[styles.imageErrorText, { color: colors.textSecondary, fontSize: 12 }]}>
-                  URL: {currentMediaItem.url && typeof currentMediaItem.url === 'string' ? currentMediaItem.url : 'Unknown URL'}
-                </Text>
-              </View>
-            ) : (
-              <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
-                <Image
-                  source={{ 
-                    uri: currentMediaItem.url,
-                    cache: 'default'
-                  }}
-                  style={{
-                    width: '100%',
-                    aspectRatio: aspectRatio,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                  resizeMode="cover"
-                  defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==' }}
-                  onError={() => setImageLoadError(true)}
-                  onLoad={() => setImageLoadError(false)}
-                  onLoadStart={() => setImageLoadError(false)}
-                />
-              </TouchableOpacity>
-            )
+    // Simple approach: Show all images in a grid or single image/video
+    if (mediaArray.length === 1) {
+      // Single media item
+      const mediaItem = mediaArray[0];
+      return (
+        <View style={styles.mediaContainer}>
+          {mediaItem.type === 'image' ? (
+            <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+              <Image
+                source={{ 
+                  uri: mediaItem.url,
+                  cache: 'default'
+                }}
+                style={{
+                  width: '100%',
+                  height: 250,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+                resizeMode="cover"
+                onError={() => setImageLoadError(true)}
+                onLoad={() => setImageLoadError(false)}
+              />
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity 
               onPress={handleVideoPress}
               activeOpacity={0.9}
             >
               <Video
-                ref={videoRef}
-                source={{ uri: currentMediaItem.url }}
+                source={{ uri: mediaItem.url }}
                 style={{
                   width: '100%',
-                  aspectRatio: aspectRatio || 16 / 9,
-                  borderRadius: 12,
+                  height: 200,
+                  borderRadius: 8,
                   borderWidth: 1,
                   borderColor: colors.border,
-                  backgroundColor: '#111',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 8,
-                  elevation: 4,
                 }}
                 useNativeControls
                 resizeMode="contain"
-                isLooping={false}
               />
             </TouchableOpacity>
           )}
-          
-          {/* Media Navigation */}
-          {mediaArray.length > 1 && (
-            <>
-              <TouchableOpacity
-                style={[styles.mediaNavButton, styles.mediaNavLeft]}
-                onPress={() => setCurrentMedia((currentMedia - 1 + mediaArray.length) % mediaArray.length)}
-              >
-                <Ionicons name="chevron-back" size={20} color="#ffffff" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.mediaNavButton, styles.mediaNavRight]}
-                onPress={() => setCurrentMedia((currentMedia + 1) % mediaArray.length)}
-              >
-                <Ionicons name="chevron-forward" size={20} color="#ffffff" />
-              </TouchableOpacity>
-            </>
-          )}
         </View>
-        
-        {/* Media Indicators */}
-        {mediaArray.length > 1 && (
-          <View style={styles.mediaIndicators}>
-            {mediaArray.map((item, index) =>
-              item ? (
-                <TouchableOpacity
+      );
+    } else {
+      // Multiple media items - show grid or dots
+      const images = mediaArray.filter(item => item.type === 'image');
+      const videos = mediaArray.filter(item => item.type === 'video');
+      
+      // If all are images, show grid
+      if (videos.length === 0 && images.length > 1) {
+        return (
+          <View style={styles.mediaContainer}>
+            <View style={styles.imageGrid}>
+              {images.slice(0, 4).map((image, index) => (
+                <TouchableOpacity 
+                  key={index}
+                  onPress={handleImagePress} 
+                  activeOpacity={0.9}
+                  style={[
+                    styles.gridImage,
+                    { 
+                      borderColor: colors.border,
+                      width: images.length === 2 ? '48%' : images.length === 3 ? '32%' : '48%',
+                      height: images.length === 2 ? 150 : images.length === 3 ? 100 : 100,
+                    }
+                  ]}
+                >
+                  <Image
+                    source={{ uri: image.url }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: 6,
+                    }}
+                    resizeMode="cover"
+                  />
+                  {index === 3 && images.length > 4 && (
+                    <View style={styles.moreImagesOverlay}>
+                      <Text style={styles.moreImagesText}>+{images.length - 4}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Show dots for multiple images */}
+            <View style={styles.mediaIndicators}>
+              {images.map((_, index) => (
+                <View
                   key={index}
                   style={[
                     styles.mediaIndicator,
                     { backgroundColor: colors.border },
-                    index === currentMedia && { backgroundColor: colors.primary }
                   ]}
-                  onPress={() => setCurrentMedia(index)}
                 />
-              ) : null
-            )}
+              ))}
+            </View>
           </View>
-        )}
-      </View>
-    );
+        );
+      } else {
+        // Mixed content or videos - show first item with dots
+        const firstItem = mediaArray[0];
+        return (
+          <View style={styles.mediaContainer}>
+            {firstItem.type === 'image' ? (
+              <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+                <Image
+                  source={{ uri: firstItem.url }}
+                  style={{
+                    width: '100%',
+                    height: 250,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                onPress={handleVideoPress}
+                activeOpacity={0.9}
+              >
+                <Video
+                  source={{ uri: firstItem.url }}
+                  style={{
+                    width: '100%',
+                    height: 200,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                  useNativeControls
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            )}
+            {/* Show dots for multiple media */}
+            <View style={styles.mediaIndicators}>
+              {mediaArray.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.mediaIndicator,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        );
+      }
+    }
   };
 
   return (
@@ -413,7 +452,12 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           }}
         >
           {localPost.author?.avatar ? (
-            <Image source={{ uri: localPost.author.avatar }} style={styles.avatar} />
+            <TouchableOpacity 
+              onPress={() => setProfileImageViewerVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Image source={{ uri: localPost.author.avatar }} style={styles.avatar} />
+            </TouchableOpacity>
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
               <Ionicons name="person" size={20} color={colors.textSecondary} />
@@ -443,44 +487,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         </Text>
       )}
 
-      {/* Post Media - Simple Safe Version */}
-      {mediaArray.length > 0 && mediaArray[currentMedia] && (
-        <View style={styles.mediaContainer}>
-          {mediaArray[currentMedia].type === 'image' ? (
-            <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
-              <Image
-                source={{ uri: mediaArray[currentMedia].url }}
-                style={{
-                  width: '100%',
-                  height: 250,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              onPress={handleVideoPress}
-              activeOpacity={0.9}
-            >
-              <Video
-                source={{ uri: mediaArray[currentMedia].url }}
-                style={{
-                  width: '100%',
-                  height: 200,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                useNativeControls
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+      {/* Post Media - Simple Multi-Image Recognition */}
+      {renderMedia()}
 
       {/* Post Actions */}
       <View style={styles.actions}>
@@ -559,6 +567,44 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         user={user}
         post={localPost}
       />
+
+      {/* Profile Image Viewer Modal */}
+      <Modal
+        visible={profileImageViewerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setProfileImageViewerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.profileImageModalOverlay}
+          activeOpacity={1}
+          onPress={() => setProfileImageViewerVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.profileImageModalContent}
+            activeOpacity={1}
+            onPress={() => {}} // Prevent closing when tapping the image
+          >
+            {localPost.author?.avatar ? (
+              <Image
+                source={{ uri: localPost.author.avatar }}
+                style={styles.profileImageModalImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={[styles.profileImageModalPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+                <Ionicons name="person" size={80} color={colors.textSecondary} />
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.profileImageModalCloseButton}
+              onPress={() => setProfileImageViewerVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -693,6 +739,70 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  gridImage: {
+    marginBottom: 8,
+    borderRadius: 6,
+  },
+  moreImagesOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  moreImagesText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  profileImageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageModalContent: {
+    width: '90%',
+    height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  profileImageModalImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  profileImageModalPlaceholder: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageModalCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });
 
