@@ -49,10 +49,22 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
     setError('');
     try {
       const res = await api.getPosts();
-      if (res.success) setPosts(res.data.posts);
-      else setError(res.message || 'Алдаа гарлаа');
+      if (res.success) {
+        setPosts(res.data.posts);
+      } else {
+        setError(res.message || 'Пост уншихад алдаа гарлаа');
+      }
     } catch (e) {
-      setError('Алдаа гарлаа');
+      console.error('Fetch posts error:', e);
+      if (e.message.includes('401')) {
+        setError('Нэвтрэх шаардлагатай');
+      } else if (e.message.includes('500')) {
+        setError('Серверийн алдаа - дахин оролдоно уу');
+      } else if (e.message.includes('Network')) {
+        setError('Сүлжээний алдаа - холболтоо шалгана уу');
+      } else {
+        setError('Пост уншихад алдаа гарлаа');
+      }
     } finally {
       setLoading(false);
     }
@@ -105,7 +117,15 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary dark:border-primary-dark"></div>
         </div>
       ) : error ? (
-        <div className="text-center text-red-500">{error}</div>
+        <div className="text-center py-8">
+          <div className="text-red-500 mb-4">{error}</div>
+          <button
+            onClick={fetchPosts}
+            className="px-4 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors"
+          >
+            Дахин оролдох
+          </button>
+        </div>
       ) : posts.length === 0 ? (
         <div className="text-center text-secondary dark:text-secondary-dark">Пост байхгүй байна</div>
       ) : (

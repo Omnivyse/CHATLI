@@ -261,8 +261,60 @@ router.delete('/users/:userId', authenticateAdmin, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    await User.findByIdAndDelete(userId);
+    // Clean up all related data before deleting the user
+    const Post = require('../models/Post');
+    const Message = require('../models/Message');
+    const Chat = require('../models/Chat');
+    const Notification = require('../models/Notification');
+    const Analytics = require('../models/Analytics');
+
+    await Promise.allSettled([
+      // Delete all posts by this user
+      Post.deleteMany({ author: userId }),
+      
+      // Delete all messages by this user
+      Message.deleteMany({ sender: userId }),
+      
+      // Remove user from all chats
+      Chat.updateMany(
+        { participants: userId },
+        { $pull: { participants: userId } }
+      ),
+      
+      // Delete notifications for this user
+      Notification.deleteMany({ 
+        $or: [
+          { user: userId },
+          { from: userId }
+        ]
+      }),
+      
+      // Delete analytics data for this user
+      Analytics.deleteMany({ userId: userId }),
+      
+      // Remove user from other users' followers/following lists
+      User.updateMany(
+        { followers: userId },
+        { $pull: { followers: userId } }
+      ),
+      User.updateMany(
+        { following: userId },
+        { $pull: { following: userId } }
+      ),
+      User.updateMany(
+        { blockedUsers: userId },
+        { $pull: { blockedUsers: userId } }
+      ),
+      User.updateMany(
+        { followRequests: userId },
+        { $pull: { followRequests: userId } }
+      ),
+      
+      // Finally delete the user
+      User.findByIdAndDelete(userId)
+    ]);
     
+    console.log(`User ${userId} and all related data deleted successfully`);
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);

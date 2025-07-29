@@ -40,16 +40,43 @@ router.get('/', auth, async (req, res) => {
     let posts = await Post.find()
       .sort({ createdAt: -1 })
       .populate('author', 'name avatar privateProfile followers');
-    // Filter out posts from private users unless requester is a follower or the user themselves
+    
+    // Filter out posts from deleted users and private users
     posts = posts.filter(post => {
       const author = post.author;
-      if (!author.privateProfile) return true;
-      if (String(author._id) === String(req.user._id)) return true;
-      if (Array.isArray(author.followers) && author.followers.map(id => String(id)).includes(String(req.user._id))) return true;
-      return false;
+      
+      // Skip posts from deleted users
+      if (!author) {
+        console.log('Found post with deleted author, skipping:', post._id);
+        return false;
+      }
+      
+      // Skip private posts unless requester is a follower or the user themselves
+      if (author.privateProfile) {
+        if (String(author._id) === String(req.user._id)) return true;
+        if (Array.isArray(author.followers) && author.followers.map(id => String(id)).includes(String(req.user._id))) return true;
+        return false;
+      }
+      
+      return true;
     });
-    // Populate comments.author for filtered posts
-    await Post.populate(posts, { path: 'comments.author', select: 'name avatar' });
+    
+    // Populate comments.author for filtered posts, but handle deleted users
+    try {
+      await Post.populate(posts, { 
+        path: 'comments.author', 
+        select: 'name avatar',
+        // Handle cases where comment author might be deleted
+        transform: (doc) => {
+          if (!doc) return null;
+          return doc;
+        }
+      });
+    } catch (populateError) {
+      console.error('Error populating comments:', populateError);
+      // Continue without comments if there's an error
+    }
+    
     res.json({ success: true, data: { posts } });
   } catch (error) {
     console.error('Get posts error:', error);
