@@ -258,9 +258,19 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {profileUser.name && typeof profileUser.name === 'string' ? profileUser.name : 'Unknown User'}
-        </Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {profileUser.name && typeof profileUser.name === 'string' ? profileUser.name : 'Unknown User'}
+          </Text>
+          {profileUser.isVerified && (
+            <Ionicons 
+              name="checkmark-circle" 
+              size={16} 
+              color={colors.primary} 
+              style={styles.verifiedIcon}
+            />
+          )}
+        </View>
         <View style={styles.placeholder} />
       </View>
 
@@ -510,6 +520,16 @@ const styles = StyleSheet.create({
     color: '#000',
     flex: 1,
     textAlign: 'center',
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    gap: 4,
+  },
+  verifiedIcon: {
+    marginLeft: 2,
   },
   placeholder: {
     width: 40,

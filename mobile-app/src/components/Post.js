@@ -464,9 +464,19 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             </View>
           )}
           <View style={styles.userDetails}>
-            <Text style={[styles.userName, { color: colors.text }]}>
-              {localPost.author?.name && typeof localPost.author.name === 'string' ? localPost.author.name : 'Unknown User'}
-            </Text>
+            <View style={styles.userNameContainer}>
+              <Text style={[styles.userName, { color: colors.text }]}>
+                {localPost.author?.name && typeof localPost.author.name === 'string' ? localPost.author.name : 'Unknown User'}
+              </Text>
+              {localPost.author?.isVerified && (
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={16} 
+                  color={colors.primary} 
+                  style={styles.verifiedIcon}
+                />
+              )}
+            </View>
             <Text style={[styles.postTime, { color: colors.textSecondary }]}>
               {formatRelativeTime(localPost.createdAt || new Date())}
             </Text>
@@ -654,6 +664,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 2,
+  },
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  verifiedIcon: {
+    marginLeft: 2,
   },
   postTime: {
     fontSize: 12,

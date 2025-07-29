@@ -212,6 +212,21 @@ const AdminDashboard = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleToggleVerification = async (userId, currentStatus) => {
+    try {
+      const response = await apiService.toggleUserVerification(userId, !currentStatus);
+      if (response.message) {
+        setUsers(users.map(u => 
+          u._id === userId ? { ...u, isVerified: !currentStatus } : u
+        ));
+        alert(`Хэрэглэгчийн баталгаажуулалт ${!currentStatus ? 'идэвхжлээ' : 'идэвхгүй боллоо'}`);
+      }
+    } catch (error) {
+      console.error('Toggle verification error:', error);
+      alert('Баталгаажуулалт өөрчлөхөд алдаа гарлаа');
+    }
+  };
+
   const handleUpdateReportStatus = async (reportId, status) => {
     if (updatingReport === reportId) return; // Prevent multiple calls
     
@@ -674,6 +689,17 @@ const AdminDashboard = ({ isOpen, onClose }) => {
                       </div>
                       
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleVerification(user._id, user.isVerified)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            user.isVerified 
+                              ? 'bg-green-100 hover:bg-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400' 
+                              : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-900/40 text-gray-600 dark:text-gray-400'
+                          }`}
+                          title={user.isVerified ? 'Баталгаажуулалт хас' : 'Баталгаажуулах'}
+                        >
+                          <UserCheck className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => setShowDeleteConfirm(user._id)}
                           disabled={deletingUser === user._id}

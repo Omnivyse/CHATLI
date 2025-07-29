@@ -132,11 +132,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           subtitle: 'Асуулт хариулт',
           type: 'arrow',
           onPress: () => {
-            Toast.show({
-              type: 'info',
-              text1: 'Тусламж',
-              text2: 'CHATLI тусламж төв удахгүй нээгдэнэ',
-            });
+            navigation.navigate('HelpCenter');
           },
         },
         {

@@ -32,6 +32,7 @@ import CreatePostScreen from './src/screens/CreatePostScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import ClipsScreen from './src/screens/ClipsScreen';
+import HelpCenterScreen from './src/screens/HelpCenterScreen';
 
 // Components
 import LoadingScreen from './src/components/LoadingScreen';
@@ -301,6 +302,15 @@ function MainStackNavigator({ user, onLogout }) {
         }}
       >
         {(props) => <EditProfileScreen {...props} user={user} />}
+      </Stack.Screen>
+      
+      <Stack.Screen 
+        name="HelpCenter"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {(props) => <HelpCenterScreen {...props} />}
       </Stack.Screen>
     </Stack.Navigator>
   );

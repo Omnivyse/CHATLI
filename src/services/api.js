@@ -565,6 +565,19 @@ class ApiService {
     return response.json();
   }
 
+  async toggleUserVerification(userId, isVerified) {
+    const adminToken = localStorage.getItem('adminToken');
+    const response = await fetch(`${this.baseURL}/admin/users/${userId}/verify`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ isVerified })
+    });
+    return response.json();
+  }
+
   async getAdminReports(page = 1, limit = 20, status = '') {
     try {
       const adminToken = localStorage.getItem('adminToken');

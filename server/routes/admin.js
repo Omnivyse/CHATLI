@@ -366,6 +366,37 @@ router.delete('/users/:userId', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Toggle user verification status
+router.patch('/users/:userId/verify', authenticateAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { isVerified } = req.body;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update verification status
+    user.isVerified = isVerified;
+    await user.save();
+
+    console.log(`User ${userId} verification status updated to: ${isVerified}`);
+    
+    res.json({ 
+      message: `User verification status updated successfully`,
+      data: {
+        userId: user._id,
+        username: user.username,
+        isVerified: user.isVerified
+      }
+    });
+  } catch (error) {
+    console.error('Toggle user verification error:', error);
+    res.status(500).json({ error: 'Failed to update user verification status' });
+  }
+});
+
 // Get all reports with pagination
 router.get('/reports', authenticateAdmin, async (req, res) => {
   try {
