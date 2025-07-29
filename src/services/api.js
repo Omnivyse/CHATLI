@@ -479,7 +479,22 @@ class ApiService {
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        throw new Error('No admin token found');
+        console.log('No admin token found, returning default stats');
+        return {
+          totalUsers: 0,
+          onlineUsers: 0,
+          offlineUsers: 0,
+          pendingReports: 0,
+          newUsersToday: 0,
+          totalPageViews: 0,
+          pageViewsToday: 0,
+          totalMessages: 0,
+          messagesTotal: 0,
+          totalPosts: 0,
+          postsToday: 0,
+          activeUsersToday: 0,
+          avgSessionDuration: 0
+        };
       }
       
       const response = await fetch(`${this.baseURL}/admin/stats`, {
@@ -518,7 +533,8 @@ class ApiService {
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        throw new Error('No admin token found');
+        console.log('No admin token found, returning empty users');
+        return { users: [] };
       }
       
       const response = await fetch(`${this.baseURL}/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, {
@@ -553,7 +569,8 @@ class ApiService {
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        throw new Error('No admin token found');
+        console.log('No admin token found, returning empty reports');
+        return { reports: [] };
       }
       
       const response = await fetch(`${this.baseURL}/admin/reports?page=${page}&limit=${limit}&status=${status}`, {
@@ -591,7 +608,8 @@ class ApiService {
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        throw new Error('No admin token found');
+        console.log('No admin token found, returning empty analytics');
+        return { dailyStats: [] };
       }
       
       const response = await fetch(`${this.baseURL}/admin/analytics/daily?days=${days}`, {
@@ -615,7 +633,8 @@ class ApiService {
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        throw new Error('No admin token found');
+        console.log('No admin token found, returning empty popular pages');
+        return { popularPages: [] };
       }
       
       const response = await fetch(`${this.baseURL}/admin/analytics/pages?limit=${limit}`, {
@@ -649,7 +668,8 @@ class ApiService {
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        throw new Error('No admin token found');
+        console.log('No admin token found, returning empty device stats');
+        return { deviceStats: [], browserStats: [], mobileStats: [] };
       }
       
       const response = await fetch(`${this.baseURL}/admin/analytics/devices?days=${days}`, {
@@ -673,7 +693,14 @@ class ApiService {
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        throw new Error('No admin token found');
+        console.log('No admin token found, returning empty realtime data');
+        return {
+          last24HourEvents: 0,
+          lastHourEvents: 0,
+          activeUsers: 0,
+          currentOnlineUsers: 0,
+          recentErrors: []
+        };
       }
       
       const response = await fetch(`${this.baseURL}/admin/analytics/realtime`, {

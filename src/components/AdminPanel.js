@@ -15,6 +15,12 @@ const AdminPanel = () => {
         const adminToken = localStorage.getItem('adminToken');
         const adminSession = localStorage.getItem('adminSession');
         
+        // If no admin token, don't even try to verify
+        if (!adminToken || !adminSession) {
+          setLoading(false);
+          return;
+        }
+        
         if (adminToken && adminSession === 'authenticated') {
           const response = await apiService.verifyAdminToken();
           if (response.valid) {

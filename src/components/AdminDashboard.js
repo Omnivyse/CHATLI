@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
@@ -54,6 +54,10 @@ const AdminDashboard = ({ isOpen, onClose }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [updatingReport, setUpdatingReport] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
+  
+  // Use ref to prevent multiple simultaneous loads
+  const isLoadingRef = useRef(false);
+  const hasLoadedRef = useRef(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -98,7 +102,6 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       });
     } catch (error) {
       console.error('Load analytics error:', error);
-      // Set empty data on error
       setAnalyticsData({
         dailyStats: [],
         popularPages: [],
@@ -121,34 +124,74 @@ const AdminDashboard = ({ isOpen, onClose }) => {
       }
     } catch (error) {
       console.error('Load stats error:', error);
-      // Keep existing stats on error
     }
   }, []);
 
   const loadDashboardData = useCallback(async () => {
-    if (loading) return; // Prevent multiple simultaneous loads
+    // Prevent multiple simultaneous loads
+    if (isLoadingRef.current || hasLoadedRef.current) {
+      return;
+    }
     
+    isLoadingRef.current = true;
     setLoading(true);
+    
     try {
+      console.log('Loading dashboard data...');
       await Promise.allSettled([
         loadUsers(),
         loadReports(),
         loadStats(),
         loadAnalytics()
       ]);
+      hasLoadedRef.current = true;
+      console.log('Dashboard data loaded successfully');
     } catch (error) {
       console.error('Dashboard data loading error:', error);
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  }, [loadUsers, loadReports, loadStats, loadAnalytics, loading]);
+  }, [loadUsers, loadReports, loadStats, loadAnalytics]);
 
-  // Only load data when modal opens
+  // Only load data once when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasLoadedRef.current) {
       loadDashboardData();
     }
   }, [isOpen, loadDashboardData]);
+
+  // Reset loaded state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasLoadedRef.current = false;
+    }
+  }, [isOpen]);
+
+  const handleManualRefresh = async () => {
+    if (isLoadingRef.current) return;
+    
+    hasLoadedRef.current = false;
+    isLoadingRef.current = true;
+    setLoading(true);
+    
+    try {
+      console.log('Manual refresh - loading dashboard data...');
+      await Promise.allSettled([
+        loadUsers(),
+        loadReports(),
+        loadStats(),
+        loadAnalytics()
+      ]);
+      hasLoadedRef.current = true;
+      console.log('Manual refresh completed successfully');
+    } catch (error) {
+      console.error('Manual refresh error:', error);
+    } finally {
+      setLoading(false);
+      isLoadingRef.current = false;
+    }
+  };
 
   const handleDeleteUser = async (userId) => {
     if (deletingUser === userId) return; // Prevent multiple calls
@@ -419,7 +462,7 @@ const AdminDashboard = ({ isOpen, onClose }) => {
                 {/* Quick Actions */}
                 <div className="flex gap-3">
                   <button
-                    onClick={loadDashboardData}
+                    onClick={handleManualRefresh}
                     disabled={loading}
                     className="flex items-center gap-2 px-4 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
