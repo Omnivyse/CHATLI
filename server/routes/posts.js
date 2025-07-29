@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { auth, optionalAuth } = require('../middleware/auth');
 const Notification = require('../models/Notification');
 const { deleteMultipleFiles } = require('../config/cloudinary');
+const pushNotificationService = require('../services/pushNotificationService');
 
 const router = express.Router();
 
@@ -126,6 +127,22 @@ router.post('/:id/comment', auth, [
         from: req.user._id,
         message: `${req.user.name} таны пост дээр сэтгэгдэл үлдээлээ.`
       });
+
+      // Send push notification
+      try {
+        const postAuthor = await User.findById(post.author);
+        if (postAuthor && postAuthor.pushToken) {
+          await pushNotificationService.sendCommentNotification(
+            postAuthor.pushToken,
+            req.user.name,
+            post._id.toString(),
+            req.body.content,
+            post.content
+          );
+        }
+      } catch (pushError) {
+        console.error('Push notification error for comment:', pushError);
+      }
     }
     res.json({ success: true, message: 'Сэтгэгдэл нэмэгдлээ', data: { comments: post.comments } });
   } catch (error) {
@@ -154,6 +171,21 @@ router.post('/:id/like', auth, async (req, res) => {
           from: userId,
           message: `${req.user.name} таны постыг лайк дарлаа.`
         });
+
+        // Send push notification
+        try {
+          const postAuthor = await User.findById(post.author);
+          if (postAuthor && postAuthor.pushToken) {
+            await pushNotificationService.sendLikeNotification(
+              postAuthor.pushToken,
+              req.user.name,
+              post._id.toString(),
+              post.content
+            );
+          }
+        } catch (pushError) {
+          console.error('Push notification error for like:', pushError);
+        }
       }
     }
     await post.save();

@@ -4,6 +4,7 @@ const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const { auth, optionalAuth } = require('../middleware/auth');
+const pushNotificationService = require('../services/pushNotificationService');
 
 const router = express.Router();
 
@@ -362,6 +363,28 @@ router.post('/:id/messages', auth, [
     await message.populate('replyTo', 'content.text sender');
     if (message.replyTo && message.replyTo.sender) {
       await message.populate({ path: 'replyTo.sender', select: 'name username avatar' });
+    }
+
+    // Send push notifications to other participants
+    try {
+      const otherParticipants = chat.participants.filter(
+        participant => participant.toString() !== req.user._id.toString()
+      );
+
+      for (const participantId of otherParticipants) {
+        const participant = await User.findById(participantId);
+        if (participant && participant.pushToken) {
+          const messageText = content.text || 'Зураг илгээлээ';
+          await pushNotificationService.sendChatNotification(
+            participant.pushToken,
+            req.user.name,
+            messageText,
+            chat._id.toString()
+          );
+        }
+      }
+    } catch (pushError) {
+      console.error('Push notification error for chat message:', pushError);
     }
 
     res.status(201).json({

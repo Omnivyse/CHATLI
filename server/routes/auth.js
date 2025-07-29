@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth, optionalAuth } = require('../middleware/auth');
 const mongoose = require('mongoose');
+const pushNotificationService = require('../services/pushNotificationService');
 
 const router = express.Router();
 
@@ -374,6 +375,20 @@ router.post('/users/:id/follow', auth, async (req, res) => {
     currentUser.following.push(userToFollow._id);
     await userToFollow.save();
     await currentUser.save();
+
+    // Send push notification for follow
+    try {
+      if (userToFollow.pushToken) {
+        await pushNotificationService.sendFollowNotification(
+          userToFollow.pushToken,
+          currentUser.name,
+          currentUser._id.toString()
+        );
+      }
+    } catch (pushError) {
+      console.error('Push notification error for follow:', pushError);
+    }
+
     res.json({ success: true, message: 'Дагах амжилттай', data: { followers: userToFollow.followers, following: currentUser.following } });
   } catch (error) {
     console.error('Follow error:', error);
@@ -632,6 +647,36 @@ router.delete('/delete-account', auth, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Серверийн алдаа' 
+    });
+  }
+});
+
+// Update push token
+router.post('/push-token', auth, async (req, res) => {
+  try {
+    const { pushToken } = req.body;
+    
+    if (!pushToken) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Push token is required' 
+      });
+    }
+
+    // Update user's push token
+    await User.findByIdAndUpdate(req.user._id, { pushToken });
+    
+    console.log(`Push token updated for user ${req.user._id}: ${pushToken}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Push token updated successfully' 
+    });
+  } catch (error) {
+    console.error('Update push token error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update push token' 
     });
   }
 });

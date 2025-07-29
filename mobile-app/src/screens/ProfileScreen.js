@@ -120,9 +120,19 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
             )}
           </View>
           
-          <Text style={[styles.userName, { color: colors.text }]}>
-          {user.name && typeof user.name === 'string' ? user.name : 'Unknown User'}
-        </Text>
+          <View style={styles.userNameContainer}>
+            <Text style={[styles.userName, { color: colors.text }]}>
+              {user.name && typeof user.name === 'string' ? user.name : 'Unknown User'}
+            </Text>
+            {user.isVerified && (
+              <Ionicons 
+                name="checkmark-circle" 
+                size={20} 
+                color={colors.primary} 
+                style={styles.verifiedIcon}
+              />
+            )}
+          </View>
           <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
           @{user.username && typeof user.username === 'string' ? user.username : 'unknown'}
         </Text>
@@ -361,6 +371,16 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 4,
     textAlign: 'center',
+  },
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  verifiedIcon: {
+    marginLeft: 4,
   },
   userHandle: {
     fontSize: 16,

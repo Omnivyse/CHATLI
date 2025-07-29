@@ -17,6 +17,7 @@ import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNav
 import apiService from './src/services/api';
 import socketService from './src/services/socket';
 import analyticsService from './src/services/analyticsService';
+import pushNotificationService from './src/services/pushNotificationService';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -426,6 +427,23 @@ export default function App() {
     const token = await AsyncStorage.getItem('token');
     if (token) {
       socketService.connect(token);
+    }
+    
+    // Initialize push notifications
+    const pushInitialized = await pushNotificationService.initialize();
+    if (pushInitialized) {
+      const pushToken = pushNotificationService.getPushToken();
+      if (pushToken) {
+        try {
+          await apiService.request('/auth/push-token', {
+            method: 'POST',
+            body: JSON.stringify({ pushToken })
+          });
+          console.log('✅ Push token sent to server');
+        } catch (tokenError) {
+          console.error('❌ Failed to send push token to server:', tokenError);
+        }
+      }
     }
   };
 
