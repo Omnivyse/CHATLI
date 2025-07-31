@@ -49,100 +49,194 @@ class EmailService {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>CHATLI - Имэйл баталгаажуулалт</title>
         <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
           body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: #1c1e21;
+            background-color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+          }
+          
+          .email-container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f4f4f4;
-          }
-          .container {
             background-color: #ffffff;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 0;
+            overflow: hidden;
           }
+          
           .header {
+            background-color: #ffffff;
+            padding: 40px 32px 32px;
             text-align: center;
-            margin-bottom: 30px;
+            border-bottom: 1px solid #e4e6ea;
           }
+          
           .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #007bff;
-            margin-bottom: 10px;
+            font-size: 32px;
+            font-weight: 700;
+            color: #1c1e21;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
           }
-          .title {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 20px;
+          
+          .subtitle {
+            font-size: 16px;
+            color: #65676b;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
           }
+          
           .content {
-            margin-bottom: 30px;
+            padding: 32px;
+            background-color: #ffffff;
           }
-          .button {
-            display: inline-block;
-            background-color: #007bff;
-            color: #ffffff;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin: 20px 0;
+          
+          .greeting {
+            font-size: 18px;
+            color: #1c1e21;
+            margin-bottom: 24px;
+            font-weight: 500;
           }
-          .button:hover {
-            background-color: #0056b3;
+          
+          .message {
+            font-size: 16px;
+            color: #65676b;
+            line-height: 1.6;
+            margin-bottom: 32px;
           }
-          .footer {
+          
+          .code-container {
+            background-color: #f0f2f5;
+            border: 2px solid #e4e6ea;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 32px 0;
             text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #666;
-            font-size: 14px;
           }
+          
+          .code-label {
+            font-size: 14px;
+            color: #65676b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            font-weight: 500;
+          }
+          
+          .verification-code {
+            font-size: 48px;
+            font-weight: 700;
+            color: #1c1e21;
+            letter-spacing: 8px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            line-height: 1;
+          }
+          
           .warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #856404;
+            background-color: #f0f2f5;
+            border-left: 4px solid #1877f2;
+            padding: 16px 20px;
+            margin: 24px 0;
+            border-radius: 0 8px 8px 0;
+          }
+          
+          .warning-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1c1e21;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .warning-text {
+            font-size: 14px;
+            color: #65676b;
+            line-height: 1.5;
+          }
+          
+          .footer {
+            background-color: #f0f2f5;
+            padding: 24px 32px;
+            text-align: center;
+            border-top: 1px solid #e4e6ea;
+          }
+          
+          .footer-text {
+            font-size: 12px;
+            color: #65676b;
+            margin-bottom: 8px;
+          }
+          
+          .footer-copyright {
+            font-size: 12px;
+            color: #8e8e93;
+          }
+          
+          @media only screen and (max-width: 600px) {
+            .email-container {
+              margin: 0;
+              border-radius: 0;
+            }
+            
+            .header {
+              padding: 24px 20px 20px;
+            }
+            
+            .content {
+              padding: 20px;
+            }
+            
+            .verification-code {
+              font-size: 36px;
+              letter-spacing: 6px;
+            }
+            
+            .footer {
+              padding: 20px;
+            }
           }
         </style>
       </head>
       <body>
-        <div class="container">
+        <div class="email-container">
           <div class="header">
             <div class="logo">CHATLI</div>
-            <h1 class="title">Имэйл баталгаажуулалт</h1>
+            <div class="subtitle">Имэйл баталгаажуулалт</div>
           </div>
           
           <div class="content">
-            <p>Сайн байна уу, <strong>${username}</strong>!</p>
+            <div class="greeting">Сайн байна уу, ${username}!</div>
             
-            <p>CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:</p>
+            <div class="message">
+              CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
+            </div>
             
-            <div style="text-align: center;">
-              <div style="background-color: #f8f9fa; border: 2px solid #007bff; border-radius: 10px; padding: 20px; margin: 20px 0; display: inline-block;">
-                <div style="font-size: 32px; font-weight: bold; color: #007bff; letter-spacing: 8px; font-family: 'Courier New', monospace;">
-                  ${verificationCode}
-                </div>
-              </div>
+            <div class="code-container">
+              <div class="code-label">Баталгаажуулах код</div>
+              <div class="verification-code">${verificationCode}</div>
             </div>
             
             <div class="warning">
-              <strong>Анхааруулга:</strong> Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм. Энэ тохиолдолд дахин бүртгүүлнэ үү.
+              <div class="warning-title">Анхааруулга</div>
+              <div class="warning-text">
+                Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм. Энэ кодыг 10 минутын дотор оруулна уу.
+              </div>
             </div>
-            
-            <p>Энэ кодыг 1 минутын дотор оруулна уу. Хугацаа дууссаны дараа шинэ код хүсэх боломжтой.</p>
           </div>
           
           <div class="footer">
-            <p>Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.</p>
-            <p>&copy; 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</p>
+            <div class="footer-text">Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.</div>
+            <div class="footer-copyright">&copy; 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</div>
           </div>
         </div>
       </body>
