@@ -11,7 +11,6 @@ require('dotenv').config({ path: require('path').join(__dirname, 'config.env') }
 console.log('Environment variables loaded:');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('PORT:', process.env.PORT);
-console.log('Cloudinary Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME);
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -58,7 +57,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https://res.cloudinary.com"],
+      imgSrc: ["'self'", "data:"],
       scriptSrc: ["'self'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,

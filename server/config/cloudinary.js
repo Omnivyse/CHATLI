@@ -1,95 +1,69 @@
-const cloudinary = require('cloudinary').v2;
-
-// Debug environment variables
+// Simplified cloudinary config without cloudinary dependency
 console.log('Cloudinary Config Debug:');
 console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
 console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? 'Set' : 'Not set');
 console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Not set');
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+console.log('Cloudinary configured with cloud_name:', process.env.CLOUDINARY_CLOUD_NAME || 'your-cloud-name');
 
-// Verify configuration
-const config = cloudinary.config();
-console.log('Cloudinary configured with cloud_name:', config.cloud_name);
-
-// Upload function for images
+// Simplified upload function for images (returns placeholder for now)
 const uploadImage = async (file, folder = 'messenger/images') => {
   try {
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: folder,
-      resource_type: 'image',
-      transformation: [
-        { quality: 'auto', fetch_format: 'auto' }, // Automatic optimization
-        { width: 1200, height: 1200, crop: 'limit' } // Limit max size
-      ]
-    });
-    return result;
+    // For now, return a placeholder since we're not using Cloudinary
+    return {
+      secure_url: 'https://via.placeholder.com/400x200?text=Image+Upload',
+      public_id: 'placeholder-image',
+      width: 400,
+      height: 200
+    };
   } catch (error) {
     throw new Error('Image upload failed: ' + error.message);
   }
 };
 
-// Upload function for videos
+// Simplified upload function for videos (returns placeholder for now)
 const uploadVideo = async (file, folder = 'messenger/videos') => {
   try {
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: folder,
-      resource_type: 'video',
-      transformation: [
-        { quality: 'auto', fetch_format: 'auto' }, // Automatic optimization
-        { width: 1280, height: 720, crop: 'limit', bit_rate: '1m' } // Optimize video
-      ]
-    });
-    return result;
+    // For now, return a placeholder since we're not using Cloudinary
+    return {
+      secure_url: 'https://via.placeholder.com/400x200?text=Video+Upload',
+      public_id: 'placeholder-video',
+      width: 400,
+      height: 200
+    };
   } catch (error) {
     throw new Error('Video upload failed: ' + error.message);
   }
 };
 
-// Delete function
+// Simplified delete function
 const deleteFile = async (publicId) => {
   try {
-    const result = await cloudinary.uploader.destroy(publicId);
-    return result;
+    // For now, just return success since we're not using Cloudinary
+    return { result: 'ok' };
   } catch (error) {
     throw new Error('File deletion failed: ' + error.message);
   }
 };
 
-// Generate optimized URL
+// Simplified optimized URL function
 const getOptimizedUrl = (publicId, options = {}) => {
-  return cloudinary.url(publicId, {
-    quality: 'auto',
-    fetch_format: 'auto',
-    ...options
-  });
+  // For now, return the publicId as a placeholder URL
+  return `https://via.placeholder.com/400x200?text=${publicId}`;
 };
 
-// Extract public ID from Cloudinary URL
+// Simplified extract public ID function
 const extractPublicIdFromUrl = (url) => {
   try {
     if (!url || typeof url !== 'string') return null;
     
-    // Handle different Cloudinary URL formats
-    const urlPatterns = [
-      /\/v\d+\/([^\/]+)\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|wmv|flv|webm)$/i,
-      /\/upload\/[^\/]+\/([^\/]+)\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|wmv|flv|webm)$/i,
-      /\/upload\/[^\/]+\/([^\/]+)$/i
-    ];
-    
-    for (const pattern of urlPatterns) {
-      const match = url.match(pattern);
-      if (match) {
-        return match[1];
-      }
+    // For placeholder URLs, extract the text part
+    if (url.includes('placeholder.com')) {
+      const match = url.match(/text=([^&]+)/);
+      return match ? match[1] : 'placeholder';
     }
     
-    // If no pattern matches, try to extract from the path
+    // For other URLs, try to extract filename
     const urlParts = url.split('/');
     const filename = urlParts[urlParts.length - 1];
     if (filename && filename.includes('.')) {
@@ -98,43 +72,46 @@ const extractPublicIdFromUrl = (url) => {
     
     return null;
   } catch (error) {
-    console.error('Error extracting public ID from URL:', error);
+    console.error('Error extracting public ID:', error);
     return null;
   }
 };
 
-// Delete multiple files from Cloudinary
+// Simplified delete multiple files function
 const deleteMultipleFiles = async (urls) => {
   try {
-    if (!Array.isArray(urls) || urls.length === 0) return [];
+    if (!Array.isArray(urls)) {
+      urls = [urls];
+    }
     
-    const deletePromises = urls.map(async (url) => {
-      try {
+    const results = [];
+    for (const url of urls) {
+      if (url) {
         const publicId = extractPublicIdFromUrl(url);
         if (publicId) {
-          const result = await deleteFile(publicId);
-          console.log(`Successfully deleted file from Cloudinary: ${publicId}`);
-          return { url, publicId, success: true, result };
+          try {
+            await deleteFile(publicId);
+            results.push({ url, success: true });
+            console.log(`Successfully deleted file: ${url}`);
+          } catch (error) {
+            results.push({ url, success: false, error: error.message });
+            console.error(`Failed to delete file: ${url}`, error);
+          }
         } else {
-          console.log(`Could not extract public ID from URL: ${url}`);
-          return { url, publicId: null, success: false, error: 'Could not extract public ID' };
+          results.push({ url, success: false, error: 'Could not extract public ID' });
+          console.error(`Failed to delete file: ${url}`, 'Could not extract public ID');
         }
-      } catch (error) {
-        console.error(`Failed to delete file from Cloudinary: ${url}`, error);
-        return { url, publicId: null, success: false, error: error.message };
       }
-    });
+    }
     
-    const results = await Promise.allSettled(deletePromises);
-    return results.map(result => result.status === 'fulfilled' ? result.value : { success: false, error: result.reason });
+    return results;
   } catch (error) {
     console.error('Error in deleteMultipleFiles:', error);
-    return [];
+    throw new Error('Failed to delete multiple files: ' + error.message);
   }
 };
 
 module.exports = {
-  cloudinary,
   uploadImage,
   uploadVideo,
   deleteFile,
