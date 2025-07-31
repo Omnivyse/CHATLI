@@ -585,7 +585,13 @@ class ApiService {
 
   async joinEvent(eventId) {
     return this.request(`/events/${eventId}/join`, {
-      method: 'POST'
+      method: 'POST',
+    });
+  }
+
+  async leaveEvent(eventId) {
+    return this.request(`/events/${eventId}/leave`, {
+      method: 'POST',
     });
   }
 

@@ -108,19 +108,12 @@ router.post('/:eventId/join', auth, async (req, res) => {
       });
     }
 
-    // Check if event is full
-    if (event.joinedUsers.length >= event.userNumber) {
-      return res.status(400).json({
-        success: false,
-        message: 'Event-ийн хүний тоо хязгаарт хүрлээ'
-      });
-    }
-
+    // Add user to joined users
     event.joinedUsers.push(req.user._id);
     await event.save();
 
-    // Populate joined users for response
-    await event.populate('joinedUsers', 'name username avatar');
+    // Populate author for response
+    await event.populate('author', 'name username avatar');
 
     res.json({
       success: true,
@@ -134,6 +127,54 @@ router.post('/:eventId/join', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Event-д нэгдэхэд алдаа гарлаа'
+    });
+  }
+});
+
+// Leave event
+router.post('/:eventId/leave', auth, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.eventId);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event олдсонгүй'
+      });
+    }
+
+    // Check if user is joined
+    if (!event.joinedUsers.includes(req.user._id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Та энэ event-д нэгдээгүй байна'
+      });
+    }
+
+    // Remove user from joined users
+    event.joinedUsers = event.joinedUsers.filter(userId => !userId.equals(req.user._id));
+    
+    // Also remove user's likes and comments
+    event.likes = event.likes.filter(userId => !userId.equals(req.user._id));
+    event.comments = event.comments.filter(comment => !comment.author.equals(req.user._id));
+    
+    await event.save();
+
+    // Populate author for response
+    await event.populate('author', 'name username avatar');
+
+    res.json({
+      success: true,
+      message: 'Event-ээс амжилттай гарлаа',
+      data: {
+        event
+      }
+    });
+  } catch (error) {
+    console.error('Leave event error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Event-ээс гарахад алдаа гарлаа'
     });
   }
 });

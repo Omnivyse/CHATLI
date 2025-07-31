@@ -220,11 +220,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       if (response.success) {
         // Refresh events to show the new event
         fetchEvents();
-        Toast.show({
-          type: 'success',
-          text1: 'Амжилттай',
-          text2: 'Event үүсгэгдлээ!'
-        });
       } else {
         throw new Error(response.message || 'Event үүсгэхэд алдаа гарлаа');
       }
@@ -257,11 +252,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       if (response.success) {
         // Refresh events to show updated data
         fetchEvents();
-        Toast.show({
-          type: 'success',
-          text1: 'Амжилттай',
-          text2: 'Event-д нэгдлээ!'
-        });
       } else {
         throw new Error(response.message || 'Event-д нэгдэхэд алдаа гарлаа');
       }
@@ -276,6 +266,27 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     }
   };
 
+  const handleLeaveEvent = async (eventId) => {
+    try {
+      const response = await apiService.leaveEvent(eventId);
+      
+      if (response.success) {
+        // Refresh events to show updated data
+        fetchEvents();
+      } else {
+        throw new Error(response.message || 'Event-ээс гарахад алдаа гарлаа');
+      }
+    } catch (error) {
+      console.error('Leave event error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Алдаа гарлаа',
+        text2: error.message || 'Event-ээс гарахад алдаа гарлаа'
+      });
+      throw error;
+    }
+  };
+
   const handleLikeEvent = async (eventId) => {
     try {
       const response = await apiService.likeEvent(eventId);
@@ -283,11 +294,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       if (response.success) {
         // Refresh events to show updated data
         fetchEvents();
-        Toast.show({
-          type: 'success',
-          text1: 'Амжилттай',
-          text2: 'Лайк хийгдлээ!'
-        });
       } else {
         throw new Error(response.message || 'Лайк хийхэд алдаа гарлаа');
       }
@@ -305,26 +311,46 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
   const handleCommentEvent = async (eventId, commentText) => {
     try {
       const response = await apiService.commentOnEvent(eventId, commentText);
-      
       if (response.success) {
-        // Refresh events to show updated data
-        fetchEvents();
-        Toast.show({
-          type: 'success',
-          text1: 'Амжилттай',
-          text2: 'Сэтгэгдэл нэмэгдлээ!'
-        });
+        // Refresh events to show the new comment
+        await fetchEvents();
       } else {
-        throw new Error(response.message || 'Сэтгэгдэл бичихэд алдаа гарлаа');
+        Toast.show({
+          type: 'error',
+          text1: 'Алдаа',
+          text2: response.message || 'Сэтгэгдэл бичихэд алдаа гарлаа'
+        });
       }
     } catch (error) {
       console.error('Comment event error:', error);
       Toast.show({
         type: 'error',
-        text1: 'Алдаа гарлаа',
-        text2: error.message || 'Сэтгэгдэл бичихэд алдаа гарлаа'
+        text1: 'Алдаа',
+        text2: 'Сэтгэгдэл бичихэд алдаа гарлаа'
       });
-      throw error;
+    }
+  };
+
+  const handleDeleteEvent = async (eventId) => {
+    try {
+      const response = await apiService.deleteEvent(eventId);
+      if (response.success) {
+        // Remove the deleted event from the events list
+        setEvents(prevEvents => prevEvents.filter(event => event._id !== eventId));
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Алдаа',
+          text2: response.message || 'Event устгахад алдаа гарлаа'
+        });
+      }
+    } catch (error) {
+      console.error('Delete event error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Алдаа',
+        text2: 'Event устгахад алдаа гарлаа'
+      });
     }
   };
 
@@ -333,8 +359,11 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       event={item}
       user={user}
       onJoinEvent={handleJoinEvent}
+      onLeaveEvent={handleLeaveEvent}
       onLikeEvent={handleLikeEvent}
       onCommentEvent={handleCommentEvent}
+      onDeleteEvent={handleDeleteEvent}
+      navigation={navigation}
     />
   );
 

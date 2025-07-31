@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 
-const Event = ({ event, user, onJoinEvent, onLikeEvent, onCommentEvent }) => {
+const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentEvent, onDeleteEvent, navigation }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
@@ -26,13 +26,61 @@ const Event = ({ event, user, onJoinEvent, onLikeEvent, onCommentEvent }) => {
   const [isJoined, setIsJoined] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
 
+  // Check if current user is the event creator
+  const isEventCreator = event.author?._id === user?._id || event.author === user?._id;
+
+  // Check if user is already joined when component loads
+  useEffect(() => {
+    if (event.joinedUsers && user) {
+      const isUserJoined = event.joinedUsers.some(joinedUser => 
+        joinedUser._id === user._id || joinedUser === user._id
+      );
+      setIsJoined(isUserJoined);
+    }
+  }, [event.joinedUsers, user]);
+
+  // Check if user has already liked when component loads
+  useEffect(() => {
+    if (event.likes && user) {
+      const isUserLiked = event.likes.some(likedUser => 
+        likedUser._id === user._id || likedUser === user._id
+      );
+      setIsLiked(isUserLiked);
+    }
+  }, [event.likes, user]);
+
   const handleJoinEvent = async () => {
+    // Prevent joining if already joined
+    if (isJoined) {
+      Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
+      return;
+    }
+
     try {
       await onJoinEvent(event._id);
       setIsJoined(true);
-      Alert.alert('Амжилттай', 'Event-д нэгдлээ!');
     } catch (error) {
-      Alert.alert('Алдаа', 'Event-д нэгдэхэд алдаа гарлаа');
+      // Don't show error if user is already joined (this is expected)
+      if (error.message && error.message.includes('аль хэдийн нэгдсэн')) {
+        setIsJoined(true);
+        Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
+      } else {
+        Alert.alert('Алдаа', 'Event-д нэгдэхэд алдаа гарлаа');
+      }
+    }
+  };
+
+  const handleLeaveEvent = async () => {
+    if (!isJoined) {
+      Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
+      return;
+    }
+
+    try {
+      await onLeaveEvent(event._id);
+      setIsJoined(false);
+    } catch (error) {
+      Alert.alert('Алдаа', 'Event-с гаргахад алдаа гарлаа');
     }
   };
 
@@ -65,9 +113,38 @@ const Event = ({ event, user, onJoinEvent, onLikeEvent, onCommentEvent }) => {
       await onCommentEvent(event._id, commentText.trim());
       setCommentText('');
       setShowComments(false);
-      Alert.alert('Амжилттай', 'Сэтгэгдэл нэмэгдлээ!');
     } catch (error) {
       Alert.alert('Алдаа', 'Сэтгэгдэл бичихэд алдаа гарлаа');
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    Alert.alert(
+      'Event устгах',
+      'Энэ event-ийг устгахдаа итгэлтэй байна уу?',
+      [
+        { text: 'Болих', style: 'cancel' },
+        { 
+          text: 'Устгах', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await onDeleteEvent(event._id);
+            } catch (error) {
+              Alert.alert('Алдаа', 'Event устгахад алдаа гарлаа');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleUserPress = (userId, userName) => {
+    if (navigation) {
+      navigation.navigate('UserProfile', {
+        userId: userId,
+        userName: userName
+      });
     }
   };
 
@@ -88,16 +165,29 @@ const Event = ({ event, user, onJoinEvent, onLikeEvent, onCommentEvent }) => {
   );
 
   const renderJoinedUser = ({ item }) => (
-    <View style={[styles.commentItem, { borderBottomColor: colors.border }]}>
-      <View style={styles.commentHeader}>
-        <Text style={[styles.commentAuthor, { color: colors.text }]}>
-          {item.name || 'Хэрэглэгч'}
-        </Text>
-        <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
-          {new Date(item.joinedAt).toLocaleDateString('mn-MN')}
-        </Text>
+    <TouchableOpacity 
+      style={[styles.joinedUserItem, { borderBottomColor: colors.border }]}
+      onPress={() => handleUserPress(item._id, item.name)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.joinedUserContent}>
+        {item.avatar ? (
+          <Image source={{ uri: item.avatar }} style={styles.joinedUserAvatar} />
+        ) : (
+          <View style={[styles.joinedUserAvatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
+            <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+          </View>
+        )}
+        <View style={styles.joinedUserInfo}>
+          <Text style={[styles.joinedUserName, { color: colors.text }]}>
+            {item.name || 'Хэрэглэгч'}
+          </Text>
+          <Text style={[styles.joinedUserDate, { color: colors.textSecondary }]}>
+            {new Date(item.joinedAt || Date.now()).toLocaleDateString('mn-MN')}
+          </Text>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -139,19 +229,28 @@ const Event = ({ event, user, onJoinEvent, onLikeEvent, onCommentEvent }) => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
+        {/* Delete button for event creator */}
+        {isEventCreator && (
+          <TouchableOpacity
+            style={[styles.deleteButton, { borderColor: '#ff4757' }]}
+            onPress={handleDeleteEvent}
+          >
+            <Ionicons name="trash-outline" size={20} color="#ff4757" />
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={[
             styles.joinButton,
             { 
-              backgroundColor: isJoined ? colors.success : '#000000',
-              borderColor: isJoined ? colors.success : '#000000'
+              backgroundColor: isJoined ? '#ff4757' : '#000000',
+              borderColor: isJoined ? '#ff4757' : '#000000'
             }
           ]}
-          onPress={handleJoinEvent}
-          disabled={isJoined}
+          onPress={isJoined ? handleLeaveEvent : handleJoinEvent}
         >
           <Text style={[styles.joinButtonText, { color: '#ffffff' }]}>
-            {isJoined ? 'Нэгдсэн' : 'Нэгдэх'}
+            {isJoined ? 'Гарах' : 'Нэгдэх'}
           </Text>
         </TouchableOpacity>
 
@@ -191,9 +290,10 @@ const Event = ({ event, user, onJoinEvent, onLikeEvent, onCommentEvent }) => {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowComments(false)}
+        style={{ zIndex: 9999 }}
       >
         <KeyboardAvoidingView 
-          style={[styles.modalContainer, { backgroundColor: colors.background }]}
+          style={[styles.modalContainer, { backgroundColor: colors.background, zIndex: 9999, elevation: 9999 }]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           {/* Modal Header */}
@@ -247,9 +347,10 @@ const Event = ({ event, user, onJoinEvent, onLikeEvent, onCommentEvent }) => {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowJoinedUsers(false)}
+        style={{ zIndex: 9999 }}
       >
         <KeyboardAvoidingView 
-          style={[styles.modalContainer, { backgroundColor: colors.background }]}
+          style={[styles.modalContainer, { backgroundColor: colors.background, zIndex: 9999, elevation: 9999 }]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           {/* Modal Header */}
@@ -353,8 +454,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 48,
   },
+  deleteButton: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 48,
+  },
   modalContainer: {
     flex: 1,
+    zIndex: 9999,
+    elevation: 9999,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -425,6 +536,34 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  joinedUserItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  joinedUserContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  joinedUserAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  joinedUserInfo: {
+    flex: 1,
+  },
+  joinedUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  joinedUserDate: {
+    fontSize: 12,
   },
 });
 
