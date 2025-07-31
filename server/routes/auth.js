@@ -236,12 +236,35 @@ router.post('/login', [
       });
     }
 
-    // Auto-verify all users during login (temporary fix for existing users)
-    // This ensures all existing users can login without verification
-    if (user.emailVerified !== true) {
+    // Check if email is verified
+    // For existing users who registered before email verification system, auto-verify them
+    if (user.emailVerified === false) {
+      // Check if this is an existing user (registered before email verification system)
+      const isExistingUser = user.createdAt < new Date('2024-01-01'); // Adjust date as needed
+      
+      if (isExistingUser) {
+        // Auto-verify existing users
+        user.emailVerified = true;
+        await user.save();
+        console.log(`Auto-verified existing user: ${user.email}`);
+      } else {
+        // New users must verify email
+        return res.status(403).json({
+          success: false,
+          message: 'Имэйл хаягаа баталгаажуулна уу. Имэйл хаягаа шалгаж баталгаажуулах холбоосыг дарна уу.',
+          data: {
+            emailVerified: false,
+            email: user.email
+          }
+        });
+      }
+    }
+    
+    // If emailVerified is undefined (old users), set it to true and continue
+    if (user.emailVerified === undefined) {
       user.emailVerified = true;
       await user.save();
-      console.log(`Auto-verified user during login: ${user.email} (created: ${user.createdAt})`);
+      console.log(`Auto-verified existing user: ${user.email}`);
     }
 
     // Update last seen and status

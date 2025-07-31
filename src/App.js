@@ -13,6 +13,8 @@ import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import CopyrightModal from './components/CopyrightModal';
 import ReportModal from './components/ReportModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import EmailVerificationBanner from './components/EmailVerificationBanner';
+import EmailVerificationModal from './components/EmailVerificationModal';
 
 import AdminPanel from './components/AdminPanel';
 import analyticsService from './services/analyticsService';
@@ -34,6 +36,8 @@ function App() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showCopyrightModal, setShowCopyrightModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showVerificationBanner, setShowVerificationBanner] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
 
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
 
@@ -335,6 +339,20 @@ function App() {
     });
   };
 
+  const handleVerificationSuccess = (verifiedUser) => {
+    setUser(verifiedUser);
+    setShowVerificationBanner(false);
+    setShowVerificationModal(false);
+  };
+
+  const handleGoToVerification = () => {
+    setShowVerificationModal(true);
+  };
+
+  const handleCancelVerification = () => {
+    setShowVerificationBanner(false);
+  };
+
   // Check if accessing admin route
   if (currentRoute === '/secret/admin') {
     return <AdminPanel />;
@@ -356,6 +374,22 @@ function App() {
 
   return (
     <div className="flex h-screen bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark relative">
+      {/* Email Verification Banner */}
+      <EmailVerificationBanner
+        user={user}
+        visible={showVerificationBanner && user && !user.emailVerified}
+        onGoToVerification={handleGoToVerification}
+        onCancel={handleCancelVerification}
+      />
+
+      {/* Email Verification Modal */}
+      <EmailVerificationModal
+        visible={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        user={user}
+        onVerificationSuccess={handleVerificationSuccess}
+      />
+
       {/* Mobile Header - Only shown on mobile when sidebar is hidden */}
       {isMobile && (activeTab === 'feed' || activeTab === 'notifications' || selectedChat) && (
         <div className="fixed top-0 left-0 right-0 z-30 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark mobile-header-safe ios-safe-top ios-safe-left ios-safe-right flex items-center justify-between shadow-sm px-4 py-3">

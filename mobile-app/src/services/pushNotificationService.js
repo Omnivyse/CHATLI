@@ -42,10 +42,31 @@ class PushNotificationService {
       
       // Get the token
       if (Device.isDevice) {
-        this.expoPushToken = await Notifications.getExpoPushTokenAsync({
-          projectId: Constants.expoConfig?.extra?.eas?.projectId,
-        });
-        console.log('🔔 Expo Push Token:', this.expoPushToken.data);
+        try {
+          // Try to get projectId from various sources
+          const projectId = Constants.expoConfig?.extra?.eas?.projectId || 
+                           Constants.expoConfig?.extra?.projectId ||
+                           Constants.expoConfig?.projectId;
+          
+          if (projectId) {
+            this.expoPushToken = await Notifications.getExpoPushTokenAsync({
+              projectId: projectId,
+            });
+            console.log('🔔 Expo Push Token:', this.expoPushToken.data);
+          } else {
+            console.log('⚠️ No projectId found, skipping push token generation');
+            console.log('📋 This is normal in development or without EAS configuration');
+            console.log('📋 Available config:', {
+              expoConfig: Constants.expoConfig,
+              extra: Constants.expoConfig?.extra,
+              eas: Constants.expoConfig?.extra?.eas
+            });
+          }
+        } catch (error) {
+          console.log('⚠️ Error getting push token:', error.message);
+          console.log('📋 This is normal in development or without EAS configuration');
+          // Don't throw the error, just log it and continue
+        }
       } else {
         console.log('⚠️ Must use physical device for push notifications');
       }
@@ -56,77 +77,83 @@ class PushNotificationService {
       return true;
     } catch (error) {
       console.error('❌ Error initializing push notifications:', error);
+      // Don't throw the error, just return false
       return false;
     }
   }
 
   // Set up notification listeners
   setupNotificationListeners() {
-    // Listen for incoming notifications when app is in foreground
-    this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('🔔 Notification received in foreground:', notification);
-      this.handleNotificationReceived(notification);
-    });
+    try {
+      // Listen for incoming notifications when app is in foreground
+      this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
+        console.log('🔔 Notification received in foreground:', notification);
+        this.handleNotificationReceived(notification);
+      });
 
-    // Listen for notification responses (when user taps notification)
-    this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('🔔 Notification response received:', response);
-      this.handleNotificationResponse(response);
-    });
+      // Listen for notification responses (when user taps notification)
+      this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('🔔 Notification response received:', response);
+        this.handleNotificationResponse(response);
+      });
+    } catch (error) {
+      console.log('⚠️ Error setting up notification listeners:', error.message);
+    }
   }
 
   // Handle incoming notifications
   handleNotificationReceived(notification) {
-    const { title, body, data } = notification.request.content;
-    console.log('🔔 Handling notification:', { title, body, data });
-    
-    // You can add custom logic here for handling notifications in foreground
-    // For example, updating UI, playing sounds, etc.
+    try {
+      const { title, body, data } = notification.request.content;
+      console.log('🔔 Handling notification:', { title, body, data });
+      
+      // You can add custom logic here for handling notifications in foreground
+      // For example, updating UI, playing sounds, etc.
+    } catch (error) {
+      console.log('⚠️ Error handling notification:', error.message);
+    }
   }
 
   // Handle notification responses (when user taps notification)
   handleNotificationResponse(response) {
-    const { title, body, data } = response.notification.request.content;
-    console.log('🔔 User tapped notification:', { title, body, data });
-    
-    // Handle navigation based on notification type
-    this.handleNotificationNavigation(data);
+    try {
+      const { data } = response.notification.request.content;
+      console.log('🔔 Handling notification response:', data);
+      
+      // Navigate based on notification data
+      this.handleNotificationNavigation(data);
+    } catch (error) {
+      console.log('⚠️ Error handling notification response:', error.message);
+    }
   }
 
-  // Handle navigation based on notification type
+  // Handle navigation based on notification data
   handleNotificationNavigation(data) {
-    if (!data || !data.type) return;
-    
-    // You can implement navigation logic here
-    // This will be called when user taps on a notification
-    switch (data.type) {
-      case 'chat':
+    try {
+      if (!data) return;
+      
+      // Example navigation logic
+      if (data.type === 'chat') {
         // Navigate to chat screen
         console.log('🔔 Navigating to chat:', data.chatId);
-        break;
-      case 'like':
-        // Navigate to post
+      } else if (data.type === 'post') {
+        // Navigate to post screen
         console.log('🔔 Navigating to post:', data.postId);
-        break;
-      case 'comment':
-        // Navigate to post with comments
-        console.log('🔔 Navigating to post comments:', data.postId);
-        break;
-      case 'follow':
-        // Navigate to user profile
-        console.log('🔔 Navigating to user profile:', data.userId);
-        break;
-      default:
-        console.log('🔔 Unknown notification type:', data.type);
+      } else if (data.type === 'profile') {
+        // Navigate to profile screen
+        console.log('🔔 Navigating to profile:', data.userId);
+      }
+    } catch (error) {
+      console.log('⚠️ Error handling notification navigation:', error.message);
     }
   }
 
   // Get the push token
   getPushToken() {
-    return this.expoPushToken?.data;
+    return this.expoPushToken?.data || null;
   }
 
-  // Send local notification (for testing)
+  // Send local notification
   async sendLocalNotification(title, body, data = {}) {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -134,17 +161,16 @@ class PushNotificationService {
           title,
           body,
           data,
-          sound: 'default',
         },
         trigger: null, // Send immediately
       });
-      console.log('🔔 Local notification sent:', { title, body, data });
+      console.log('🔔 Local notification sent:', { title, body });
     } catch (error) {
-      console.error('❌ Error sending local notification:', error);
+      console.log('⚠️ Error sending local notification:', error.message);
     }
   }
 
-  // Schedule notification for later
+  // Schedule notification
   async scheduleNotification(title, body, data = {}, trigger) {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -152,13 +178,12 @@ class PushNotificationService {
           title,
           body,
           data,
-          sound: 'default',
         },
         trigger,
       });
-      console.log('🔔 Notification scheduled:', { title, body, data, trigger });
+      console.log('🔔 Notification scheduled:', { title, body, trigger });
     } catch (error) {
-      console.error('❌ Error scheduling notification:', error);
+      console.log('⚠️ Error scheduling notification:', error.message);
     }
   }
 
@@ -168,7 +193,7 @@ class PushNotificationService {
       await Notifications.cancelAllScheduledNotificationsAsync();
       console.log('🔔 All notifications cancelled');
     } catch (error) {
-      console.error('❌ Error cancelling notifications:', error);
+      console.log('⚠️ Error cancelling notifications:', error.message);
     }
   }
 
@@ -179,24 +204,29 @@ class PushNotificationService {
       console.log('🔔 Notification settings:', settings);
       return settings;
     } catch (error) {
-      console.error('❌ Error getting notification settings:', error);
+      console.log('⚠️ Error getting notification settings:', error.message);
       return null;
     }
   }
 
-  // Clean up listeners
+  // Cleanup listeners
   cleanup() {
-    if (this.notificationListener) {
-      Notifications.removeNotificationSubscription(this.notificationListener);
+    try {
+      if (this.notificationListener) {
+        Notifications.removeNotificationSubscription(this.notificationListener);
+        this.notificationListener = null;
+      }
+      
+      if (this.responseListener) {
+        Notifications.removeNotificationSubscription(this.responseListener);
+        this.responseListener = null;
+      }
+      
+      console.log('🔔 Push notification listeners cleaned up');
+    } catch (error) {
+      console.log('⚠️ Error cleaning up notification listeners:', error.message);
     }
-    if (this.responseListener) {
-      Notifications.removeNotificationSubscription(this.responseListener);
-    }
-    console.log('🔔 Push notification listeners cleaned up');
   }
 }
 
-// Create singleton instance
-const pushNotificationService = new PushNotificationService();
-
-export default pushNotificationService; 
+export default new PushNotificationService(); 

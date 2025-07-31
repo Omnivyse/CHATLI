@@ -35,6 +35,8 @@ import EditProfileScreen from './src/screens/EditProfileScreen';
 import ClipsScreen from './src/screens/ClipsScreen';
 import HelpCenterScreen from './src/screens/HelpCenterScreen';
 import EmailVerificationScreen from './src/screens/EmailVerificationScreen';
+import EmailVerificationBanner from './src/components/EmailVerificationBanner';
+import EmailVerificationModal from './src/components/EmailVerificationModal';
 
 // Components
 import LoadingScreen from './src/components/LoadingScreen';
@@ -331,6 +333,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [appIsReady, setAppIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [showVerificationBanner, setShowVerificationBanner] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -492,6 +496,20 @@ export default function App() {
     setShowSplash(false);
   };
 
+  const handleVerificationSuccess = (verifiedUser) => {
+    setUser(verifiedUser);
+    setShowVerificationBanner(false);
+    setShowVerificationModal(false);
+  };
+
+  const handleGoToVerification = () => {
+    setShowVerificationModal(true);
+  };
+
+  const handleCancelVerification = () => {
+    setShowVerificationBanner(false);
+  };
+
   if (!appIsReady || loading) {
     return <LoadingScreen />;
   }
@@ -505,13 +523,29 @@ export default function App() {
           onLogin={handleLogin}
           showSplash={showSplash}
           onSplashComplete={handleSplashComplete}
+          showVerificationBanner={showVerificationBanner}
+          showVerificationModal={showVerificationModal}
+          onVerificationSuccess={handleVerificationSuccess}
+          onGoToVerification={handleGoToVerification}
+          onCancelVerification={handleCancelVerification}
         />
       </SafeAreaProvider>
     </ThemeProvider>
   );
 }
 
-function AppContent({ user, onLogout, onLogin, showSplash, onSplashComplete }) {
+function AppContent({ 
+  user, 
+  onLogout, 
+  onLogin, 
+  showSplash, 
+  onSplashComplete,
+  showVerificationBanner,
+  showVerificationModal,
+  onVerificationSuccess,
+  onGoToVerification,
+  onCancelVerification
+}) {
   const { theme, isLoading } = useTheme();
   const statusBarStyle = getStatusBarStyle(theme);
   const statusBarBackgroundColor = getStatusBarBackgroundColor(theme);
@@ -535,6 +569,23 @@ function AppContent({ user, onLogout, onLogin, showSplash, onSplashComplete }) {
           <AuthStackNavigator onLogin={onLogin} />
         )}
       </NavigationContainer>
+      
+      {/* Email Verification Banner */}
+      <EmailVerificationBanner
+        user={user}
+        visible={showVerificationBanner && user && !user.emailVerified}
+        onGoToVerification={onGoToVerification}
+        onCancel={onCancelVerification}
+      />
+
+      {/* Email Verification Modal */}
+      <EmailVerificationModal
+        visible={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        user={user}
+        onVerificationSuccess={onVerificationSuccess}
+      />
+      
       <Toast />
       
       {/* Splash Screen Overlay */}
