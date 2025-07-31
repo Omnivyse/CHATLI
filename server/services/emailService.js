@@ -10,9 +10,11 @@ class EmailService {
   // Initialize email transporter
   initializeTransporter() {
     try {
-      // Use Gmail SMTP (you can change this to other providers)
+      // Use Gmail SMTP with explicit configuration
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // use SSL
         auth: {
           user: process.env.EMAIL_USER, // Your Gmail address
           pass: process.env.EMAIL_PASS  // Your Gmail app password
