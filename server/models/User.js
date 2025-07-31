@@ -109,39 +109,18 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  // Privacy Settings
+  // Privacy Settings - simplified schema
   privacySettings: {
-    isPrivateAccount: {
-      type: Boolean,
-      default: false
-    },
-    showProfileInSearch: {
-      type: Boolean,
-      default: true
-    },
-    allowMessagesFromStrangers: {
-      type: Boolean,
-      default: true
-    },
-    showOnlineStatus: {
-      type: Boolean,
-      default: true
-    },
-    showLastSeen: {
-      type: Boolean,
-      default: true
-    },
-    allowProfileViews: {
-      type: Boolean,
-      default: true
-    },
-    allowPostComments: {
-      type: Boolean,
-      default: true
-    },
-    allowEventInvites: {
-      type: Boolean,
-      default: true
+    type: Object,
+    default: {
+      isPrivateAccount: false,
+      showProfileInSearch: true,
+      allowMessagesFromStrangers: true,
+      showOnlineStatus: true,
+      showLastSeen: true,
+      allowProfileViews: true,
+      allowPostComments: true,
+      allowEventInvites: true
     }
   }
 }, {

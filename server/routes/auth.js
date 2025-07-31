@@ -10,6 +10,15 @@ const emailService = require('../services/emailService');
 
 const router = express.Router();
 
+// Test endpoint to verify auth routes are working
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Auth routes are working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Generate JWT Token
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -1188,7 +1197,7 @@ router.post('/change-password', auth, [
 router.get('/privacy-settings', auth, async (req, res) => {
   console.log('GET /privacy-settings called');
   try {
-    const user = await User.findById(req.user._id).select('privacySettings');
+    const user = await User.findById(req.user._id);
     
     if (!user) {
       return res.status(404).json({
@@ -1197,10 +1206,22 @@ router.get('/privacy-settings', auth, async (req, res) => {
       });
     }
 
-    console.log('Privacy settings found:', user.privacySettings);
+    // Return default privacy settings if not set
+    const privacySettings = user.privacySettings || {
+      isPrivateAccount: false,
+      showProfileInSearch: true,
+      allowMessagesFromStrangers: true,
+      showOnlineStatus: true,
+      showLastSeen: true,
+      allowProfileViews: true,
+      allowPostComments: true,
+      allowEventInvites: true
+    };
+
+    console.log('Privacy settings found:', privacySettings);
     res.json({
       success: true,
-      data: user.privacySettings || {}
+      data: privacySettings
     });
 
   } catch (error) {
@@ -1229,40 +1250,25 @@ router.put('/privacy-settings', auth, async (req, res) => {
       allowEventInvites
     } = req.body;
 
-    const updateData = {};
-    
-    if (typeof isPrivateAccount === 'boolean') {
-      updateData['privacySettings.isPrivateAccount'] = isPrivateAccount;
-    }
-    if (typeof showProfileInSearch === 'boolean') {
-      updateData['privacySettings.showProfileInSearch'] = showProfileInSearch;
-    }
-    if (typeof allowMessagesFromStrangers === 'boolean') {
-      updateData['privacySettings.allowMessagesFromStrangers'] = allowMessagesFromStrangers;
-    }
-    if (typeof showOnlineStatus === 'boolean') {
-      updateData['privacySettings.showOnlineStatus'] = showOnlineStatus;
-    }
-    if (typeof showLastSeen === 'boolean') {
-      updateData['privacySettings.showLastSeen'] = showLastSeen;
-    }
-    if (typeof allowProfileViews === 'boolean') {
-      updateData['privacySettings.allowProfileViews'] = allowProfileViews;
-    }
-    if (typeof allowPostComments === 'boolean') {
-      updateData['privacySettings.allowPostComments'] = allowPostComments;
-    }
-    if (typeof allowEventInvites === 'boolean') {
-      updateData['privacySettings.allowEventInvites'] = allowEventInvites;
-    }
+    // Create the privacy settings object
+    const privacySettings = {
+      isPrivateAccount: typeof isPrivateAccount === 'boolean' ? isPrivateAccount : false,
+      showProfileInSearch: typeof showProfileInSearch === 'boolean' ? showProfileInSearch : true,
+      allowMessagesFromStrangers: typeof allowMessagesFromStrangers === 'boolean' ? allowMessagesFromStrangers : true,
+      showOnlineStatus: typeof showOnlineStatus === 'boolean' ? showOnlineStatus : true,
+      showLastSeen: typeof showLastSeen === 'boolean' ? showLastSeen : true,
+      allowProfileViews: typeof allowProfileViews === 'boolean' ? allowProfileViews : true,
+      allowPostComments: typeof allowPostComments === 'boolean' ? allowPostComments : true,
+      allowEventInvites: typeof allowEventInvites === 'boolean' ? allowEventInvites : true
+    };
 
-    console.log('Update data:', updateData);
+    console.log('Privacy settings to update:', privacySettings);
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    ).select('privacySettings');
+      { privacySettings },
+      { new: true }
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -1276,7 +1282,7 @@ router.put('/privacy-settings', auth, async (req, res) => {
     res.json({
       success: true,
       message: 'Нууцлалын тохиргоо амжилттай шинэчлэгдлээ',
-      data: user.privacySettings
+      data: user.privacySettings || privacySettings
     });
 
   } catch (error) {
