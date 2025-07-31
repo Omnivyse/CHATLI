@@ -29,22 +29,15 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Create new event
-router.post('/', auth, upload.single('image'), async (req, res) => {
+// Create new event (without image upload for now)
+router.post('/', auth, async (req, res) => {
   try {
-    const { name, description, userNumber } = req.body;
+    const { name, description, userNumber, image } = req.body;
 
     if (!name || !description || !userNumber) {
       return res.status(400).json({
         success: false,
         message: 'Бүх талбарыг бөглөнө үү'
-      });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Event-ийн зургийг оруулна уу'
       });
     }
 
@@ -59,7 +52,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     const event = new Event({
       name: name.trim(),
       description: description.trim(),
-      image: req.file.path,
+      image: image || 'https://via.placeholder.com/400x200?text=Event+Image',
       userNumber: userNum,
       author: req.user._id,
       joinedUsers: [],
