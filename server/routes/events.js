@@ -29,10 +29,10 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Create new event (without image upload for now)
-router.post('/', auth, async (req, res) => {
+// Create new event with image upload
+router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
-    const { name, description, userNumber, image } = req.body;
+    const { name, description, userNumber } = req.body;
 
     if (!name || !description || !userNumber) {
       return res.status(400).json({
@@ -49,10 +49,18 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
+    // Handle image upload
+    let imageUrl = 'https://via.placeholder.com/400x200?text=Event+Image';
+    if (req.file) {
+      // For now, we'll use a placeholder since we're using memory storage
+      // In production, you'd upload to Cloudinary or another service
+      imageUrl = 'https://via.placeholder.com/400x200?text=Event+Image';
+    }
+
     const event = new Event({
       name: name.trim(),
       description: description.trim(),
-      image: image || 'https://via.placeholder.com/400x200?text=Event+Image',
+      image: imageUrl,
       userNumber: userNum,
       author: req.user._id,
       joinedUsers: [],
