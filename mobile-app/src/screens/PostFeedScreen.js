@@ -245,9 +245,9 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     }
   };
 
-  const handleJoinEvent = async (eventId) => {
+  const handleJoinEvent = async (eventId, password = null) => {
     try {
-      const response = await apiService.joinEvent(eventId);
+      const response = await apiService.joinEvent(eventId, password);
       
       if (response.success) {
         // Refresh events to show updated data

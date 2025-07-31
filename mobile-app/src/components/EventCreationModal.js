@@ -26,6 +26,8 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
   const [userNumber, setUserNumber] = useState('5');
   const [eventImage, setEventImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [password, setPassword] = useState('');
 
   const pickImage = async () => {
     try {
@@ -66,6 +68,22 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
       return;
     }
 
+    // Validate password for private events
+    if (isPrivate) {
+      if (!password.trim()) {
+        Alert.alert('Алдаа', 'Нууц үгийг оруулна уу');
+        return;
+      }
+      if (password.length !== 4) {
+        Alert.alert('Алдаа', 'Нууц үг 4 оронтой байх ёстой');
+        return;
+      }
+      if (!/^\d{4}$/.test(password)) {
+        Alert.alert('Алдаа', 'Нууц үг зөвхөн тоо агуулсан байх ёстой');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const eventData = {
@@ -74,6 +92,8 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
         userNumber: userNum,
         image: eventImage,
         type: 'event',
+        isPrivate: isPrivate,
+        password: isPrivate ? password.trim() : null,
         createdAt: new Date().toISOString(),
       };
 
@@ -84,6 +104,8 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
       setDescription('');
       setUserNumber('5');
       setEventImage(null);
+      setIsPrivate(false);
+      setPassword('');
       onClose();
     } catch (error) {
       Alert.alert('Алдаа', 'Event үүсгэхэд алдаа гарлаа');
@@ -218,6 +240,62 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
               Хамгийн багадаа 5 хүн байх ёстой
             </Text>
           </View>
+
+          {/* Private Event Toggle */}
+          <View style={styles.section}>
+            <View style={styles.toggleContainer}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Хувийн Event
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  { 
+                    backgroundColor: isPrivate ? '#000000' : colors.surface,
+                    borderColor: colors.border
+                  }
+                ]}
+                onPress={() => setIsPrivate(!isPrivate)}
+              >
+                <View style={[
+                  styles.toggleCircle,
+                  { 
+                    backgroundColor: '#ffffff',
+                    transform: [{ translateX: isPrivate ? 20 : 0 }]
+                  }
+                ]} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Хувийн event-д зөвхөн нууц үгтэй хэрэглэгчид нэгдэх боломжтой
+            </Text>
+          </View>
+
+          {/* Password Field (only show if private) */}
+          {isPrivate && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Нууц үг (4 оронтой)
+              </Text>
+              <TextInput
+                style={[styles.textInput, { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.border,
+                  color: colors.text 
+                }]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="0000"
+                placeholderTextColor={colors.placeholder}
+                keyboardType="numeric"
+                maxLength={4}
+                secureTextEntry={false}
+              />
+              <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                4 оронтой тоо оруулна уу
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
@@ -305,6 +383,25 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: 12,
     marginTop: 4,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  toggleButton: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
 });
 

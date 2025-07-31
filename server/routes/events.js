@@ -32,7 +32,7 @@ router.get('/', auth, async (req, res) => {
 // Create new event with image upload
 router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
-    const { name, description, userNumber } = req.body;
+    const { name, description, userNumber, isPrivate, password } = req.body;
 
     if (!name || !description || !userNumber) {
       return res.status(400).json({
@@ -49,6 +49,15 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       });
     }
 
+    // Validate password for private events
+    const isPrivateEvent = isPrivate === 'true' || isPrivate === true;
+    if (isPrivateEvent && (!password || password.length !== 4 || !/^\d{4}$/.test(password))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Хувийн event-д 4 оронтой нууц үг оруулна уу'
+      });
+    }
+
     // Handle image upload
     let imageUrl = 'https://via.placeholder.com/400x200?text=Event+Image';
     if (req.file) {
@@ -61,6 +70,8 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       description: description.trim(),
       image: imageUrl,
       userNumber: userNum,
+      isPrivate: isPrivateEvent,
+      password: isPrivateEvent ? password : null,
       author: req.user._id,
       joinedUsers: [],
       likes: [],
@@ -91,6 +102,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 // Join event
 router.post('/:eventId/join', auth, async (req, res) => {
   try {
+    const { password } = req.body;
     const event = await Event.findById(req.params.eventId);
     
     if (!event) {
@@ -106,6 +118,22 @@ router.post('/:eventId/join', auth, async (req, res) => {
         success: false,
         message: 'Та энэ event-д аль хэдийн нэгдсэн байна'
       });
+    }
+
+    // Check password for private events
+    if (event.isPrivate) {
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Хувийн event-д нууц үг оруулна уу'
+        });
+      }
+      if (password !== event.password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Нууц үг буруу байна'
+        });
+      }
     }
 
     // Add user to joined users

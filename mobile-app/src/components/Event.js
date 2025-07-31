@@ -22,7 +22,9 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
   
   const [showComments, setShowComments] = useState(false);
   const [showJoinedUsers, setShowJoinedUsers] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [password, setPassword] = useState('');
   const [isJoined, setIsJoined] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
 
@@ -56,6 +58,12 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
       return;
     }
 
+    // Show password modal for private events
+    if (event.isPrivate) {
+      setShowPasswordModal(true);
+      return;
+    }
+
     try {
       await onJoinEvent(event._id);
       setIsJoined(true);
@@ -63,6 +71,36 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
       // Don't show error if user is already joined (this is expected)
       if (error.message && error.message.includes('аль хэдийн нэгдсэн')) {
         setIsJoined(true);
+        Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
+      } else {
+        Alert.alert('Алдаа', 'Event-д нэгдэхэд алдаа гарлаа');
+      }
+    }
+  };
+
+  const handleJoinWithPassword = async () => {
+    if (!password.trim()) {
+      Alert.alert('Алдаа', 'Нууц үгийг оруулна уу');
+      return;
+    }
+
+    if (password.length !== 4) {
+      Alert.alert('Алдаа', 'Нууц үг 4 оронтой байх ёстой');
+      return;
+    }
+
+    try {
+      await onJoinEvent(event._id, password);
+      setIsJoined(true);
+      setShowPasswordModal(false);
+      setPassword('');
+    } catch (error) {
+      if (error.message && error.message.includes('Нууц үг буруу')) {
+        Alert.alert('Алдаа', 'Нууц үг буруу байна');
+      } else if (error.message && error.message.includes('аль хэдийн нэгдсэн')) {
+        setIsJoined(true);
+        setShowPasswordModal(false);
+        setPassword('');
         Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
       } else {
         Alert.alert('Алдаа', 'Event-д нэгдэхэд алдаа гарлаа');
@@ -197,9 +235,14 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
       
       {/* Event Info */}
       <View style={styles.eventInfo}>
-        <Text style={[styles.eventName, { color: colors.text }]}>
-          {event.name}
-        </Text>
+        <View style={styles.eventHeader}>
+          <Text style={[styles.eventName, { color: colors.text }]}>
+            {event.name}
+          </Text>
+          {event.isPrivate && (
+            <Ionicons name="lock-closed" size={16} color={colors.textSecondary} />
+          )}
+        </View>
         <Text style={[styles.eventDescription, { color: colors.textSecondary }]}>
           {event.description}
         </Text>
@@ -381,6 +424,70 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
           />
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Password Modal */}
+      <Modal
+        visible={showPasswordModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPasswordModal(false)}
+        style={{ zIndex: 9999 }}
+      >
+        <KeyboardAvoidingView 
+          style={[styles.modalContainer, { backgroundColor: colors.background, zIndex: 9999, elevation: 9999 }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Modal Header */}
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Нууц үг оруулах
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Password Input */}
+          <View style={styles.passwordContainer}>
+            <Text style={[styles.passwordTitle, { color: colors.text }]}>
+              Хувийн Event
+            </Text>
+            <Text style={[styles.passwordSubtitle, { color: colors.textSecondary }]}>
+              Энэ event-д нэгдэхийн тулд нууц үг оруулна уу
+            </Text>
+            
+            <TextInput
+              style={[styles.passwordInput, { 
+                backgroundColor: colors.surface, 
+                borderColor: colors.border,
+                color: colors.text 
+              }]}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="0000"
+              placeholderTextColor={colors.placeholder}
+              keyboardType="numeric"
+              maxLength={4}
+              secureTextEntry={false}
+              autoFocus={true}
+            />
+            
+            <TouchableOpacity
+              style={[styles.joinButton, { 
+                backgroundColor: '#000000',
+                borderColor: '#000000',
+                marginTop: 24
+              }]}
+              onPress={handleJoinWithPassword}
+            >
+              <Text style={[styles.joinButtonText, { color: '#ffffff' }]}>
+                Нэгдэх
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -405,6 +512,12 @@ const styles = StyleSheet.create({
   },
   eventInfo: {
     padding: 16,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
   eventName: {
     fontSize: 18,
@@ -564,6 +677,31 @@ const styles = StyleSheet.create({
   },
   joinedUserDate: {
     fontSize: 12,
+  },
+  passwordContainer: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
+  passwordTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  passwordSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 18,
+    textAlign: 'center',
+    letterSpacing: 8,
   },
 });
 

@@ -23,6 +23,24 @@ const eventSchema = new mongoose.Schema({
     min: 5,
     default: 5
   },
+  isPrivate: {
+    type: Boolean,
+    default: false
+  },
+  password: {
+    type: String,
+    required: function() {
+      return this.isPrivate;
+    },
+    minlength: 4,
+    maxlength: 4,
+    validate: {
+      validator: function(v) {
+        return /^\d{4}$/.test(v);
+      },
+      message: 'Password must be exactly 4 digits'
+    }
+  },
   author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

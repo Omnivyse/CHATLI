@@ -583,9 +583,11 @@ class ApiService {
     });
   }
 
-  async joinEvent(eventId) {
+  async joinEvent(eventId, password = null) {
+    const body = password ? { password } : {};
     return this.request(`/events/${eventId}/join`, {
       method: 'POST',
+      body: JSON.stringify(body),
     });
   }
 
