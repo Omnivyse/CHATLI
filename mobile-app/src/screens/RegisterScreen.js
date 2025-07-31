@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/api';
 
 const RegisterScreen = ({ navigation, onLogin }) => {
@@ -93,8 +94,11 @@ const RegisterScreen = ({ navigation, onLogin }) => {
           text2: 'Имэйл хаягаа шалгаж баталгаажуулна уу',
         });
         
-        // For new users, go directly to main app and show verification banner
-        // The user will see the verification banner in the feed
+        // For new users, save token and go directly to main app
+        if (response.data.token) {
+          await AsyncStorage.setItem('token', response.data.token);
+        }
+        
         if (onLogin && response.data.user) {
           onLogin(response.data.user, { isNewUser: true });
         } else {

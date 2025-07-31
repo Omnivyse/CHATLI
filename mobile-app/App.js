@@ -55,7 +55,7 @@ const Tab = createBottomTabNavigator();
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
 
-function MainTabNavigator({ user, onLogout }) {
+function MainTabNavigator({ user, onLogout, onGoToVerification }) {
   const { theme } = useTheme();
   const tabBarColors = getTabBarColors(theme);
   
@@ -183,7 +183,7 @@ function MainTabNavigator({ user, onLogout }) {
       })}
     >
       <Tab.Screen name="Feed">
-        {(props) => <PostFeedScreen {...props} user={user} />}
+        {(props) => <PostFeedScreen {...props} user={user} onGoToVerification={onGoToVerification} />}
       </Tab.Screen>
       <Tab.Screen name="Clips">
         {(props) => <ClipsScreen {...props} user={user} />}
@@ -244,7 +244,7 @@ function AuthStackNavigator({ onLogin }) {
   );
 }
 
-function MainStackNavigator({ user, onLogout }) {
+function MainStackNavigator({ user, onLogout, onGoToVerification }) {
   const { theme } = useTheme();
   const colors = theme === 'dark' ? { background: '#0f172a' } : { background: '#ffffff' };
   
@@ -256,7 +256,7 @@ function MainStackNavigator({ user, onLogout }) {
       }}
     >
       <Stack.Screen name="MainTabs">
-        {(props) => <MainTabNavigator {...props} user={user} onLogout={onLogout} />}
+        {(props) => <MainTabNavigator {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />}
       </Stack.Screen>
       
       <Stack.Screen 
@@ -432,8 +432,14 @@ export default function App() {
     // Track login event
     if (loginInfo.isNewUser) {
       analyticsService.trackUserRegister();
+      // Show verification banner for new users
+      setShowVerificationBanner(true);
     } else {
       analyticsService.trackUserLogin();
+      // Show verification banner for existing unverified users
+      if (userData && !userData.emailVerified) {
+        setShowVerificationBanner(true);
+      }
     }
     
     // Connect to socket with token
@@ -564,7 +570,7 @@ function AppContent({
           barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
         />
         {user ? (
-          <MainStackNavigator user={user} onLogout={onLogout} />
+          <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />
         ) : (
           <AuthStackNavigator onLogin={onLogin} />
         )}

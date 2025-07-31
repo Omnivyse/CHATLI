@@ -171,6 +171,9 @@ router.post('/register', [
       // Don't fail registration, just log the error
     }
 
+    // Generate JWT token for the new user
+    const token = generateToken(user._id);
+
     res.status(201).json({
       success: true,
       message: 'Бүртгэл амжилттай үүслээ. Имэйл хаягаа шалгаж баталгаажуулна уу.',
@@ -180,8 +183,17 @@ router.post('/register', [
           name: user.name,
           username: user.username,
           email: user.email,
-          emailVerified: user.emailVerified
+          emailVerified: user.emailVerified,
+          avatar: user.avatar,
+          coverImage: user.coverImage,
+          bio: user.bio,
+          isVerified: user.isVerified,
+          followers: user.followers,
+          following: user.following,
+          posts: user.posts,
+          createdAt: user.createdAt
         },
+        token,
         emailSent: emailResult.success
       }
     });
