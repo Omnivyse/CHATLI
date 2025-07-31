@@ -288,6 +288,19 @@ class ApiService {
     }
   }
 
+  async changePassword(currentPassword, newPassword) {
+    try {
+      const response = await this.request('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      return response;
+    } catch (error) {
+      console.error('Change password error:', error);
+      throw error;
+    }
+  }
+
   async getCurrentUser() {
     try {
       return await this.request('/auth/me');

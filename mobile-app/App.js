@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
-import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors } from './src/utils/themeUtils';
+import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors, getThemeColors } from './src/utils/themeUtils';
 
 // Services
 import apiService from './src/services/api';
@@ -239,7 +239,7 @@ function AuthStackNavigator({ onLogin }) {
 
 function MainStackNavigator({ user, onLogout, onGoToVerification }) {
   const { theme } = useTheme();
-  const colors = theme === 'dark' ? { background: '#0f172a' } : { background: '#ffffff' };
+  const colors = getThemeColors(theme);
   
   return (
     <Stack.Navigator

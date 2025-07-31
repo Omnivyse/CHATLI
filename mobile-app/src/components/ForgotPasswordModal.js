@@ -14,9 +14,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../utils/themeUtils';
 
 const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [step, setStep] = useState(1); // 1: email, 2: code, 3: new password
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -175,7 +177,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
         {loading ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={styles.buttonText}>Код илгээх</Text>
+          <Text style={[styles.buttonText, { color: colors.textInverse }]}>Код илгээх</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -215,7 +217,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           style={[styles.button, styles.secondaryButton, { borderColor: colors.border }]}
           onPress={handleBack}
         >
-          <Text style={[styles.buttonText, { color: colors.text }]}>Буцах</Text>
+          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Буцах</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
@@ -226,7 +228,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           {loading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <Text style={styles.buttonText}>Шалгах</Text>
+            <Text style={[styles.buttonText, { color: colors.textInverse }]}>Шалгах</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -301,7 +303,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           style={[styles.button, styles.secondaryButton, { borderColor: colors.border }]}
           onPress={handleBack}
         >
-          <Text style={[styles.buttonText, { color: colors.text }]}>Буцах</Text>
+          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Буцах</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
@@ -312,7 +314,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           {loading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <Text style={styles.buttonText}>Нууц үг сэргээх</Text>
+            <Text style={[styles.buttonText, { color: colors.textInverse }]}>Нууц үг сэргээх</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -329,7 +331,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
         style={[styles.container, { backgroundColor: colors.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -365,7 +367,6 @@ const styles = {
     paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
   },
   closeButton: {
     padding: 4,
@@ -421,6 +422,10 @@ const styles = {
   },
   buttonText: {
     color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },

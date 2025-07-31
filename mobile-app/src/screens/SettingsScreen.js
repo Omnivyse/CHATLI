@@ -14,6 +14,7 @@ import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 import ThemeToggle from '../components/ThemeToggle';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 
 const SettingsScreen = ({ navigation, user, onLogout }) => {
   const { theme, toggleTheme } = useTheme();
@@ -21,6 +22,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
   const [notifications, setNotifications] = useState(true);
   const [autoDownload, setAutoDownload] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const settingsSections = [
     {
@@ -101,11 +103,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           subtitle: 'Нууц үгээ шинэчлэх',
           type: 'arrow',
           onPress: () => {
-            Toast.show({
-              type: 'info',
-              text1: 'Удахгүй',
-              text2: 'Нууц үг солих боломж удахгүй нэмэгдэнэ',
-            });
+            setShowChangePassword(true);
           },
         },
         {
@@ -272,6 +270,18 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           <Text style={[styles.footerText, { color: colors.textTertiary }]}>© 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</Text>
         </View>
       </ScrollView>
+      <ChangePasswordModal
+        visible={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        onSuccess={() => {
+          Toast.show({
+            type: 'success',
+            text1: 'Нууц үг солих амжилттай',
+            text2: 'Нууц үгээ шинэчлэх амжилттай.',
+          });
+          setShowChangePassword(false);
+        }}
+      />
     </SafeAreaView>
   );
 };

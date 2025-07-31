@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   forgotPasswordText: {
-    color: '#666',
+    color: '#333',
     fontSize: 14,
     textAlign: 'center',
     textDecorationLine: 'underline',
