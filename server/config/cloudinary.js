@@ -12,7 +12,10 @@ console.log('Cloudinary configured with cloud_name:', process.env.CLOUDINARY_CLO
 // Upload image to Cloudinary
 const uploadImage = async (file, folder = 'messenger/images') => {
   try {
-    const result = await cloudinary.uploader.upload(file, {
+    // Use file.path for the file path string
+    const filePath = file.path || file;
+    
+    const result = await cloudinary.uploader.upload(filePath, {
       folder: folder,
       resource_type: 'image',
       transformation: [
@@ -25,7 +28,9 @@ const uploadImage = async (file, folder = 'messenger/images') => {
       secure_url: result.secure_url,
       public_id: result.public_id,
       width: result.width,
-      height: result.height
+      height: result.height,
+      format: result.format,
+      bytes: result.bytes
     };
   } catch (error) {
     throw new Error('Image upload failed: ' + error.message);
@@ -35,7 +40,10 @@ const uploadImage = async (file, folder = 'messenger/images') => {
 // Upload video to Cloudinary
 const uploadVideo = async (file, folder = 'messenger/videos') => {
   try {
-    const result = await cloudinary.uploader.upload(file, {
+    // Use file.path for the file path string
+    const filePath = file.path || file;
+    
+    const result = await cloudinary.uploader.upload(filePath, {
       folder: folder,
       resource_type: 'video',
       transformation: [
@@ -47,7 +55,9 @@ const uploadVideo = async (file, folder = 'messenger/videos') => {
       secure_url: result.secure_url,
       public_id: result.public_id,
       width: result.width,
-      height: result.height
+      height: result.height,
+      format: result.format,
+      bytes: result.bytes
     };
   } catch (error) {
     throw new Error('Video upload failed: ' + error.message);
