@@ -84,10 +84,9 @@ const LoginScreen = ({ onLogin }) => {
         } else {
           // Check if it's an email verification error
           if (res.data && res.data.emailVerified === false) {
-            // Navigate to email verification screen
-            navigation.navigate('EmailVerification', {
-              email: email
-            });
+            // For unverified users, we should still log them in but show verification banner
+            // The verification will be handled by the banner/modal system
+            onLogin(res.data.user, { isNewUser: false });
             return;
           }
           setError(res.message || 'Нэвтрэхэд алдаа гарлаа');

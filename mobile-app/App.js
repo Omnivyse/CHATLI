@@ -34,7 +34,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import ClipsScreen from './src/screens/ClipsScreen';
 import HelpCenterScreen from './src/screens/HelpCenterScreen';
-import EmailVerificationScreen from './src/screens/EmailVerificationScreen';
+
 import EmailVerificationBanner from './src/components/EmailVerificationBanner';
 import EmailVerificationModal from './src/components/EmailVerificationModal';
 
@@ -232,13 +232,6 @@ function AuthStackNavigator({ onLogin }) {
         options={{ headerShown: false }}
       >
         {(props) => <RegisterScreen {...props} onLogin={onLogin} />}
-      </Stack.Screen>
-      
-      <Stack.Screen 
-        name="EmailVerification" 
-        options={{ headerShown: false }}
-      >
-        {(props) => <EmailVerificationScreen {...props} onLogin={onLogin} />}
       </Stack.Screen>
     </Stack.Navigator>
   );
