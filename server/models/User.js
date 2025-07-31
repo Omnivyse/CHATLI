@@ -100,6 +100,14 @@ const userSchema = new mongoose.Schema({
   verificationExpires: {
     type: Date,
     default: null
+  },
+  passwordResetCode: {
+    type: String,
+    default: null
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

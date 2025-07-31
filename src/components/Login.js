@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import api from '../services/api';
 import { motion } from 'framer-motion';
 import logo from '../assets/logo.png';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 const Login = ({ onLogin }) => {
   const [mode, setMode] = useState('login'); // 'login' or 'register'
@@ -12,6 +13,7 @@ const Login = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,6 +42,10 @@ const Login = ({ onLogin }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPasswordSuccess = (user) => {
+    onLogin(user, { isNewUser: false });
   };
 
   return (
@@ -130,6 +136,17 @@ const Login = ({ onLogin }) => {
             {loading ? (mode === 'login' ? 'Нэвтэрч байна...' : 'Бүртгүүлж байна...') : (mode === 'login' ? 'Нэвтрэх' : 'Бүртгүүлэх')}
           </button>
         </form>
+        
+        {/* Forgot Password Link - Only show in login mode */}
+        {mode === 'login' && (
+          <button
+            className="mt-4 text-sm text-secondary hover:text-black dark:hover:text-white transition border-0 bg-transparent p-0 underline"
+            onClick={() => setShowForgotPassword(true)}
+          >
+            Нууц үг мартсан?
+          </button>
+        )}
+        
         <button
           className="mt-6 text-sm text-secondary hover:text-black dark:hover:text-white transition border-0 bg-transparent p-0 underline"
           onClick={() => {
@@ -140,6 +157,13 @@ const Login = ({ onLogin }) => {
           {mode === 'login' ? 'Бүртгэл үүсгэх' : 'Буцах' }
         </button>
       </motion.div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        onSuccess={handleForgotPasswordSuccess}
+      />
     </div>
   );
 };

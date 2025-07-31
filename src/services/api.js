@@ -130,6 +130,46 @@ class ApiService {
     }
   }
 
+  // Forgot password functionality
+  async forgotPassword(email) {
+    try {
+      const response = await this.request('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      return response;
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error;
+    }
+  }
+
+  async verifyResetCode(email, code) {
+    try {
+      const response = await this.request('/auth/verify-reset-code', {
+        method: 'POST',
+        body: JSON.stringify({ email, code })
+      });
+      return response;
+    } catch (error) {
+      console.error('Verify reset code error:', error);
+      throw error;
+    }
+  }
+
+  async resetPassword(resetToken, newPassword) {
+    try {
+      const response = await this.request('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ resetToken, newPassword })
+      });
+      return response;
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  }
+
   async getCurrentUser() {
     return this.request('/auth/me');
   }

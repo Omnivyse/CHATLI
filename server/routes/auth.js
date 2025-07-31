@@ -886,4 +886,233 @@ router.post('/resend-verification', [
   }
 });
 
+// @route   POST /api/auth/forgot-password
+// @desc    Send forgot password verification code
+// @access  Public
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Хүчинтэй имэйл хаяг оруулна уу')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0].msg
+      });
+    }
+
+    const { email } = req.body;
+
+    // Check if user exists
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Энэ имэйл хаягтай хэрэглэгч олдсонгүй'
+      });
+    }
+
+    // Generate 5-digit verification code
+    const verificationCode = emailService.generateVerificationCode();
+    
+    // Store verification code in user document with expiration (10 minutes)
+    user.passwordResetCode = verificationCode;
+    user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save();
+
+    // Send verification email
+    try {
+      await emailService.sendVerificationEmail(email, user.name, verificationCode);
+      
+      res.json({
+        success: true,
+        message: 'Нууц үг сэргээх код имэйл хаяг руу илгээгдлээ',
+        data: {
+          email: email
+        }
+      });
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+      
+      // Clear the reset code if email fails
+      user.passwordResetCode = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save();
+      
+      res.status(500).json({
+        success: false,
+        message: 'Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу'
+      });
+    }
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/auth/verify-reset-code
+// @desc    Verify reset code and allow password reset
+// @access  Public
+router.post('/verify-reset-code', [
+  body('email').isEmail().withMessage('Хүчинтэй имэйл хаяг оруулна уу'),
+  body('code').isLength({ min: 5, max: 5 }).withMessage('5 оронтой код оруулна уу')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0].msg
+      });
+    }
+
+    const { email, code } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Энэ имэйл хаягтай хэрэглэгч олдсонгүй'
+      });
+    }
+
+    // Check if reset code exists and is not expired
+    if (!user.passwordResetCode || !user.passwordResetExpires) {
+      return res.status(400).json({
+        success: false,
+        message: 'Нууц үг сэргээх код олдсонгүй'
+      });
+    }
+
+    if (new Date() > user.passwordResetExpires) {
+      // Clear expired code
+      user.passwordResetCode = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save();
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Нууц үг сэргээх код хүчингүй болсон'
+      });
+    }
+
+    // Verify code
+    if (user.passwordResetCode !== code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Буруу код оруулсан'
+      });
+    }
+
+    // Code is valid - generate temporary token for password reset
+    const resetToken = generateToken(user._id);
+    
+    res.json({
+      success: true,
+      message: 'Код зөв байна',
+      data: {
+        resetToken: resetToken,
+        email: email
+      }
+    });
+
+  } catch (error) {
+    console.error('Verify reset code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with new password
+// @access  Public (with reset token)
+router.post('/reset-password', [
+  body('resetToken').notEmpty().withMessage('Reset token шаардлагатай'),
+  body('newPassword').isLength({ min: 6 }).withMessage('Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0].msg
+      });
+    }
+
+    const { resetToken, newPassword } = req.body;
+
+    // Verify reset token
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Хүчингүй reset token'
+      });
+    }
+
+    // Find user
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Хэрэглэгч олдсонгүй'
+      });
+    }
+
+    // Check if reset code still exists (additional security)
+    if (!user.passwordResetCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Нууц үг сэргээх код хүчингүй болсон'
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password and clear reset code
+    user.password = hashedPassword;
+    user.passwordResetCode = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    // Generate new JWT token for automatic login
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: 'Нууц үг амжилттай сэргээгдлээ',
+      data: {
+        token: token,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          username: user.username,
+          avatar: user.avatar,
+          isVerified: user.isVerified,
+          emailVerified: user.emailVerified
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
 module.exports = router; 

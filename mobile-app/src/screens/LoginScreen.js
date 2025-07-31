@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../services/api';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,6 +27,7 @@ const LoginScreen = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Animated blob values
   const blob1Anim = new Animated.Value(0);
@@ -104,6 +106,10 @@ const LoginScreen = ({ onLogin }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPasswordSuccess = (user) => {
+    onLogin(user, { isNewUser: false });
   };
 
   const blob1Transform = blob1Anim.interpolate({
@@ -286,10 +292,27 @@ const LoginScreen = ({ onLogin }) => {
                   }
                 </Text>
               </TouchableOpacity>
+
+              {/* Forgot Password Link - Only show in login mode */}
+              {mode === 'login' && (
+                <TouchableOpacity
+                  style={styles.forgotPasswordButton}
+                  onPress={() => setShowForgotPassword(true)}
+                >
+                  <Text style={styles.forgotPasswordText}>Нууц үг мартсан?</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        visible={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        onSuccess={handleForgotPasswordSuccess}
+      />
     </View>
   );
 };
@@ -497,6 +520,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  forgotPasswordButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  forgotPasswordText: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });
 
