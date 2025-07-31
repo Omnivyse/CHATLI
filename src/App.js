@@ -74,7 +74,7 @@ function App() {
             const userData = response.data.user;
             setUser(userData);
             
-            // Show verification banner if user is not verified
+            // Show verification banner for existing unverified users
             if (userData && !userData.emailVerified) {
               setShowVerificationBanner(true);
             }
@@ -104,16 +104,17 @@ function App() {
     setUser(userData);
     setActiveTab('feed'); // Always show feed on login
     
-    // Show verification banner if user is not verified
-    if (userData && !userData.emailVerified) {
-      setShowVerificationBanner(true);
-    }
-    
     // Track login event
     if (loginInfo.isNewUser) {
       analyticsService.trackUserRegister();
+      // Show verification banner for new users
+      setShowVerificationBanner(true);
     } else {
       analyticsService.trackUserLogin();
+      // Show verification banner for existing unverified users
+      if (userData && !userData.emailVerified) {
+        setShowVerificationBanner(true);
+      }
     }
     
     // Always show welcome modal on login

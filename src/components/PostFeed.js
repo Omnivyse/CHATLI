@@ -48,6 +48,14 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
     setLoading(true);
     setError('');
     try {
+      // If user is not verified, don't fetch posts to avoid auth errors
+      if (user && !user.emailVerified) {
+        console.log('⚠️ User not verified, skipping posts fetch');
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+
       const res = await api.getPosts();
       if (res.success) {
         setPosts(res.data.posts);
@@ -125,6 +133,11 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
           >
             Дахин оролдох
           </button>
+        </div>
+      ) : user && !user.emailVerified ? (
+        <div className="text-center py-8">
+          <div className="text-secondary dark:text-secondary-dark mb-2">Имэйл хаягаа баталгаажуулна уу</div>
+          <div className="text-sm text-secondary dark:text-secondary-dark">Постуудыг харахын тулд имэйл хаягаа баталгаажуулна уу</div>
         </div>
       ) : posts.length === 0 ? (
         <div className="text-center text-secondary dark:text-secondary-dark">Пост байхгүй байна</div>
