@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const PrivacySettings = require('../models/PrivacySettings');
 const { auth, optionalAuth } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
@@ -1197,31 +1198,38 @@ router.post('/change-password', auth, [
 router.get('/privacy-settings', auth, async (req, res) => {
   console.log('GET /privacy-settings called');
   try {
-    const user = await User.findById(req.user._id);
+    // Find or create privacy settings for the user
+    let privacySettings = await PrivacySettings.findOne({ userId: req.user._id });
     
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Хэрэглэгч олдсонгүй'
+    if (!privacySettings) {
+      // Create default privacy settings if none exist
+      privacySettings = new PrivacySettings({
+        userId: req.user._id,
+        isPrivateAccount: false,
+        showProfileInSearch: true,
+        allowMessagesFromStrangers: true,
+        showOnlineStatus: true,
+        showLastSeen: true,
+        allowProfileViews: true,
+        allowPostComments: true,
+        allowEventInvites: true
       });
+      await privacySettings.save();
     }
-
-    // Return default privacy settings if not set
-    const privacySettings = user.privacySettings || {
-      isPrivateAccount: false,
-      showProfileInSearch: true,
-      allowMessagesFromStrangers: true,
-      showOnlineStatus: true,
-      showLastSeen: true,
-      allowProfileViews: true,
-      allowPostComments: true,
-      allowEventInvites: true
-    };
 
     console.log('Privacy settings found:', privacySettings);
     res.json({
       success: true,
-      data: privacySettings
+      data: {
+        isPrivateAccount: privacySettings.isPrivateAccount,
+        showProfileInSearch: privacySettings.showProfileInSearch,
+        allowMessagesFromStrangers: privacySettings.allowMessagesFromStrangers,
+        showOnlineStatus: privacySettings.showOnlineStatus,
+        showLastSeen: privacySettings.showLastSeen,
+        allowProfileViews: privacySettings.allowProfileViews,
+        allowPostComments: privacySettings.allowPostComments,
+        allowEventInvites: privacySettings.allowEventInvites
+      }
     });
 
   } catch (error) {
@@ -1250,39 +1258,56 @@ router.put('/privacy-settings', auth, async (req, res) => {
       allowEventInvites
     } = req.body;
 
-    // Create the privacy settings object
-    const privacySettings = {
-      isPrivateAccount: typeof isPrivateAccount === 'boolean' ? isPrivateAccount : false,
-      showProfileInSearch: typeof showProfileInSearch === 'boolean' ? showProfileInSearch : true,
-      allowMessagesFromStrangers: typeof allowMessagesFromStrangers === 'boolean' ? allowMessagesFromStrangers : true,
-      showOnlineStatus: typeof showOnlineStatus === 'boolean' ? showOnlineStatus : true,
-      showLastSeen: typeof showLastSeen === 'boolean' ? showLastSeen : true,
-      allowProfileViews: typeof allowProfileViews === 'boolean' ? allowProfileViews : true,
-      allowPostComments: typeof allowPostComments === 'boolean' ? allowPostComments : true,
-      allowEventInvites: typeof allowEventInvites === 'boolean' ? allowEventInvites : true
-    };
-
-    console.log('Privacy settings to update:', privacySettings);
-
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { privacySettings },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Хэрэглэгч олдсонгүй'
-      });
+    // Find or create privacy settings
+    let privacySettings = await PrivacySettings.findOne({ userId: req.user._id });
+    
+    if (!privacySettings) {
+      privacySettings = new PrivacySettings({ userId: req.user._id });
     }
 
-    console.log('Updated privacy settings:', user.privacySettings);
+    // Update only the fields that are provided
+    if (typeof isPrivateAccount === 'boolean') {
+      privacySettings.isPrivateAccount = isPrivateAccount;
+    }
+    if (typeof showProfileInSearch === 'boolean') {
+      privacySettings.showProfileInSearch = showProfileInSearch;
+    }
+    if (typeof allowMessagesFromStrangers === 'boolean') {
+      privacySettings.allowMessagesFromStrangers = allowMessagesFromStrangers;
+    }
+    if (typeof showOnlineStatus === 'boolean') {
+      privacySettings.showOnlineStatus = showOnlineStatus;
+    }
+    if (typeof showLastSeen === 'boolean') {
+      privacySettings.showLastSeen = showLastSeen;
+    }
+    if (typeof allowProfileViews === 'boolean') {
+      privacySettings.allowProfileViews = allowProfileViews;
+    }
+    if (typeof allowPostComments === 'boolean') {
+      privacySettings.allowPostComments = allowPostComments;
+    }
+    if (typeof allowEventInvites === 'boolean') {
+      privacySettings.allowEventInvites = allowEventInvites;
+    }
+
+    await privacySettings.save();
+
+    console.log('Updated privacy settings:', privacySettings);
 
     res.json({
       success: true,
       message: 'Нууцлалын тохиргоо амжилттай шинэчлэгдлээ',
-      data: user.privacySettings || privacySettings
+      data: {
+        isPrivateAccount: privacySettings.isPrivateAccount,
+        showProfileInSearch: privacySettings.showProfileInSearch,
+        allowMessagesFromStrangers: privacySettings.allowMessagesFromStrangers,
+        showOnlineStatus: privacySettings.showOnlineStatus,
+        showLastSeen: privacySettings.showLastSeen,
+        allowProfileViews: privacySettings.allowProfileViews,
+        allowPostComments: privacySettings.allowPostComments,
+        allowEventInvites: privacySettings.allowEventInvites
+      }
     });
 
   } catch (error) {

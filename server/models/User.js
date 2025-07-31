@@ -108,20 +108,6 @@ const userSchema = new mongoose.Schema({
   passwordResetExpires: {
     type: Date,
     default: null
-  },
-  // Privacy Settings - simplified schema
-  privacySettings: {
-    type: Object,
-    default: {
-      isPrivateAccount: false,
-      showProfileInSearch: true,
-      allowMessagesFromStrangers: true,
-      showOnlineStatus: true,
-      showLastSeen: true,
-      allowProfileViews: true,
-      allowPostComments: true,
-      allowEventInvites: true
-    }
   }
 }, {
   timestamps: true

@@ -32,26 +32,48 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
   });
 
   useEffect(() => {
-    if (visible && user) {
+    if (visible) {
       loadPrivacySettings();
     }
-  }, [visible, user]);
+  }, [visible]);
 
   const loadPrivacySettings = async () => {
     setLoading(true);
     try {
       const response = await apiService.getPrivacySettings();
+      console.log('Privacy settings response:', response);
+      
       if (response.success && response.data) {
-        setPrivacySettings(response.data);
+        // Ensure all settings have default values if missing
+        const loadedSettings = {
+          isPrivateAccount: false,
+          showProfileInSearch: true,
+          allowMessagesFromStrangers: true,
+          showOnlineStatus: true,
+          showLastSeen: true,
+          allowProfileViews: true,
+          allowPostComments: true,
+          allowEventInvites: true,
+          ...response.data // Override with server data
+        };
+        
+        console.log('Setting privacy settings to:', loadedSettings);
+        setPrivacySettings(loadedSettings);
+      } else {
+        console.log('No privacy settings found, using defaults');
+        // Keep default settings if no data from server
       }
     } catch (error) {
       console.error('Error loading privacy settings:', error);
+      // Keep current settings if loading fails
     } finally {
       setLoading(false);
     }
   };
 
   const handleToggleSetting = async (settingKey, value) => {
+    // Store the previous state before making changes
+    const previousSettings = { ...privacySettings };
     const newSettings = { ...privacySettings, [settingKey]: value };
     setPrivacySettings(newSettings);
     
@@ -59,13 +81,16 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
     try {
       const response = await apiService.updatePrivacySettings({ [settingKey]: value });
       if (!response.success) {
-        // Revert if failed
-        setPrivacySettings(privacySettings);
+        // Revert to previous state if failed
+        setPrivacySettings(previousSettings);
         Alert.alert('Алдаа', response.message || 'Тохиргоо хадгалахад алдаа гарлаа');
+      } else {
+        console.log('Privacy setting updated successfully:', settingKey, value);
       }
     } catch (error) {
-      // Revert if failed
-      setPrivacySettings(privacySettings);
+      // Revert to previous state if failed
+      setPrivacySettings(previousSettings);
+      console.error('Error updating privacy setting:', error);
       Alert.alert('Алдаа', 'Тохиргоо хадгалахад алдаа гарлаа');
     } finally {
       setSaving(false);

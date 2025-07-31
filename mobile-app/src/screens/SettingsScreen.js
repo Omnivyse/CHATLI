@@ -294,6 +294,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
         }}
       />
       <PrivacySettingsModal
+        key={showPrivacySettings ? 'open' : 'closed'}
         visible={showPrivacySettings}
         onClose={() => setShowPrivacySettings(false)}
         onSuccess={() => {
