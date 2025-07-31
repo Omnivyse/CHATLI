@@ -45,9 +45,15 @@ router.get('/', auth, async (req, res) => {
       .populate('author', 'name avatar isVerified');
     
     // Filter out posts with null authors first
-    posts = posts.filter(post => post.author !== null);
+    posts = posts.filter(post => {
+      if (!post.author) {
+        console.log('Found post with null author, skipping:', post._id);
+        return false;
+      }
+      return true;
+    });
     
-    // Get privacy settings for all post authors
+    // Get privacy settings for all post authors (only for posts with valid authors)
     const authorIds = [...new Set(posts.map(post => post.author._id))];
     const privacySettings = await PrivacySettings.find({ userId: { $in: authorIds } });
     const privacyMap = new Map(privacySettings.map(ps => [ps.userId.toString(), ps]));
@@ -59,12 +65,6 @@ router.get('/', auth, async (req, res) => {
     // Filter out posts from private users
     posts = posts.filter(post => {
       const author = post.author;
-      
-      // Skip posts from deleted users (shouldn't happen after first filter, but safety check)
-      if (!author) {
-        console.log('Found post with deleted author, skipping:', post._id);
-        return false;
-      }
       
       // Check privacy settings for the author
       const authorPrivacy = privacyMap.get(author._id.toString());
@@ -409,14 +409,33 @@ router.delete('/:postId/comments/:commentId', auth, async (req, res) => {
 router.get('/user/:userId', auth, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
-    if (!user) return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
-    if (user.privateProfile && !user._id.equals(req.user._id) && !user.followers.includes(req.user._id)) {
-      return res.status(403).json({ success: false, message: 'Энэ профайл хувийн байна' });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
     }
+    
+    // Check privacy settings for the user
+    const userPrivacy = await PrivacySettings.findOne({ userId: req.params.userId });
+    if (userPrivacy && userPrivacy.isPrivateAccount) {
+      // If user has private account, only allow access to themselves or followers
+      if (String(user._id) === String(req.user._id)) {
+        // User can always see their own posts
+      } else {
+        // Check if current user is following the user
+        const currentUser = await User.findById(req.user._id).select('following');
+        if (!currentUser || !currentUser.following || !currentUser.following.includes(user._id)) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Энэ хэрэглэгчийн постуудыг харахын тулд дагах шаардлагатай' 
+          });
+        }
+      }
+    }
+    
     const posts = await Post.find({ author: req.params.userId })
       .sort({ createdAt: -1 })
       .populate('author', 'name avatar isVerified')
       .populate('comments.author', 'name avatar isVerified');
+    
     res.json({ success: true, data: { posts } });
   } catch (error) {
     console.error('Get user posts error:', error);
