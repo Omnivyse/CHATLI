@@ -99,7 +99,7 @@ const EditProfileScreen = ({ navigation, user }) => {
             <Image source={{ uri: avatar }} style={[styles.avatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.background }]} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary, borderColor: colors.background }] }>
-              <Ionicons name="person" size={40} color={colors.textInverse} />
+              <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
             </View>
           )}
           <View style={[styles.avatarEditIcon, { backgroundColor: colors.primary, borderColor: colors.background }] }>
@@ -214,6 +214,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 3,
     borderWidth: 2,
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   uploadingOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -177,7 +177,7 @@ const TempClipsModal = ({
           <Image source={{ uri: item.author.avatar }} style={styles.avatar} />
         ) : (
           <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
-            <Ionicons name="person" size={16} color={colors.textSecondary} />
+            <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
           </View>
         )}
       </View>
@@ -347,54 +347,10 @@ const TempClipsModal = ({
                 </Text>
               </View>
             ) : (
-              <FlatList
-                data={comments}
-                renderItem={renderComment}
-                keyExtractor={(item) => item._id}
-                style={styles.commentsList}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                  <View style={styles.emptyComments}>
-                    <Ionicons name="chatbubble-outline" size={32} color={colors.textSecondary} />
-                    <Text style={[styles.emptyCommentsText, { color: colors.textSecondary }]}>
-                      No comments yet. Be the first to comment!
-                    </Text>
-                  </View>
-                }
-              />
-            )}
-
-            {/* Comment Input */}
-            <View style={[styles.commentInputContainer, { borderTopColor: colors.border }]}>
-              <View style={[styles.commentInputWrapper, { backgroundColor: colors.surfaceVariant }]}>
-                <TextInput
-                  style={[styles.commentInput, { color: colors.text }]}
-                  placeholder="Add a comment..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={commentText}
-                  onChangeText={setCommentText}
-                  multiline
-                  maxLength={500}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    { 
-                      backgroundColor: commentText.trim() ? colors.primary : colors.disabled,
-                      opacity: submitting ? 0.5 : 1
-                    }
-                  ]}
-                  onPress={submitComment}
-                  disabled={!commentText.trim() || submitting}
-                >
-                  <Ionicons 
-                    name="send" 
-                    size={20} 
-                    color={commentText.trim() ? colors.textInverse : colors.disabledText} 
-                  />
-                </TouchableOpacity>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+                <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
               </View>
-            </View>
+            )}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -555,6 +511,10 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   commentContent: {
     flex: 1,

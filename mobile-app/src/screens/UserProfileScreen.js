@@ -306,9 +306,7 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
               </TouchableOpacity>
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[styles.avatarText, { color: colors.text }]}>
-                  {profileUser.name?.charAt(0)?.toUpperCase() || 'U'}
-                </Text>
+                <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
               </View>
             )}
           </View>
@@ -622,6 +620,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 32,
     fontWeight: 'bold',
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   userName: {
     fontSize: 24,

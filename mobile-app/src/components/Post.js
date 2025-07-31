@@ -462,7 +462,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             </TouchableOpacity>
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
-              <Ionicons name="person" size={20} color={colors.textSecondary} />
+              <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
             </View>
           )}
           <View style={styles.userDetails}>
@@ -658,6 +658,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   userDetails: {
     flex: 1,

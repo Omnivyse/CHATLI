@@ -166,7 +166,7 @@ const NewChatModal = ({ user, onClose, onChatCreated }) => {
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center">
-                          <UserIcon className="w-5 h-5 text-secondary dark:text-secondary-dark" />
+                          <img src="/img/logo.png" alt="CHATLI Logo" className="w-5 h-5 object-contain" />
                         </div>
                       )}
                       {/* Online status indicator */}

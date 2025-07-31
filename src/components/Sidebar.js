@@ -160,7 +160,7 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
       return 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&h=150&fit=crop&crop=face';
     } else {
       const otherParticipant = chat.participants.find(p => p._id !== user._id);
-      return otherParticipant?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
+      return otherParticipant?.avatar || '/img/logo.png';
     }
   };
 
@@ -256,7 +256,7 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center">
-                      <UserIcon className="w-6 h-6 text-secondary dark:text-secondary-dark" />
+                      <img src="/img/logo.png" alt="CHATLI Logo" className="w-6 h-6 object-contain" />
                     </div>
                   )}
                   <div>

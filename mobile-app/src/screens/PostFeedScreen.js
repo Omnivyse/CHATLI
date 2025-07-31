@@ -501,7 +501,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         contentContainerStyle={posts.length === 0 ? styles.emptyListContainer : null}
       />
 
-      {/* Floating Action Button for Add Event */}
+      {/* Floating Action Button for Add Post/Event */}
       <TouchableOpacity 
         style={[
           styles.fab, 
@@ -516,7 +516,13 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
             elevation: 8
           }
         ]}
-        onPress={() => setShowEventModal(true)}
+        onPress={() => {
+          if (selectedFilter === 'Events') {
+            setShowEventModal(true);
+          } else {
+            navigation.navigate('CreatePost');
+          }
+        }}
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#000000" />

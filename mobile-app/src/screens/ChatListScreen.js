@@ -323,7 +323,7 @@ const ChatListScreen = ({ navigation, user }) => {
               style={[styles.newChatButton, { backgroundColor: colors.primary }]}
               onPress={() => navigation.navigate('UserSearch')}
             >
-              <Text style={[styles.newChatButtonText, { color: colors.textInverse }]}>Шинэ чат эхлэх</Text>
+              <Ionicons name="add" size={24} color={colors.textInverse} />
             </TouchableOpacity>
           )}
         </View>

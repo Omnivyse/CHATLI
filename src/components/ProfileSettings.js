@@ -221,7 +221,7 @@ const ProfileSettings = ({ user, onClose, onUpdate, onShowWelcome, onShowPrivacy
                 />
               ) : (
                 <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center border-4 border-border">
-                  <User className="w-12 h-12 text-secondary" />
+                  <img src="/img/logo.png" alt="CHATLI Logo" className="w-12 h-12 object-contain" />
                 </div>
               )}
               {isEditing && (
