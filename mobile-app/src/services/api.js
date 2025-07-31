@@ -546,7 +546,73 @@ class ApiService {
   async replyToMessage(chatId, messageId, content) {
     return this.request(`/chats/${chatId}/messages/${messageId}/reply`, {
       method: 'POST',
-      body: JSON.stringify(content),
+      body: JSON.stringify({ content })
+    });
+  }
+
+  // Event-related API functions
+  async getEvents() {
+    return this.request('/events');
+  }
+
+  async createEvent(eventData) {
+    const formData = new FormData();
+    
+    // Add text fields
+    formData.append('name', eventData.name);
+    formData.append('description', eventData.description);
+    formData.append('userNumber', eventData.userNumber.toString());
+    
+    // Add image file
+    if (eventData.image) {
+      const imageUri = eventData.image;
+      const filename = imageUri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      formData.append('image', {
+        uri: imageUri,
+        name: filename,
+        type
+      });
+    }
+
+    return this.request('/events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    });
+  }
+
+  async joinEvent(eventId) {
+    return this.request(`/events/${eventId}/join`, {
+      method: 'POST'
+    });
+  }
+
+  async likeEvent(eventId) {
+    return this.request(`/events/${eventId}/like`, {
+      method: 'POST'
+    });
+  }
+
+  async commentOnEvent(eventId, content) {
+    return this.request(`/events/${eventId}/comment`, {
+      method: 'POST',
+      body: JSON.stringify({ content })
+    });
+  }
+
+  async getEvent(eventId) {
+    return this.request(`/events/${eventId}`);
+  }
+
+  async deleteEvent(eventId) {
+    return this.request(`/events/${eventId}`, {
+      method: 'DELETE'
     });
   }
 }

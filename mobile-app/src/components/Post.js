@@ -28,7 +28,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
     return null;
   }
 
-  if (!user || typeof user !== 'object') {
+  // User prop can be undefined during initial render, so we'll handle it gracefully
+  if (user && typeof user !== 'object') {
     console.warn('Post component: Invalid user prop:', user);
     return null;
   }
@@ -54,7 +55,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
     !post.author ||
     typeof post.author !== 'object'
   ) {
-    return <Text>Invalid post data</Text>;
+    console.warn('Post component: Invalid post author:', post?.author);
+    return null;
   }
   
   // Update local post when post prop changes

@@ -179,7 +179,7 @@ function MainTabNavigator({ user, onLogout, onGoToVerification }) {
           paddingHorizontal: 12,
           paddingVertical: RNPlatform.OS === 'ios' ? 8 : 4,
         },
-        headerShown: false,
+        headerShown: false, // We're using custom headers in screens
       })}
     >
       <Tab.Screen name="Feed">
