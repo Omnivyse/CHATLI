@@ -11,7 +11,7 @@ class EmailService {
   initializeTransporter() {
     try {
       // Use Gmail SMTP (you can change this to other providers)
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER, // Your Gmail address
@@ -176,6 +176,7 @@ CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны �
         console.log('📧 Email service not available, logging instead');
         console.log('📧 Verification email would be sent to:', email);
         console.log('📧 Verification code:', verificationCode);
+        console.log('📧 User can use this code for testing:', verificationCode);
         return { success: true, message: 'Email logged (service not configured)' };
       }
       
@@ -194,6 +195,11 @@ CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны �
       
     } catch (error) {
       console.error('❌ Error sending verification email:', error);
+      
+      // Temporary workaround: Log the code for testing
+      console.log('📧 TEMPORARY: Verification code for testing:', verificationCode);
+      console.log('📧 User can use this code to verify their account');
+      
       return { success: false, error: error.message };
     }
   }
