@@ -44,6 +44,9 @@ router.get('/', auth, async (req, res) => {
       .sort({ createdAt: -1 })
       .populate('author', 'name avatar isVerified');
     
+    // Filter out posts with null authors first
+    posts = posts.filter(post => post.author !== null);
+    
     // Get privacy settings for all post authors
     const authorIds = [...new Set(posts.map(post => post.author._id))];
     const privacySettings = await PrivacySettings.find({ userId: { $in: authorIds } });
@@ -53,11 +56,11 @@ router.get('/', auth, async (req, res) => {
     const currentUser = await User.findById(req.user._id).select('following');
     const followingIds = currentUser ? currentUser.following.map(id => id.toString()) : [];
     
-    // Filter out posts from deleted users and private users
+    // Filter out posts from private users
     posts = posts.filter(post => {
       const author = post.author;
       
-      // Skip posts from deleted users
+      // Skip posts from deleted users (shouldn't happen after first filter, but safety check)
       if (!author) {
         console.log('Found post with deleted author, skipping:', post._id);
         return false;
@@ -114,6 +117,11 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
     }
     
+    // Check if post has a valid author
+    if (!post.author) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
     // Check if post author has private profile
     const authorPrivacy = await PrivacySettings.findOne({ userId: post.author._id });
     if (authorPrivacy && authorPrivacy.isPrivateAccount) {
@@ -155,6 +163,11 @@ router.post('/:id/comment', auth, [
     
     const post = await Post.findById(req.params.id).populate('author', 'name avatar isVerified');
     if (!post) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
+    // Check if post has a valid author
+    if (!post.author) {
       return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
     }
     
@@ -223,6 +236,11 @@ router.post('/:id/like', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id).populate('author', 'name avatar isVerified');
     if (!post) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
+    // Check if post has a valid author
+    if (!post.author) {
       return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
     }
     
