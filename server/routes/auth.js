@@ -237,7 +237,8 @@ router.post('/login', [
     }
 
     // Check if email is verified
-    if (!user.emailVerified) {
+    // For existing users who registered before email verification system, auto-verify them
+    if (user.emailVerified === false) {
       return res.status(403).json({
         success: false,
         message: 'Имэйл хаягаа баталгаажуулна уу. Имэйл хаягаа шалгаж баталгаажуулах холбоосыг дарна уу.',
@@ -246,6 +247,13 @@ router.post('/login', [
           email: user.email
         }
       });
+    }
+    
+    // If emailVerified is undefined (old users), set it to true and continue
+    if (user.emailVerified === undefined) {
+      user.emailVerified = true;
+      await user.save();
+      console.log(`Auto-verified existing user: ${user.email}`);
     }
 
     // Update last seen and status

@@ -212,19 +212,25 @@ class ApiService {
   // Email verification methods
   async verifyEmail(code, email) {
     try {
+      console.log('🔐 Verifying email with code:', code, 'for email:', email);
       const response = await this.request('/auth/verify-email', {
         method: 'POST',
         body: JSON.stringify({ code, email })
       });
       
+      console.log('📧 Email verification response:', response);
+      
       // If verification successful, set the token for automatic login
       if (response.success && response.data.token) {
+        console.log('✅ Setting token after successful verification');
         await this.setToken(response.data.token);
+      } else {
+        console.log('❌ No token in verification response');
       }
       
       return response;
     } catch (error) {
-      console.error('Email verification error:', error);
+      console.error('❌ Email verification error:', error);
       throw error;
     }
   }

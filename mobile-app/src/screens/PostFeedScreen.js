@@ -459,6 +459,39 @@ const PostFeedScreen = ({ user, navigation }) => {
         </View>
       )}
       
+      {/* Email Verification Banner */}
+      {user && !user.emailVerified && (
+        <View style={[styles.emailVerificationBanner, { 
+          backgroundColor: colors.warning || '#FFA726',
+          borderColor: colors.warningBorder || '#FF9800'
+        }]}>
+          <View style={styles.emailVerificationContent}>
+            <Ionicons 
+              name="mail-unread" 
+              size={20} 
+              color={colors.textInverse || '#FFFFFF'} 
+            />
+            <View style={styles.emailVerificationText}>
+              <Text style={[styles.emailVerificationTitle, { color: colors.textInverse || '#FFFFFF' }]}>
+                Имэйл хаягаа баталгаажуулна уу
+              </Text>
+              <Text style={[styles.emailVerificationSubtitle, { color: colors.textInverse || '#FFFFFF' }]}>
+                Бүрэн функцүүдийг ашиглахын тулд имэйл хаягаа баталгаажуулна уу
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.emailVerificationButton, { backgroundColor: colors.textInverse || '#FFFFFF' }]}
+            onPress={() => navigation.navigate('EmailVerification', { email: user.email })}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.emailVerificationButtonText, { color: colors.warning || '#FFA726' }]}>
+              Баталгаажуулах
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
       <ScrollView
         style={[styles.scrollView, { backgroundColor: colors.background }]}
         contentContainerStyle={[styles.scrollContent, {
@@ -671,6 +704,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  emailVerificationBanner: {
+    marginHorizontal: 20,
+    marginVertical: 10,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emailVerificationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  emailVerificationText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  emailVerificationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  emailVerificationSubtitle: {
+    fontSize: 14,
+    opacity: 0.9,
+  },
+  emailVerificationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  emailVerificationButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

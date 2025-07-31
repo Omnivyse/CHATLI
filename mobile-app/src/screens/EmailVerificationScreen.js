@@ -17,7 +17,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 import api from '../services/api';
 
-const EmailVerificationScreen = ({ navigation, route }) => {
+const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,8 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const [countdown, setCountdown] = useState(0);
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '']);
   const [codeError, setCodeError] = useState('');
+  const [useTextArea, setUseTextArea] = useState(false);
+  const [textAreaCode, setTextAreaCode] = useState('');
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -75,8 +77,22 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleVerification = async () => {
-    const code = verificationCode.join('');
+  const handleTextAreaChange = (text) => {
+    // Only allow numbers and limit to 5 digits
+    const numericText = text.replace(/[^0-9]/g, '');
+    if (numericText.length <= 5) {
+      setTextAreaCode(numericText);
+      setCodeError('');
+      
+      // Auto-submit when 5 digits are entered
+      if (numericText.length === 5) {
+        handleVerification(numericText);
+      }
+    }
+  };
+
+  const handleVerification = async (codeFromTextArea = null) => {
+    const code = codeFromTextArea || verificationCode.join('');
     if (code.length !== 5) {
       setCodeError('5 оронтой код оруулна уу');
       return;
@@ -94,11 +110,16 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             {
               text: 'OK',
               onPress: () => {
-                // Navigate to main app
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Main' }],
-                });
+                // Call onLogin with the verified user data
+                if (onLogin && response.data.user) {
+                  onLogin(response.data.user, { isNewUser: true });
+                } else {
+                  // Fallback to login screen
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }],
+                  });
+                }
               },
             },
           ]
@@ -192,33 +213,67 @@ const EmailVerificationScreen = ({ navigation, route }) => {
 
           {/* Verification Code Input */}
           <View style={styles.codeContainer}>
-            <Text style={[styles.codeLabel, { color: colors.text }]}>
-              5 оронтой код оруулна уу
-            </Text>
-            
-            <View style={styles.codeInputContainer}>
-              {verificationCode.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => (inputRefs.current[index] = ref)}
-                  style={[
-                    styles.codeInput,
-                    { 
-                      backgroundColor: colors.surface,
-                      borderColor: codeError ? colors.error : colors.border,
-                      color: colors.text
-                    }
-                  ]}
-                  value={digit}
-                  onChangeText={(text) => handleCodeChange(text, index)}
-                  onKeyPress={(e) => handleKeyPress(e, index)}
-                  keyboardType="numeric"
-                  maxLength={1}
-                  selectTextOnFocus
-                  editable={!loading}
-                />
-              ))}
+            <View style={styles.codeInputHeader}>
+              <Text style={[styles.codeLabel, { color: colors.text }]}>
+                5 оронтой код оруулна уу
+              </Text>
+              <TouchableOpacity
+                style={[styles.toggleButton, { backgroundColor: colors.surfaceVariant }]}
+                onPress={() => setUseTextArea(!useTextArea)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.toggleButtonText, { color: colors.text }]}>
+                  {useTextArea ? 'Цэгүүд' : 'Текст'}
+                </Text>
+              </TouchableOpacity>
             </View>
+            
+            {useTextArea ? (
+              <TextInput
+                style={[
+                  styles.textAreaInput,
+                  { 
+                    backgroundColor: colors.surface,
+                    borderColor: codeError ? colors.error : colors.border,
+                    color: colors.text
+                  }
+                ]}
+                value={textAreaCode}
+                onChangeText={handleTextAreaChange}
+                placeholder="12345"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="numeric"
+                maxLength={5}
+                selectTextOnFocus
+                editable={!loading}
+                textAlign="center"
+                autoFocus
+              />
+            ) : (
+              <View style={styles.codeInputContainer}>
+                {verificationCode.map((digit, index) => (
+                  <TextInput
+                    key={index}
+                    ref={(ref) => (inputRefs.current[index] = ref)}
+                    style={[
+                      styles.codeInput,
+                      { 
+                        backgroundColor: colors.surface,
+                        borderColor: codeError ? colors.error : colors.border,
+                        color: colors.text
+                      }
+                    ]}
+                    value={digit}
+                    onChangeText={(text) => handleCodeChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    keyboardType="numeric"
+                    maxLength={1}
+                    selectTextOnFocus
+                    editable={!loading}
+                  />
+                ))}
+              </View>
+            )}
             
             {codeError ? (
               <Text style={[styles.errorText, { color: colors.error }]}>
@@ -493,6 +548,31 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+  },
+  codeInputHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  toggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  toggleButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  textAreaInput: {
+    height: 50,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 2,
   },
 });
 

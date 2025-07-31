@@ -236,7 +236,7 @@ function AuthStackNavigator({ onLogin }) {
         name="EmailVerification" 
         options={{ headerShown: false }}
       >
-        {(props) => <EmailVerificationScreen {...props} />}
+        {(props) => <EmailVerificationScreen {...props} onLogin={onLogin} />}
       </Stack.Screen>
     </Stack.Navigator>
   );

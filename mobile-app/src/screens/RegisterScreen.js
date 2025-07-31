@@ -93,10 +93,17 @@ const RegisterScreen = ({ navigation, onLogin }) => {
           text2: 'Имэйл хаягаа шалгаж баталгаажуулна уу',
         });
         
-        // Navigate to email verification screen
-        navigation.navigate('EmailVerification', {
-          email: formData.email
-        });
+        // For new users, go directly to main app and show verification banner
+        // The user will see the verification banner in the feed
+        if (onLogin && response.data.user) {
+          onLogin(response.data.user, { isNewUser: true });
+        } else {
+          // Fallback to login screen
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }
       } else {
         Toast.show({
           type: 'error',
