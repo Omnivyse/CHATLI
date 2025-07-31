@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Post = require('../models/Post');
 const User = require('../models/User');
+const PrivacySettings = require('../models/PrivacySettings');
 const { auth, optionalAuth } = require('../middleware/auth');
 const Notification = require('../models/Notification');
 const { deleteMultipleFiles } = require('../config/cloudinary');
@@ -41,7 +42,16 @@ router.get('/', auth, async (req, res) => {
   try {
     let posts = await Post.find()
       .sort({ createdAt: -1 })
-      .populate('author', 'name avatar privateProfile followers isVerified');
+      .populate('author', 'name avatar isVerified');
+    
+    // Get privacy settings for all post authors
+    const authorIds = [...new Set(posts.map(post => post.author._id))];
+    const privacySettings = await PrivacySettings.find({ userId: { $in: authorIds } });
+    const privacyMap = new Map(privacySettings.map(ps => [ps.userId.toString(), ps]));
+    
+    // Get current user's following list
+    const currentUser = await User.findById(req.user._id).select('following');
+    const followingIds = currentUser ? currentUser.following.map(id => id.toString()) : [];
     
     // Filter out posts from deleted users and private users
     posts = posts.filter(post => {
@@ -53,10 +63,17 @@ router.get('/', auth, async (req, res) => {
         return false;
       }
       
-      // Skip private posts unless requester is a follower or the user themselves
-      if (author.privateProfile) {
+      // Check privacy settings for the author
+      const authorPrivacy = privacyMap.get(author._id.toString());
+      if (authorPrivacy && authorPrivacy.isPrivateAccount) {
+        // If author has private account, only show to themselves or followers
         if (String(author._id) === String(req.user._id)) return true;
-        if (Array.isArray(author.followers) && author.followers.map(id => String(id)).includes(String(req.user._id))) return true;
+        
+        // Check if current user is following the author
+        if (followingIds.includes(author._id.toString())) {
+          return true;
+        }
+        
         return false;
       }
       
@@ -92,7 +109,33 @@ router.get('/:id', auth, async (req, res) => {
     const post = await Post.findById(req.params.id)
       .populate('author', 'name avatar isVerified')
       .populate('comments.author', 'name avatar isVerified');
-    if (!post) return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
+    // Check if post author has private profile
+    const authorPrivacy = await PrivacySettings.findOne({ userId: post.author._id });
+    if (authorPrivacy && authorPrivacy.isPrivateAccount) {
+      // If author has private account, only allow access to themselves or followers
+      if (String(post.author._id) === String(req.user._id)) {
+        // Post author can always see their own posts
+        return res.json({ success: true, data: { post } });
+      }
+      
+      // Check if current user is following the author
+      const currentUser = await User.findById(req.user._id).select('following');
+      if (currentUser && currentUser.following && currentUser.following.includes(post.author._id)) {
+        return res.json({ success: true, data: { post } });
+      }
+      
+      // User is not following and post is private
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Энэ хэрэглэгчийн постуудыг харахын тулд дагах шаардлагатай' 
+      });
+    }
+    
     res.json({ success: true, data: { post } });
   } catch (error) {
     console.error('Get post error:', error);
@@ -109,8 +152,30 @@ router.post('/:id/comment', auth, [
     if (!errors.isEmpty()) {
       return res.status(400).json({ success: false, message: 'Оролтын алдаа', errors: errors.array() });
     }
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    
+    const post = await Post.findById(req.params.id).populate('author', 'name avatar isVerified');
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
+    // Check if post author has private profile and commenter is not following
+    const authorPrivacy = await PrivacySettings.findOne({ userId: post.author._id });
+    if (authorPrivacy && authorPrivacy.isPrivateAccount) {
+      // If author has private account, only followers can comment
+      if (String(post.author._id) === String(req.user._id)) {
+        // Post author can always comment on their own posts
+      } else {
+        // Check if current user is following the author
+        const currentUser = await User.findById(req.user._id).select('following');
+        if (!currentUser || !currentUser.following || !currentUser.following.includes(post.author._id)) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Энэ хэрэглэгчийн пост дээр сэтгэгдэл бичихийн тулд дагах шаардлагатай' 
+          });
+        }
+      }
+    }
+    
     const comment = {
       author: req.user._id,
       content: req.body.content
@@ -118,10 +183,11 @@ router.post('/:id/comment', auth, [
     post.comments.push(comment);
     await post.save();
     await post.populate('comments.author', 'name avatar isVerified');
+    
     // Create notification for post author (if not self)
-    if (String(post.author) !== String(req.user._id)) {
+    if (String(post.author._id) !== String(req.user._id)) {
       await Notification.create({
-        user: post.author,
+        user: post.author._id,
         type: 'comment',
         post: post._id,
         from: req.user._id,
@@ -130,7 +196,7 @@ router.post('/:id/comment', auth, [
 
       // Send push notification
       try {
-        const postAuthor = await User.findById(post.author);
+        const postAuthor = await User.findById(post.author._id);
         if (postAuthor && postAuthor.pushToken) {
           await pushNotificationService.sendCommentNotification(
             postAuthor.pushToken,
@@ -144,6 +210,7 @@ router.post('/:id/comment', auth, [
         console.error('Push notification error for comment:', pushError);
       }
     }
+    
     res.json({ success: true, message: 'Сэтгэгдэл нэмэгдлээ', data: { comments: post.comments } });
   } catch (error) {
     console.error('Add comment error:', error);
@@ -154,42 +221,69 @@ router.post('/:id/comment', auth, [
 // Like/unlike a post
 router.post('/:id/like', auth, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    const post = await Post.findById(req.params.id).populate('author', 'name avatar isVerified');
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
+    // Check if post author has private profile and liker is not following
+    const authorPrivacy = await PrivacySettings.findOne({ userId: post.author._id });
+    if (authorPrivacy && authorPrivacy.isPrivateAccount) {
+      // If author has private account, only followers can like
+      if (String(post.author._id) === String(req.user._id)) {
+        // Post author can always like their own posts
+      } else {
+        // Check if current user is following the author
+        const currentUser = await User.findById(req.user._id).select('following');
+        if (!currentUser || !currentUser.following || !currentUser.following.includes(post.author._id)) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Энэ хэрэглэгчийн пост дээр лайк хийхийн тулд дагах шаардлагатай' 
+          });
+        }
+      }
+    }
+    
     const userId = req.user._id;
     const liked = post.likes.includes(userId);
     if (liked) {
       post.likes.pull(userId);
     } else {
       post.likes.push(userId);
-      // Create notification for post author (if not self)
-      if (String(post.author) !== String(userId)) {
-        await Notification.create({
-          user: post.author,
-          type: 'like',
-          post: post._id,
-          from: userId,
-          message: `${req.user.name} таны постыг лайк дарлаа.`
-        });
-
-        // Send push notification
-        try {
-          const postAuthor = await User.findById(post.author);
-          if (postAuthor && postAuthor.pushToken) {
-            await pushNotificationService.sendLikeNotification(
-              postAuthor.pushToken,
-              req.user.name,
-              post._id.toString(),
-              post.content
-            );
-          }
-        } catch (pushError) {
-          console.error('Push notification error for like:', pushError);
-        }
-      }
     }
     await post.save();
-    res.json({ success: true, message: liked ? 'Лайк устлаа' : 'Лайк нэмэгдлээ', data: { likes: post.likes } });
+    
+    // Create notification for post author (if not self and liking)
+    if (!liked && String(post.author._id) !== String(req.user._id)) {
+      await Notification.create({
+        user: post.author._id,
+        type: 'like',
+        post: post._id,
+        from: req.user._id,
+        message: `${req.user.name} таны пост дээр лайк хийлээ.`
+      });
+
+      // Send push notification
+      try {
+        const postAuthor = await User.findById(post.author._id);
+        if (postAuthor && postAuthor.pushToken) {
+          await pushNotificationService.sendLikeNotification(
+            postAuthor.pushToken,
+            req.user.name,
+            post._id.toString(),
+            post.content
+          );
+        }
+      } catch (pushError) {
+        console.error('Push notification error for like:', pushError);
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: liked ? 'Лайк хаслаа' : 'Лайк хийлээ', 
+      data: { likes: post.likes, liked: !liked } 
+    });
   } catch (error) {
     console.error('Like post error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
