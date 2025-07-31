@@ -493,12 +493,16 @@ const ChatScreen = ({ navigation, route, user }) => {
         ]}
       >
         {!isMyMessage && (
-          <Image
-            source={{ 
-              uri: message.sender.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-            }}
-            style={[styles.senderAvatar, { backgroundColor: colors.surfaceVariant }]}
-          />
+          message.sender?.avatar ? (
+            <Image
+              source={{ uri: message.sender.avatar }}
+              style={[styles.senderAvatar, { backgroundColor: colors.surfaceVariant }]}
+            />
+          ) : (
+            <View style={[styles.senderAvatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
+              <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+            </View>
+          )
         )}
         
         {/* Display reactions before message bubble for sent messages */}
@@ -963,6 +967,16 @@ const styles = StyleSheet.create({
   },
   reactionCount: {
     fontSize: 12,
+  },
+  messageAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
 });
 

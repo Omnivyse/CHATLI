@@ -164,12 +164,16 @@ const UserSearchScreen = ({ navigation, user }) => {
           });
         }}
       >
-        <Image
-          source={{ 
-            uri: targetUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-          }}
-          style={styles.avatar}
-        />
+        {targetUser.avatar ? (
+          <Image
+            source={{ uri: targetUser.avatar }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
+            <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+          </View>
+        )}
         
         <View style={styles.userInfo}>
           <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
@@ -231,12 +235,16 @@ const UserSearchScreen = ({ navigation, user }) => {
         }}
         disabled={isLoading}
       >
-        <Image
-          source={{ 
-            uri: targetUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-          }}
-          style={[styles.followingAvatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.border, borderWidth: 1 }]}
-        />
+        {targetUser.avatar ? (
+          <Image
+            source={{ uri: targetUser.avatar }}
+            style={[styles.followingAvatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.border, borderWidth: 1 }]}
+          />
+        ) : (
+          <View style={[styles.followingAvatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.border, borderWidth: 1, justifyContent: 'center', alignItems: 'center' }]}>
+            <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+          </View>
+        )}
         
         <View style={styles.followingInfo}>
           <Text style={[styles.followingName, { color: colors.text }]} numberOfLines={1}>
@@ -499,6 +507,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#f0f0f0',
     marginRight: 12,
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   userInfo: {
     flex: 1,

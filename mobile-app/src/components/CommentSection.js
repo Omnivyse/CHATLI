@@ -167,12 +167,16 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
 
   const renderComment = ({ item }) => (
     <View style={[styles.commentItem, { borderBottomColor: colors.border }]}>
-      <Image
-        source={{ 
-          uri: item.author?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-        }}
-        style={styles.commentAvatar}
-      />
+      {item.author?.avatar ? (
+        <Image
+          source={{ uri: item.author.avatar }}
+          style={styles.commentAvatar}
+        />
+      ) : (
+        <View style={[styles.commentAvatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
+          <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+        </View>
+      )}
       <View style={styles.commentContent}>
         <View style={styles.commentHeader}>
           <Text style={[styles.commentAuthor, { color: colors.text }]}>
@@ -363,6 +367,10 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     marginRight: 12,
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   commentContent: {
     flex: 1,

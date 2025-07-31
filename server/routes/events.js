@@ -52,9 +52,8 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     // Handle image upload
     let imageUrl = 'https://via.placeholder.com/400x200?text=Event+Image';
     if (req.file) {
-      // For now, we'll use a placeholder since we're using memory storage
-      // In production, you'd upload to Cloudinary or another service
-      imageUrl = 'https://via.placeholder.com/400x200?text=Event+Image';
+      // Use the Cloudinary URL from the uploaded file
+      imageUrl = req.file.path;
     }
 
     const event = new Event({

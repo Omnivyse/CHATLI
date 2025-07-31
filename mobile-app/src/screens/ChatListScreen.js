@@ -123,7 +123,7 @@ const ChatListScreen = ({ navigation, user }) => {
       return 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&h=150&fit=crop&crop=face';
     } else {
       const otherParticipant = chat.participants.find(p => p._id !== user._id);
-      return otherParticipant?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
+      return otherParticipant?.avatar || require('../../assets/logo.png');
     }
   };
 
@@ -217,10 +217,23 @@ const ChatListScreen = ({ navigation, user }) => {
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        <Image 
-          source={{ uri: getChatAvatar(chat) }}
-          style={[styles.avatar, { backgroundColor: colors.surfaceVariant }]}
-        />
+        {(() => {
+          const avatarUrl = getChatAvatar(chat);
+          if (avatarUrl && avatarUrl.startsWith('http')) {
+            return (
+              <Image 
+                source={{ uri: avatarUrl }}
+                style={[styles.avatar, { backgroundColor: colors.surfaceVariant }]}
+              />
+            );
+          } else {
+            return (
+              <View style={[styles.avatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
+                <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+              </View>
+            );
+          }
+        })()}
         {chat.type === 'direct' && (() => {
           const otherParticipant = chat.participants.find(p => p._id !== user._id);
           const isOnline = otherParticipant?.status === 'online';
@@ -439,6 +452,10 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: '#f8fafc',
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   onlineIndicator: {
     position: 'absolute',

@@ -750,10 +750,16 @@ const ClipsScreen = ({ navigation, user, route }) => {
             {/* Bottom Info - positioned at bottom */}
             <View style={styles.bottomInfo}>
               <View style={styles.publisherRow}>
-                <Image
-                  source={{ uri: item.author.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' }}
-                  style={styles.userAvatar}
-                />
+                {item.author?.avatar ? (
+                  <Image
+                    source={{ uri: item.author.avatar }}
+                    style={styles.userAvatar}
+                  />
+                ) : (
+                  <View style={[styles.userAvatar, { backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }]}>
+                    <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+                  </View>
+                )}
                 <View style={styles.publisherDetails}>
                   <View style={styles.publisherNameRow}>
                     <Text style={styles.userName}>{safeText(item.author?.name || 'Unknown')}</Text>
@@ -1280,6 +1286,10 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#ccc',
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
 });
 

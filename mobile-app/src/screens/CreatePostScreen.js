@@ -297,12 +297,16 @@ const CreatePostScreen = ({ navigation, user }) => {
           >
             {/* User Info */}
             <View style={styles.userSection}>
-              <Image
-                source={{
-                  uri: user.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-                }}
-                style={styles.userAvatar}
-              />
+              {user.avatar ? (
+                <Image
+                  source={{ uri: user.avatar }}
+                  style={styles.userAvatar}
+                />
+              ) : (
+                <View style={[styles.userAvatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
+                  <Image source={require('../../assets/logo.png')} style={styles.userAvatarLogo} resizeMode="contain" />
+                </View>
+              )}
               <View style={styles.userInfo}>
                 <Text style={[styles.userName, { color: colors.text }]}>
           {user.name && typeof user.name === 'string' ? user.name : 'Unknown User'}
@@ -458,6 +462,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#f0f0f0',
     marginRight: 12,
+  },
+  userAvatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   userInfo: {
     flex: 1,

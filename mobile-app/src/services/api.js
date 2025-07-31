@@ -579,10 +579,6 @@ class ApiService {
 
     return this.request('/events', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${this.token}`
-      },
       body: formData
     });
   }
