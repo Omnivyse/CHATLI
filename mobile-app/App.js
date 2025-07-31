@@ -524,6 +524,7 @@ export default function App() {
           onSplashComplete={handleSplashComplete}
           showVerificationBanner={showVerificationBanner}
           showVerificationModal={showVerificationModal}
+          setShowVerificationModal={setShowVerificationModal}
           onVerificationSuccess={handleVerificationSuccess}
           onGoToVerification={handleGoToVerification}
           onCancelVerification={handleCancelVerification}
@@ -541,6 +542,7 @@ function AppContent({
   onSplashComplete,
   showVerificationBanner,
   showVerificationModal,
+  setShowVerificationModal,
   onVerificationSuccess,
   onGoToVerification,
   onCancelVerification
