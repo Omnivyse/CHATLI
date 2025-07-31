@@ -301,6 +301,31 @@ class ApiService {
     }
   }
 
+  async getPrivacySettings() {
+    try {
+      const response = await this.request('/auth/privacy-settings', {
+        method: 'GET'
+      });
+      return response;
+    } catch (error) {
+      console.error('Get privacy settings error:', error);
+      throw error;
+    }
+  }
+
+  async updatePrivacySettings(settings) {
+    try {
+      const response = await this.request('/auth/privacy-settings', {
+        method: 'PUT',
+        body: JSON.stringify(settings)
+      });
+      return response;
+    } catch (error) {
+      console.error('Update privacy settings error:', error);
+      throw error;
+    }
+  }
+
   async getCurrentUser() {
     try {
       return await this.request('/auth/me');

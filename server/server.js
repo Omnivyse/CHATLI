@@ -21,6 +21,7 @@ const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 const eventRoutes = require('./routes/events');
+const userRoutes = require('./routes/user');
 
 // Import models
 const User = require('./models/User');
@@ -177,6 +178,16 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/user', userRoutes);
+
+// Test route to verify user routes are loaded
+app.get('/api/user-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'User routes test endpoint',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 import ThemeToggle from '../components/ThemeToggle';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import PrivacySettingsModal from '../components/PrivacySettingsModal';
 
 const SettingsScreen = ({ navigation, user, onLogout }) => {
   const { theme, toggleTheme } = useTheme();
@@ -23,6 +24,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
   const [autoDownload, setAutoDownload] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showPrivacySettings, setShowPrivacySettings] = useState(false);
 
   const settingsSections = [
     {
@@ -104,6 +106,15 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           type: 'arrow',
           onPress: () => {
             setShowChangePassword(true);
+          },
+        },
+        {
+          icon: 'shield-checkmark-outline',
+          title: 'Нууцлалын тохиргоо',
+          subtitle: 'Профайл болон контентын нууцлал',
+          type: 'arrow',
+          onPress: () => {
+            setShowPrivacySettings(true);
           },
         },
         {
@@ -280,6 +291,18 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
             text2: 'Нууц үгээ шинэчлэх амжилттай.',
           });
           setShowChangePassword(false);
+        }}
+      />
+      <PrivacySettingsModal
+        visible={showPrivacySettings}
+        onClose={() => setShowPrivacySettings(false)}
+        onSuccess={() => {
+          Toast.show({
+            type: 'success',
+            text1: 'Нууцлалын тохиргоо амжилттай',
+            text2: 'Нууцлалын тохиргоо шинэчлэх амжилттай.',
+          });
+          setShowPrivacySettings(false);
         }}
       />
     </SafeAreaView>
