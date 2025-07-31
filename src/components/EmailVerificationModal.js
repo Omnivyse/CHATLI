@@ -83,7 +83,6 @@ const EmailVerificationModal = ({
       const response = await apiService.verifyEmail(code, user.email);
       
       if (response.success) {
-        alert('Имэйл хаяг амжилттай баталгаажлаа!');
         onVerificationSuccess(response.data.user);
         onClose();
       } else {
@@ -107,7 +106,6 @@ const EmailVerificationModal = ({
       const response = await apiService.resendVerificationEmail(user.email);
       
       if (response.success) {
-        alert('Баталгаажуулах имэйл дахин илгээгдлээ');
         setCountdown(60); // Start countdown
         setVerificationCode(['', '', '', '', '']);
         setTextAreaCode('');
