@@ -36,18 +36,27 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     try {
       setError(null);
       
+      console.log('🔍 FetchPosts - User state:', {
+        userExists: !!user,
+        emailVerified: user?.emailVerified,
+        userId: user?._id
+      });
+      
       // If user is not verified, don't fetch posts to avoid auth errors
       if (user && !user.emailVerified) {
+        console.log('⚠️ User not verified, skipping posts fetch');
         setPosts([]);
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
+      console.log('📡 Fetching posts...');
       const response = await apiService.getPosts(pageNum);
       
       if (response.success) {
         const newPosts = response.data.posts || [];
+        console.log('✅ Posts fetched successfully:', newPosts.length, 'posts');
         
         if (isRefresh || pageNum === 1) {
           setPosts(newPosts);
@@ -58,6 +67,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         setHasMore(newPosts.length > 0);
         setPage(pageNum);
       } else {
+        console.log('❌ Posts fetch failed:', response.message);
         setError(response.message || 'Постуудыг ачаалахад алдаа гарлаа');
       }
     } catch (error) {
@@ -82,7 +92,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
 
   useEffect(() => {
     fetchPosts();
-  }, [user]);
+  }, [user, user?.emailVerified]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -158,70 +168,52 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
   );
 
   const renderEmptyState = () => {
-    if (user && !user.emailVerified) {
-      return (
-        <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-          <Ionicons name="mail-unread" size={64} color={colors.primary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Имэйл хаягаа баталгаажуулна уу
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Постуудыг харахын тулд имэйл хаягаа баталгаажуулна уу
-          </Text>
-          <TouchableOpacity
-            style={[styles.verifyButton, { backgroundColor: colors.primary }]}
-            onPress={() => onGoToVerification && onGoToVerification()}
-          >
-            <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>
-              Баталгаажуулах
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     if (loading) {
       return (
-        <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Постуудыг ачаалж байна...
-          </Text>
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.emptyText}>Постуудыг ачаалж байна...</Text>
         </View>
       );
     }
 
     if (error) {
       return (
-        <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-          <Ionicons name="alert-circle" size={64} color={colors.error} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Алдаа гарлаа
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            {error}
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={handleRefresh}
-          >
-            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>
-              Дахин оролдох
-            </Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>Дахин оролдох</Text>
           </TouchableOpacity>
         </View>
       );
     }
 
+    // Show different messages based on user verification status
+    if (user && !user.emailVerified) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Имэйл хаягаа баталгаажуулна уу</Text>
+          <Text style={styles.emptySubtext}>Постуудыг харахын тулд имэйл хаягаа баталгаажуулна уу</Text>
+        </View>
+      );
+    }
+
+    // Show welcome message for new users or when no posts exist
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-        <Ionicons name="document-text" size={64} color={colors.textSecondary} />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-          Пост байхгүй байна
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>Тавтай морил!</Text>
+        <Text style={styles.emptySubtext}>
+          {posts.length === 0 
+            ? 'Одоогоор постууд байхгүй байна. Эхний постоо үүсгэж эхлээрэй!' 
+            : 'Постуудыг харахын тулд дээрээс доош чирнэ үү'
+          }
         </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          Эхний пост үүсгэж эхлээрэй
-        </Text>
+        <TouchableOpacity 
+          style={styles.createPostButton} 
+          onPress={() => navigation.navigate('CreatePost')}
+        >
+          <Text style={styles.createPostButtonText}>Пост үүсгэх</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -316,6 +308,37 @@ const styles = StyleSheet.create({
   loadingMoreText: {
     marginTop: 8,
     fontSize: 14,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  createPostButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  createPostButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF0000',
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });
 

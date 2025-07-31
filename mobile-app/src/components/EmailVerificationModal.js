@@ -54,23 +54,26 @@ const EmailVerificationModal = ({
   }, [visible]);
 
   const handleCodeChange = (text, index) => {
-    if (text.length > 1) {
-      text = text[0];
-    }
-
+    // Only allow single digits
+    const digit = text.replace(/[^0-9]/g, '').slice(0, 1);
+    
     const newCode = [...verificationCode];
-    newCode[index] = text;
+    newCode[index] = digit;
     setVerificationCode(newCode);
     setError('');
 
-    // Auto-focus next input
-    if (text && index < 4) {
-      inputRefs.current[index + 1]?.focus();
+    // Auto-focus next input if digit entered
+    if (digit && index < 4) {
+      setTimeout(() => {
+        inputRefs.current[index + 1]?.focus();
+      }, 100);
     }
 
     // Auto-submit when all digits are entered
-    if (index === 4 && text && newCode.every(digit => digit !== '')) {
-      handleVerification();
+    if (index === 4 && digit && newCode.every(d => d !== '')) {
+      setTimeout(() => {
+        handleVerification();
+      }, 200);
     }
   };
 
