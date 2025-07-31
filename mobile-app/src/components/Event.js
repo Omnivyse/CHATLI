@@ -30,6 +30,14 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
 
   // Check if current user is the event creator
   const isEventCreator = event.author?._id === user?._id || event.author === user?._id;
+  
+  // Debug logging
+  console.log('🔍 Kick Button Debug:');
+  console.log('Event author ID:', event.author?._id);
+  console.log('Current user ID:', user?._id);
+  console.log('Is event creator:', isEventCreator);
+  console.log('Event author:', event.author);
+  console.log('Current user:', user);
 
   // Check if user is already joined when component loads
   useEffect(() => {
@@ -258,6 +266,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
           <Ionicons name="close-circle" size={20} color="#ffffff" />
         </TouchableOpacity>
       )}
+      {!isEventCreator && console.log('❌ Kick button not shown - not event creator')}
     </TouchableOpacity>
   );
 

@@ -71,7 +71,14 @@ function App() {
         if (token) {
           const response = await api.getCurrentUser();
           if (response.success) {
-            setUser(response.data.user);
+            const userData = response.data.user;
+            setUser(userData);
+            
+            // Show verification banner if user is not verified
+            if (userData && !userData.emailVerified) {
+              setShowVerificationBanner(true);
+            }
+            
             // Connect to socket
             socketService.connect(token);
           }
@@ -96,6 +103,11 @@ function App() {
   const handleLogin = (userData, loginInfo = {}) => {
     setUser(userData);
     setActiveTab('feed'); // Always show feed on login
+    
+    // Show verification banner if user is not verified
+    if (userData && !userData.emailVerified) {
+      setShowVerificationBanner(true);
+    }
     
     // Track login event
     if (loginInfo.isNewUser) {

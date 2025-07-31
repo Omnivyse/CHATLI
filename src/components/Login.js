@@ -27,7 +27,9 @@ const Login = ({ onLogin }) => {
       } else {
         const res = await api.register({ name, username, email, password });
         if (res.success) {
-          onLogin(res.data.user, { isNewUser: true });
+          // For new users, check if they need email verification
+          const userData = res.data.user;
+          onLogin(userData, { isNewUser: true });
         } else {
           setError(res.message || 'Бүртгүүлэхэд алдаа гарлаа');
         }
