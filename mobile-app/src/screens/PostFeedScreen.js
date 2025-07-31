@@ -287,6 +287,27 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     }
   };
 
+  const handleKickEventUser = async (eventId, userId) => {
+    try {
+      const response = await apiService.kickEventUser(eventId, userId);
+
+      if (response.success) {
+        // Refresh events to show updated data
+        fetchEvents();
+      } else {
+        throw new Error(response.message || 'Хэрэглэгчийг хасхад алдаа гарлаа');
+      }
+    } catch (error) {
+      console.error('Kick event user error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Алдаа гарлаа',
+        text2: error.message || 'Хэрэглэгчийг хасхад алдаа гарлаа'
+      });
+      throw error;
+    }
+  };
+
   const handleLikeEvent = async (eventId) => {
     try {
       const response = await apiService.likeEvent(eventId);
@@ -363,6 +384,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       onLikeEvent={handleLikeEvent}
       onCommentEvent={handleCommentEvent}
       onDeleteEvent={handleDeleteEvent}
+      onKickEventUser={handleKickEventUser}
       navigation={navigation}
     />
   );

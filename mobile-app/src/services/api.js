@@ -603,6 +603,12 @@ class ApiService {
     });
   }
 
+  async kickEventUser(eventId, userId) {
+    return this.request(`/events/${eventId}/kick/${userId}`, {
+      method: 'POST',
+    });
+  }
+
   async likeEvent(eventId) {
     return this.request(`/events/${eventId}/like`, {
       method: 'POST'

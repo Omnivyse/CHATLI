@@ -3,12 +3,13 @@ const router = express.Router();
 const Event = require('../models/Event');
 const { auth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const User = require('../models/User'); // Added User model import
 
 // Get all events
 router.get('/', auth, async (req, res) => {
   try {
     const events = await Event.find()
-      .populate('author', 'name username avatar')
+      .populate('author', 'name username avatar isVerified')
       .populate('joinedUsers', 'name username avatar')
       .populate('likes', 'name username')
       .populate('comments.author', 'name username avatar')
@@ -86,7 +87,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       await event.save();
 
       // Populate author for response
-      await event.populate('author', 'name username avatar');
+      await event.populate('author', 'name username avatar isVerified');
 
       res.status(201).json({
         success: true,
@@ -386,6 +387,71 @@ router.delete('/:eventId', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Event устгахад алдаа гарлаа'
+    });
+  }
+});
+
+// Kick user from event
+router.post('/:eventId/kick/:userId', auth, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.eventId);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event олдсонгүй'
+      });
+    }
+
+    // Check if the current user is the event creator
+    if (!event.author.equals(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Зөвхөн event creator л хэрэглэгчийг хасч болно'
+      });
+    }
+
+    // Check if the user to kick exists
+    const userToKick = await User.findById(req.params.userId);
+    if (!userToKick) {
+      return res.status(404).json({
+        success: false,
+        message: 'Хасх хэрэглэгч олдсонгүй'
+      });
+    }
+
+    // Check if the user is actually joined
+    if (!event.joinedUsers.includes(req.params.userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Энэ хэрэглэгч event-д нэгдээгүй байна'
+      });
+    }
+
+    // Remove user from joined users
+    event.joinedUsers = event.joinedUsers.filter(userId => !userId.equals(req.params.userId));
+
+    // Also remove user's likes and comments
+    event.likes = event.likes.filter(userId => !userId.equals(req.params.userId));
+    event.comments = event.comments.filter(comment => !comment.author.equals(req.params.userId));
+
+    await event.save();
+
+    // Populate author for response
+    await event.populate('author', 'name username avatar isVerified');
+
+    res.json({
+      success: true,
+      message: 'Хэрэглэгчийг амжилттай хаслаа',
+      data: {
+        event
+      }
+    });
+  } catch (error) {
+    console.error('Kick user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Хэрэглэгчийг хасхад алдаа гарлаа'
     });
   }
 });

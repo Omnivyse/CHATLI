@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 
-const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentEvent, onDeleteEvent, navigation }) => {
+const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentEvent, onDeleteEvent, onKickEventUser, navigation }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
@@ -122,6 +122,30 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
     }
   };
 
+  const handleKickUser = async (userId, userName) => {
+    Alert.alert(
+      'Хэрэглэгчийг хас',
+      `${userName}-г энэ event-с хасахдаа итгэлтэй байна уу?`,
+      [
+        {
+          text: 'Цуцлах',
+          style: 'cancel'
+        },
+        {
+          text: 'Хас',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await onKickEventUser(event._id, userId);
+            } catch (error) {
+              Alert.alert('Алдаа', 'Хэрэглэгчийг хасхад алдаа гарлаа');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleLikeEvent = async () => {
     if (!isJoined) {
       Alert.alert('Мэдээлэл', 'Event-д нэгдсний дараа лайк хийх боломжтой');
@@ -225,6 +249,15 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
           </Text>
         </View>
       </View>
+      {isEventCreator && (
+        <TouchableOpacity
+          style={[styles.kickButton, { backgroundColor: '#ff4757' }]}
+          onPress={() => handleKickUser(item._id, item.name)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="close-circle" size={20} color="#ffffff" />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 
@@ -232,6 +265,45 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {/* Event Image */}
       <Image source={{ uri: event.image }} style={styles.eventImage} />
+      
+      {/* Event Creator Info */}
+      <View style={styles.creatorContainer}>
+        <View style={styles.creatorInfo}>
+          {event.author?.avatar ? (
+            <Image source={{ uri: event.author.avatar }} style={styles.creatorAvatar} />
+          ) : (
+            <View style={[styles.creatorAvatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
+              <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+            </View>
+          )}
+          <View style={styles.creatorDetails}>
+            <View style={styles.creatorNameContainer}>
+              <Text style={[styles.creatorName, { color: colors.text }]}>
+                {event.author?.name || 'Unknown User'}
+              </Text>
+              {event.author?.isVerified && (
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={14} 
+                  color={colors.primary} 
+                  style={styles.creatorVerifiedIcon}
+                />
+              )}
+            </View>
+            <Text style={[styles.creatorLabel, { color: colors.textSecondary }]}>
+              Event creator
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.viewProfileButton}
+          onPress={() => navigation.navigate('UserProfile', { userId: event.author?._id })}
+        >
+          <Text style={[styles.viewProfileText, { color: colors.primary }]}>
+            View Profile
+          </Text>
+        </TouchableOpacity>
+      </View>
       
       {/* Event Info */}
       <View style={styles.eventInfo}>
@@ -510,6 +582,57 @@ const styles = StyleSheet.create({
     height: 200,
     resizeMode: 'cover',
   },
+  creatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  creatorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 12,
+  },
+  creatorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  creatorDetails: {
+    flex: 1,
+    minWidth: 0,
+  },
+  creatorNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  creatorName: {
+    fontSize: 16,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  creatorVerifiedIcon: {
+    marginLeft: 2,
+  },
+  creatorLabel: {
+    fontSize: 12,
+  },
+  viewProfileButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  viewProfileText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   eventInfo: {
     padding: 16,
   },
@@ -653,11 +776,15 @@ const styles = StyleSheet.create({
   joinedUserItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   joinedUserContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   joinedUserAvatar: {
     width: 40,
@@ -677,6 +804,13 @@ const styles = StyleSheet.create({
   },
   joinedUserDate: {
     fontSize: 12,
+  },
+  kickButton: {
+    padding: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
   },
   passwordContainer: {
     flex: 1,
