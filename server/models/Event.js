@@ -30,7 +30,7 @@ const eventSchema = new mongoose.Schema({
   password: {
     type: String,
     required: function() {
-      return this.isPrivate;
+      return this.isPrivate === true;
     },
     minlength: 4,
     maxlength: 4,

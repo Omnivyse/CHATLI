@@ -562,6 +562,12 @@ class ApiService {
     formData.append('name', eventData.name);
     formData.append('description', eventData.description);
     formData.append('userNumber', eventData.userNumber.toString());
+    formData.append('isPrivate', eventData.isPrivate.toString());
+    
+    // Add password if it's a private event
+    if (eventData.isPrivate && eventData.password) {
+      formData.append('password', eventData.password);
+    }
     
     // Add image file
     if (eventData.image) {

@@ -33,6 +33,10 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
     const { name, description, userNumber, isPrivate, password } = req.body;
+    
+    console.log('Create event request body:', req.body);
+    console.log('isPrivate:', isPrivate, 'type:', typeof isPrivate);
+    console.log('password:', password);
 
     if (!name || !description || !userNumber) {
       return res.status(400).json({
@@ -65,31 +69,39 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       imageUrl = req.file.path;
     }
 
-    const event = new Event({
-      name: name.trim(),
-      description: description.trim(),
-      image: imageUrl,
-      userNumber: userNum,
-      isPrivate: isPrivateEvent,
-      password: isPrivateEvent ? password : null,
-      author: req.user._id,
-      joinedUsers: [],
-      likes: [],
-      comments: []
-    });
+    try {
+      const event = new Event({
+        name: name.trim(),
+        description: description.trim(),
+        image: imageUrl,
+        userNumber: userNum,
+        isPrivate: isPrivateEvent,
+        password: isPrivateEvent ? password : null,
+        author: req.user._id,
+        joinedUsers: [],
+        likes: [],
+        comments: []
+      });
 
-    await event.save();
+      await event.save();
 
-    // Populate author for response
-    await event.populate('author', 'name username avatar');
+      // Populate author for response
+      await event.populate('author', 'name username avatar');
 
-    res.status(201).json({
-      success: true,
-      message: 'Event амжилттай үүслээ',
-      data: {
-        event
-      }
-    });
+      res.status(201).json({
+        success: true,
+        message: 'Event амжилттай үүслээ',
+        data: {
+          event
+        }
+      });
+    } catch (validationError) {
+      console.error('Event validation error:', validationError);
+      return res.status(400).json({
+        success: false,
+        message: validationError.message || 'Event үүсгэхэд алдаа гарлаа'
+      });
+    }
   } catch (error) {
     console.error('Create event error:', error);
     res.status(500).json({

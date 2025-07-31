@@ -131,9 +131,10 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
               />
             )}
           </View>
+          
           <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
-          @{user.username && typeof user.username === 'string' ? user.username : 'unknown'}
-        </Text>
+            @{user.username && typeof user.username === 'string' ? user.username : 'unknown'}
+          </Text>
           
           {user.bio && (
             <Text style={[styles.userBio, { color: colors.textSecondary }]}>
@@ -377,8 +378,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
+  verificationContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   verifiedIcon: {
-    marginLeft: 4,
+    marginLeft: 8,
   },
   userHandle: {
     fontSize: 16,
@@ -560,6 +565,15 @@ const styles = StyleSheet.create({
   avatarLogo: {
     width: '100%',
     height: '100%',
+  },
+  verificationContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 4,
+    zIndex: 1,
   },
 });
 

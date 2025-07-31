@@ -262,14 +262,6 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             {profileUser.name && typeof profileUser.name === 'string' ? profileUser.name : 'Unknown User'}
           </Text>
-          {profileUser.isVerified && (
-            <Ionicons 
-              name="checkmark-circle" 
-              size={16} 
-              color={colors.primary} 
-              style={styles.verifiedIcon}
-            />
-          )}
         </View>
         <View style={styles.placeholder} />
       </View>
@@ -311,12 +303,23 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
             )}
           </View>
           
-          <Text style={[styles.userName, { color: colors.text }]}>
-          {profileUser.name && typeof profileUser.name === 'string' ? profileUser.name : 'Unknown User'}
-        </Text>
+          <View style={styles.userNameContainer}>
+            <Text style={[styles.userName, { color: colors.text }]}>
+              {profileUser.name && typeof profileUser.name === 'string' ? profileUser.name : 'Unknown User'}
+            </Text>
+            {profileUser.isVerified && (
+              <Ionicons 
+                name="checkmark-circle" 
+                size={20} 
+                color={colors.primary} 
+                style={styles.verifiedIcon}
+              />
+            )}
+          </View>
+          
           <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
-          @{profileUser.username && typeof profileUser.username === 'string' ? profileUser.username : 'unknown'}
-        </Text>
+            @{profileUser.username && typeof profileUser.username === 'string' ? profileUser.username : 'unknown'}
+          </Text>
           
           {profileUser.bio && (
             <Text style={[styles.userBio, { color: colors.textSecondary }]}>
@@ -527,7 +530,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   verifiedIcon: {
-    marginLeft: 2,
+    marginLeft: 8,
+  },
+  verificationContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
   },
   placeholder: {
     width: 40,
@@ -814,6 +821,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+  },
+  verificationContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    marginTop: -10,
+    marginLeft: 10,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 5,
+    zIndex: 1,
+  },
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
 });
 
