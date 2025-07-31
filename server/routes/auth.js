@@ -260,15 +260,9 @@ router.post('/login', [
         await user.save();
         console.log(`Auto-verified existing user: ${user.email}`);
       } else {
-        // New users must verify email
-        return res.status(403).json({
-          success: false,
-          message: 'Имэйл хаягаа баталгаажуулна уу. Имэйл хаягаа шалгаж баталгаажуулах холбоосыг дарна уу.',
-          data: {
-            emailVerified: false,
-            email: user.email
-          }
-        });
+        // Allow unverified users to login but they need to verify
+        console.log(`Unverified user logging in: ${user.email}`);
+        // Continue with login but user will need to verify
       }
     }
     
