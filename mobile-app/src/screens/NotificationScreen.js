@@ -112,7 +112,11 @@ const NotificationScreen = ({ navigation, user }) => {
       
       if (response.success && response.data.notifications) {
         console.log('🔔 Loaded notifications:', response.data.notifications);
-        setNotifications(response.data.notifications);
+        
+        // Filter out invalid follow request notifications
+        const validNotifications = await filterInvalidFollowRequests(response.data.notifications);
+        
+        setNotifications(validNotifications);
       } else {
         console.log('🔔 No notifications or error:', response);
         setNotifications([]);
@@ -123,6 +127,29 @@ const NotificationScreen = ({ navigation, user }) => {
       setNotifications([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const filterInvalidFollowRequests = async (notifications) => {
+    try {
+      // Get current user's following list
+      const followingResponse = await api.getFollowing();
+      const followingList = followingResponse.success ? followingResponse.data.following : [];
+      const followingIds = followingList.map(user => user._id);
+      
+      // Filter out follow request notifications from users we're not following
+      return notifications.filter(notification => {
+        if (notification.type === 'follow_request' && notification.from && notification.from.length > 0) {
+          const requesterId = notification.from[0]._id;
+          // If we're following this user, keep the notification
+          // If we're not following this user, remove the notification
+          return followingIds.includes(requesterId);
+        }
+        return true; // Keep all other notifications
+      });
+    } catch (error) {
+      console.error('Filter invalid follow requests error:', error);
+      return notifications; // Return original notifications if filtering fails
     }
   };
 
