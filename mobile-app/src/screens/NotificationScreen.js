@@ -132,18 +132,18 @@ const NotificationScreen = ({ navigation, user }) => {
 
   const filterInvalidFollowRequests = async (notifications) => {
     try {
-      // Get current user's following list
-      const followingResponse = await api.getFollowing();
-      const followingList = followingResponse.success ? followingResponse.data.following : [];
-      const followingIds = followingList.map(user => user._id);
+      // Get current user's follow requests (people who want to follow us)
+      const userResponse = await api.getCurrentUser();
+      const currentUser = userResponse.success ? userResponse.data.user : null;
+      const followRequests = currentUser ? currentUser.followRequests || [] : [];
       
-      // Filter out follow request notifications from users we're not following
+      // Filter out follow request notifications from users who are not in our follow requests
       return notifications.filter(notification => {
         if (notification.type === 'follow_request' && notification.from && notification.from.length > 0) {
           const requesterId = notification.from[0]._id;
-          // If we're following this user, keep the notification
-          // If we're not following this user, remove the notification
-          return followingIds.includes(requesterId);
+          // If this user is in our follow requests, keep the notification
+          // If this user is not in our follow requests, remove the notification
+          return followRequests.includes(requesterId);
         }
         return true; // Keep all other notifications
       });
