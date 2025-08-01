@@ -515,6 +515,18 @@ router.post('/users/:id/unfollow', auth, async (req, res) => {
     currentUser.following = currentUser.following.filter(f => !f.equals(userToUnfollow._id));
     await userToUnfollow.save();
     await currentUser.save();
+
+    // Delete any follow request notifications from the unfollowed user to the current user
+    try {
+      await Notification.deleteMany({
+        user: userToUnfollow._id,
+        type: 'follow_request',
+        from: currentUser._id
+      });
+    } catch (notificationError) {
+      console.error('Delete follow request notification error:', notificationError);
+    }
+
     res.json({ success: true, message: 'Дагахаа болилоо', data: { followers: userToUnfollow.followers, following: currentUser.following } });
   } catch (error) {
     console.error('Unfollow error:', error);

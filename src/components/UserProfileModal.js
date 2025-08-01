@@ -40,7 +40,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
       let posts = [];
       
       // If it's a private account and current user is not following, don't try to fetch posts
-      if (isPrivateAccount && !userRes.data.user.followers?.includes(currentUser._id) && user._id !== currentUser._id) {
+      if (isPrivateAccount && !userRes.data.user.followers?.includes(currentUser._id) && userRes.data.user._id !== currentUser._id) {
         isPrivate = true;
         posts = [];
       } else {
