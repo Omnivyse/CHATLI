@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 
-const ProfileSettings = ({ user, onClose, onUpdate, onShowWelcome, onShowPrivacy, onShowCopyright, onShowReport }) => {
+const ProfileSettings = ({ user, onClose, onUpdate, onShowWelcome, onShowPrivacy, onShowPrivacySettings, onShowCopyright, onShowReport }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -365,6 +365,17 @@ const ProfileSettings = ({ user, onClose, onUpdate, onShowWelcome, onShowPrivacy
 
               {/* Legal and Report Buttons Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  onClick={() => {
+                    onShowPrivacySettings();
+                    onClose();
+                  }}
+                  className="flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  <Shield className="w-4 h-4" />
+                  Нууцлалын тохиргоо
+                </button>
+
                 {onShowPrivacy && (
                   <button
                     onClick={() => {

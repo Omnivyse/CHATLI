@@ -56,22 +56,26 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
     setFollowLoading(true);
     try {
       if (isFollowing) {
-        await api.request(`/auth/users/${userId}/unfollow`, { method: 'POST' });
+        await api.unfollowUser(userId);
+        setIsFollowing(false);
+        setIsRequestSent(false);
       } else {
-        try {
-          await api.request(`/auth/users/${userId}/follow`, { method: 'POST' });
-          if (privateProfile) setIsRequestSent(true);
-        } catch (e) {
-          if (e.message && e.message.includes('Дагах хүсэлт илгээсэн байна')) {
+        const response = await api.followUser(userId);
+        if (response.success) {
+          if (response.message === 'Дагах хүсэлт илгээгдлээ') {
+            // Follow request sent for private user
             setIsRequestSent(true);
-            return;
           } else {
-            throw e;
+            // Direct follow for public user
+            setIsFollowing(true);
+            setIsRequestSent(false);
           }
         }
       }
       // Refetch everything to update modal (cover, posts, etc)
       await fetchData();
+    } catch (error) {
+      console.error('Follow error:', error);
     } finally {
       setFollowLoading(false);
     }
@@ -80,9 +84,14 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
   const handleCancelRequest = async () => {
     setFollowLoading(true);
     try {
-      await api.request(`/auth/users/${userId}/cancel-follow-request`, { method: 'POST' });
+      const response = await api.cancelFollowRequest(userId);
+      if (response.success) {
+        setIsRequestSent(false);
+      }
       await fetchData();
       setShowCancelDialog(false);
+    } catch (error) {
+      console.error('Cancel request error:', error);
     } finally {
       setFollowLoading(false);
     }
@@ -203,7 +212,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
                               disabled={followLoading}
                               className="px-5 py-1.5 rounded-full font-semibold transition bg-primary text-primary-dark hover:opacity-90"
                             >
-                              Дагах
+                              {followLoading ? 'Уншиж байна...' : 'Дагах'}
                             </button>
                             <button
                               onClick={handleChat}
@@ -224,10 +233,10 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
                           <>
                             <button
                               disabled={followLoading}
-                              className="px-5 py-1.5 rounded-full font-semibold transition bg-muted text-secondary mt-2 cursor-pointer"
+                              className="px-5 py-1.5 rounded-full font-semibold transition bg-yellow-500 text-white mt-2 cursor-pointer"
                               onClick={() => setShowCancelDialog(true)}
                             >
-                              Хүлээгдэж байна
+                              Хүсэлт илгээгдсэн
                             </button>
                             {showCancelDialog && (
                               <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40">
@@ -257,7 +266,7 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
                               disabled={followLoading}
                               className="px-5 py-1.5 rounded-full font-semibold transition bg-muted text-primary hover:opacity-90"
                             >
-                              Дагахаа болих
+                              {followLoading ? 'Уншиж байна...' : 'Дагасан'}
                             </button>
                             <button
                               onClick={handleChat}

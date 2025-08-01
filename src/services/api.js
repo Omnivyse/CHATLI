@@ -192,6 +192,17 @@ class ApiService {
     return this.request('/auth/following');
   }
 
+  async getPrivacySettings() {
+    return this.request('/auth/privacy-settings');
+  }
+
+  async updatePrivacySettings(settings) {
+    return this.request('/auth/privacy-settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
   // Chat endpoints
   async getChats() {
     return this.request('/chats');
@@ -354,17 +365,21 @@ class ApiService {
     return this.request(`/auth/users/${userId}/unfollow`, { method: 'POST' });
   }
 
-  async acceptFollowRequest(userId, requesterId) {
-    return this.request(`/auth/users/${userId}/accept-request`, {
-      method: 'POST',
-      body: JSON.stringify({ requesterId })
+  async acceptFollowRequest(requesterId) {
+    return this.request(`/auth/users/${requesterId}/accept-follow-request`, {
+      method: 'POST'
     });
   }
 
-  async rejectFollowRequest(userId, requesterId) {
-    return this.request(`/auth/users/${userId}/reject-request`, {
-      method: 'POST',
-      body: JSON.stringify({ requesterId })
+  async rejectFollowRequest(requesterId) {
+    return this.request(`/auth/users/${requesterId}/reject-follow-request`, {
+      method: 'POST'
+    });
+  }
+
+  async cancelFollowRequest(userId) {
+    return this.request(`/auth/users/${userId}/cancel-follow-request`, {
+      method: 'POST'
     });
   }
 

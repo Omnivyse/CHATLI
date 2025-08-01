@@ -10,6 +10,7 @@ import PostFeed from './components/PostFeed';
 import NotificationFeed from './components/NotificationFeed';
 import WelcomeModal from './components/WelcomeModal';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
+import PrivacySettingsModal from './components/PrivacySettingsModal';
 import CopyrightModal from './components/CopyrightModal';
 import ReportModal from './components/ReportModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -34,6 +35,7 @@ function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showPrivacySettingsModal, setShowPrivacySettingsModal] = useState(false);
   const [showCopyrightModal, setShowCopyrightModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showVerificationBanner, setShowVerificationBanner] = useState(false);
@@ -170,6 +172,10 @@ function App() {
 
   const handleShowPrivacy = () => {
     setShowPrivacyModal(true);
+  };
+
+  const handleShowPrivacySettings = () => {
+    setShowPrivacySettingsModal(true);
   };
 
   const handleShowCopyright = () => {
@@ -735,6 +741,7 @@ function App() {
           onUpdate={handleProfileUpdate}
           onShowWelcome={handleShowWelcome}
           onShowPrivacy={handleShowPrivacy}
+          onShowPrivacySettings={handleShowPrivacySettings}
           onShowCopyright={handleShowCopyright}
           onShowReport={handleShowReport}
         />
@@ -751,6 +758,14 @@ function App() {
       <PrivacyPolicyModal
         isOpen={showPrivacyModal}
         onClose={() => setShowPrivacyModal(false)}
+      />
+
+      {/* Privacy Settings Modal */}
+      <PrivacySettingsModal
+        isOpen={showPrivacySettingsModal}
+        onClose={() => setShowPrivacySettingsModal(false)}
+        user={user}
+        onUpdate={handleProfileUpdate}
       />
 
       {/* Copyright Modal */}

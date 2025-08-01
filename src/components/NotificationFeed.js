@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import socketService from '../services/socket';
-import { Bell, Heart, MessageCircle, Loader2, User as UserIcon } from 'lucide-react';
+import { Bell, Heart, MessageCircle, Loader2, User as UserIcon, UserPlus } from 'lucide-react';
 import PostModal from './PostModal';
 
 const NotificationFeed = ({ user }) => {
@@ -10,8 +10,6 @@ const NotificationFeed = ({ user }) => {
   const [error, setError] = useState('');
   const [modalPostId, setModalPostId] = useState(null);
   const lastFetchRef = useRef(0);
-  const [followRequests, setFollowRequests] = useState([]);
-  const [isPrivate, setIsPrivate] = useState(false);
 
   useEffect(() => {
     const now = Date.now();
@@ -30,22 +28,6 @@ const NotificationFeed = ({ user }) => {
     };
   }, []);
 
-  useEffect(() => {
-    // Fetch current user profile for follow requests
-    const fetchProfile = async () => {
-      try {
-        const res = await api.request(`/auth/users/${user._id}`);
-        if (res.success) {
-          setFollowRequests(res.data.user.followRequests || []);
-          setIsPrivate(res.data.user.privateProfile);
-        }
-      } catch (e) {
-        console.error('Профайл уншихад алдаа гарлаа', e);
-      }
-    };
-    if (user?._id) fetchProfile();
-  }, [user?._id]);
-
   const fetchNotifications = async () => {
     setLoading(true);
     setError('');
@@ -60,13 +42,57 @@ const NotificationFeed = ({ user }) => {
     }
   };
 
-  const handleAccept = async (requesterId) => {
-    await api.acceptFollowRequest(user._id, requesterId);
-    setFollowRequests(followRequests.filter(id => id !== requesterId));
+  const handleAcceptFollowRequest = async (requesterId) => {
+    try {
+      const response = await api.acceptFollowRequest(requesterId);
+      if (response.success) {
+        // Remove the follow request notification
+        setNotifications(prev => 
+          prev.filter(notification => 
+            !(notification.type === 'follow_request' && 
+              notification.from && 
+              notification.from.length > 0 && 
+              notification.from[0]._id === requesterId)
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Accept follow request error:', error);
+    }
   };
-  const handleReject = async (requesterId) => {
-    await api.rejectFollowRequest(user._id, requesterId);
-    setFollowRequests(followRequests.filter(id => id !== requesterId));
+
+  const handleRejectFollowRequest = async (requesterId) => {
+    try {
+      const response = await api.rejectFollowRequest(requesterId);
+      if (response.success) {
+        // Remove the follow request notification
+        setNotifications(prev => 
+          prev.filter(notification => 
+            !(notification.type === 'follow_request' && 
+              notification.from && 
+              notification.from.length > 0 && 
+              notification.from[0]._id === requesterId)
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Reject follow request error:', error);
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'like':
+        return <Heart className="w-5 h-5 text-red-500" />;
+      case 'comment':
+        return <MessageCircle className="w-5 h-5 text-primary" />;
+      case 'follow':
+        return <UserPlus className="w-5 h-5 text-blue-500" />;
+      case 'follow_request':
+        return <UserPlus className="w-5 h-5 text-yellow-500" />;
+      default:
+        return <Bell className="w-5 h-5 text-gray-500" />;
+    }
   };
 
   return (
@@ -76,17 +102,7 @@ const NotificationFeed = ({ user }) => {
           <Bell className="w-6 h-6" /> Мэдэгдэл
         </h2>
       </div>
-      {/* Follow Requests Section */}
-      {isPrivate && followRequests.length > 0 && (
-        <div className="mb-6 p-4 bg-yellow-50 dark:bg-black rounded-lg border border-yellow-200 dark:border-yellow-700">
-          <div className="font-semibold mb-2">Дагах хүсэлтүүд</div>
-          <div className="space-y-3">
-            {followRequests.map((id) => (
-              <FollowRequestItem key={id} userId={id} onAccept={handleAccept} onReject={handleReject} />
-            ))}
-          </div>
-        </div>
-      )}
+      
       {loading ? (
         <div className="text-center text-secondary"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
       ) : error ? (
@@ -104,9 +120,54 @@ const NotificationFeed = ({ user }) => {
             if (extraCount > 0) {
               displayName = `${displayName} болон ${extraCount} хүн`;
             }
+
+            // Handle follow request notifications
+            if (n.type === 'follow_request' && firstUser) {
+              return (
+                <div
+                  key={n._id}
+                  className="flex items-start gap-3 p-4 rounded-lg border border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-zinc-900"
+                >
+                  <div className="pt-1">
+                    {getNotificationIcon(n.type)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {displayAvatar ? (
+                        <img src={displayAvatar} alt={displayName} className="w-7 h-7 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+                          <span className="text-secondary font-bold text-sm">{displayName[0]}</span>
+                        </div>
+                      )}
+                      <span className="font-semibold">{displayName}</span>
+                      <span className="text-secondary text-xs">{new Date(n.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="text-sm mt-1">{n.message}</div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => handleAcceptFollowRequest(firstUser._id)}
+                        className="px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition font-semibold text-sm"
+                      >
+                        Зөвшөөрөх
+                      </button>
+                      <button
+                        onClick={() => handleRejectFollowRequest(firstUser._id)}
+                        className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition font-semibold text-sm"
+                      >
+                        Цуцлах
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Handle other notifications
             const handleClick = () => {
               if (n.post && n.post._id) setModalPostId(n.post._id);
             };
+
             return (
               <div
                 key={n._id}
@@ -114,7 +175,7 @@ const NotificationFeed = ({ user }) => {
                 onClick={handleClick}
               >
                 <div className="pt-1">
-                  {n.type === 'like' ? <Heart className="w-5 h-5 text-red-500" /> : <MessageCircle className="w-5 h-5 text-primary" />}
+                  {getNotificationIcon(n.type)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -145,48 +206,5 @@ const NotificationFeed = ({ user }) => {
     </div>
   );
 };
-
-function FollowRequestItem({ userId, onAccept, onReject }) {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      try {
-        const res = await api.request(`/auth/users/${userId}`);
-        setProfile(res.data.user);
-      } catch {}
-      setLoading(false);
-    };
-    fetchProfile();
-  }, [userId]);
-  if (loading) return <div className="flex items-center gap-2 text-secondary text-sm"><Loader2 className="w-4 h-4 animate-spin" /></div>;
-  if (!profile) return null;
-  return (
-    <div className="flex items-center gap-3">
-      {profile.avatar ? (
-        <img src={profile.avatar} alt={profile.name} className="w-8 h-8 rounded-full object-cover" />
-      ) : (
-        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-          <UserIcon className="w-5 h-5 text-secondary" />
-        </div>
-      )}
-      <span className="font-medium">{profile.name}</span>
-      <span className="text-secondary text-xs">@{profile.username}</span>
-      <button
-        onClick={() => onAccept(userId)}
-        className="ml-auto px-3 py-1 rounded bg-black text-white hover:bg-gray-800 transition font-semibold"
-      >
-        Зөвшөөрөх
-      </button>
-      <button
-        onClick={() => onReject(userId)}
-        className="ml-2 px-3 py-1 rounded bg-white text-black border border-gray-300 hover:bg-gray-100 transition font-semibold"
-      >
-        Цуцлах
-      </button>
-    </div>
-  );
-}
 
 export default NotificationFeed; 
