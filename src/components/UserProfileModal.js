@@ -22,7 +22,18 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
       const userRes = await api.request(`/auth/users/${userId}`);
       setUser(userRes.data.user);
       setIsFollowing(userRes.data.user.followers?.includes(currentUser._id));
-      setIsRequestSent(userRes.data.user.followRequests?.includes(currentUser._id));
+      
+      // Check for follow request status
+      if (userRes.data.user.followRequests?.includes(currentUser._id)) {
+        // User is viewing their own profile and has follow requests
+        setIsRequestSent(false);
+      } else if (userRes.data.user.hasFollowRequestFromCurrentUser) {
+        // Current user has sent a follow request to this profile
+        setIsRequestSent(true);
+      } else {
+        setIsRequestSent(false);
+      }
+      
       let isPrivate = false;
       let posts = [];
       try {
@@ -59,21 +70,24 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
         await api.unfollowUser(userId);
         setIsFollowing(false);
         setIsRequestSent(false);
+        // Refetch data after unfollow to update follower count
+        await fetchData();
       } else {
         const response = await api.followUser(userId);
         if (response.success) {
           if (response.message === 'Дагах хүсэлт илгээгдлээ') {
             // Follow request sent for private user
             setIsRequestSent(true);
+            // Don't refetch data here to preserve the request sent state
           } else {
             // Direct follow for public user
             setIsFollowing(true);
             setIsRequestSent(false);
+            // Refetch data after direct follow to update follower count
+            await fetchData();
           }
         }
       }
-      // Refetch everything to update modal (cover, posts, etc)
-      await fetchData();
     } catch (error) {
       console.error('Follow error:', error);
     } finally {

@@ -92,12 +92,16 @@ router.get('/users/:id', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
     }
     let userObj = user.toObject();
+    
     // Only include followRequests if viewing own profile
     if (user._id.equals(req.user._id)) {
       userObj.followRequests = user.followRequests;
     } else {
       delete userObj.followRequests;
+      // Check if current user has sent a follow request to this user
+      userObj.hasFollowRequestFromCurrentUser = user.followRequests.includes(req.user._id);
     }
+    
     res.json({ success: true, data: { user: userObj } });
   } catch (error) {
     console.error('Get user by ID error:', error);
