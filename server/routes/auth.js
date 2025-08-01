@@ -536,6 +536,18 @@ router.post('/users/:id/accept-follow-request', auth, async (req, res) => {
       requester.following.push(currentUser._id);
       await requester.save();
     }
+
+    // Delete the follow request notification
+    try {
+      await Notification.deleteMany({
+        user: currentUser._id,
+        type: 'follow_request',
+        from: requesterId
+      });
+    } catch (notificationError) {
+      console.error('Delete follow request notification error:', notificationError);
+    }
+
     res.json({ success: true, message: 'Дагах хүсэлт зөвшөөрөгдлөө', data: { followers: currentUser.followers } });
   } catch (error) {
     console.error('Accept request error:', error);
@@ -559,6 +571,18 @@ router.post('/users/:id/reject-follow-request', auth, async (req, res) => {
     // Remove from followRequests
     currentUser.followRequests = currentUser.followRequests.filter(id => id.toString() !== requesterId);
     await currentUser.save();
+
+    // Delete the follow request notification
+    try {
+      await Notification.deleteMany({
+        user: currentUser._id,
+        type: 'follow_request',
+        from: requesterId
+      });
+    } catch (notificationError) {
+      console.error('Delete follow request notification error:', notificationError);
+    }
+
     res.json({ success: true, message: 'Дагах хүсэлт цуцлагдлаа', data: { followRequests: currentUser.followRequests } });
   } catch (error) {
     console.error('Reject request error:', error);

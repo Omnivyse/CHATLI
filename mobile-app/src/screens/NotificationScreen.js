@@ -104,30 +104,25 @@ const NotificationScreen = ({ navigation, user }) => {
 
   const loadNotifications = async () => {
     try {
+      setLoading(true);
       setError('');
+      
       const response = await api.getNotifications();
-      if (response.success) {
-        // Filter out invalid notifications and ensure unique IDs
-        const validNotifications = (response.data.notifications || [])
-          .filter(notification => notification && notification._id)
-          .reduce((unique, notification) => {
-            const exists = unique.find(n => n._id === notification._id);
-            if (!exists) {
-              unique.push(notification);
-            }
-            return unique;
-          }, []);
-        
-        setNotifications(validNotifications);
+      console.log('🔔 Notifications response:', response);
+      
+      if (response.success && response.data.notifications) {
+        console.log('🔔 Loaded notifications:', response.data.notifications);
+        setNotifications(response.data.notifications);
       } else {
-        setError('Мэдэгдэл ачаалахад алдаа гарлаа');
+        console.log('🔔 No notifications or error:', response);
+        setNotifications([]);
       }
     } catch (error) {
       console.error('Load notifications error:', error);
-      setError('Мэдэгдэл ачаалахад алдаа гарлаа');
+      setError('Мэдэгдлийг ачаалахад алдаа гарлаа');
+      setNotifications([]);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -177,7 +172,10 @@ const NotificationScreen = ({ navigation, user }) => {
         // Remove the follow request notification
         setNotifications(prev => 
           prev.filter(notification => 
-            !(notification.type === 'follow_request' && notification.from === requesterId)
+            !(notification.type === 'follow_request' && 
+              notification.from && 
+              notification.from.length > 0 && 
+              notification.from[0]._id === requesterId)
           )
         );
       } else {
@@ -196,7 +194,10 @@ const NotificationScreen = ({ navigation, user }) => {
         // Remove the follow request notification
         setNotifications(prev => 
           prev.filter(notification => 
-            !(notification.type === 'follow_request' && notification.from === requesterId)
+            !(notification.type === 'follow_request' && 
+              notification.from && 
+              notification.from.length > 0 && 
+              notification.from[0]._id === requesterId)
           )
         );
       } else {
@@ -277,12 +278,13 @@ const NotificationScreen = ({ navigation, user }) => {
     }
 
     // Handle follow request notifications
-    if (notification.type === 'follow_request' && notification.from) {
+    if (notification.type === 'follow_request' && notification.from && notification.from.length > 0) {
+      const requester = notification.from[0]; // Get the first user from the array
       return (
         <FollowRequestNotification
-          requester={notification.from}
-          onAccept={() => handleAcceptFollowRequest(notification.from._id)}
-          onReject={() => handleRejectFollowRequest(notification.from._id)}
+          requester={requester}
+          onAccept={() => handleAcceptFollowRequest(requester._id)}
+          onReject={() => handleRejectFollowRequest(requester._id)}
           onPress={() => handleMarkAsRead(notification._id)}
         />
       );
