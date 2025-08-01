@@ -34,20 +34,30 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
         setIsRequestSent(false);
       }
       
-      let isPrivate = false;
+      // Check if user has private profile settings
+      const isPrivateAccount = userRes.data.user.isPrivateAccount || false;
+      let isPrivate = isPrivateAccount;
       let posts = [];
-      try {
-        const postsRes = await api.request(`/posts/user/${userId}`);
-        posts = postsRes.posts || (postsRes.data && postsRes.data.posts) || [];
-      } catch (e) {
-        if (e.message && e.message.includes('Энэ профайл хувийн байна')) {
-          isPrivate = true;
+      
+      // If it's a private account and current user is not following, don't try to fetch posts
+      if (isPrivateAccount && !userRes.data.user.followers?.includes(currentUser._id) && user._id !== currentUser._id) {
+        isPrivate = true;
+        posts = [];
+      } else {
+        try {
+          const postsRes = await api.request(`/posts/user/${userId}`);
+          posts = postsRes.posts || (postsRes.data && postsRes.data.posts) || [];
+        } catch (e) {
+          if (e.message && e.message.includes('дагах шаардлагатай')) {
+            isPrivate = true;
+          }
         }
       }
+      
       setPosts(posts);
       setPrivateProfile(isPrivate);
     } catch (e) {
-      if (e.message && e.message.includes('Энэ профайл хувийн байна')) {
+      if (e.message && e.message.includes('дагах шаардлагатай')) {
         setPrivateProfile(true);
       } else {
         setUser(null);
@@ -210,11 +220,11 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
                       {user.bio && <div className="text-secondary text-center text-sm max-w-xs">{user.bio}</div>}
                       <div className="flex gap-6 mt-2 mb-2">
                         <div className="text-center">
-                          <div className="font-bold">{user.followers?.length || 0}</div>
+                          <div className="font-bold text-foreground dark:text-foreground-dark">{user.followers?.length || 0}</div>
                           <div className="text-xs text-secondary">Дагагч</div>
                         </div>
                         <div className="text-center">
-                          <div className="font-bold">{user.following?.length || 0}</div>
+                          <div className="font-bold text-foreground dark:text-foreground-dark">{user.following?.length || 0}</div>
                           <div className="text-xs text-secondary">Дагaж буй</div>
                         </div>
                       </div>

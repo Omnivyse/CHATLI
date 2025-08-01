@@ -93,6 +93,11 @@ router.get('/users/:id', auth, async (req, res) => {
     }
     let userObj = user.toObject();
     
+    // Get privacy settings for this user
+    const privacySettings = await PrivacySettings.findOne({ userId: user._id });
+    const isPrivateAccount = privacySettings ? privacySettings.isPrivateAccount : false;
+    userObj.isPrivateAccount = isPrivateAccount;
+    
     // Only include followRequests if viewing own profile
     if (user._id.equals(req.user._id)) {
       userObj.followRequests = user.followRequests;
