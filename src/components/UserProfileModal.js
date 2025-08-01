@@ -303,7 +303,25 @@ const UserProfileModal = ({ userId, currentUser, onClose, show, onStartChat }) =
                 </div>
                 <div className="mb-2 font-semibold text-primary">Постууд</div>
                 {posts.length === 0 ? (
-                  <div className="text-secondary text-center">Пост байхгүй байна</div>
+                  <div className="text-center py-8">
+                    {privateProfile && !isFollowing && user._id !== currentUser._id ? (
+                      <>
+                        <div className="text-lg font-semibold text-foreground dark:text-foreground-dark mb-2">
+                          Хувийн профайл
+                        </div>
+                        <div className="text-sm text-secondary dark:text-secondary-dark">
+                          Энэ хэрэглэгчийн постуудыг харахын тулд дагах шаардлагатай
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-secondary text-center">
+                        {user._id === currentUser._id 
+                          ? 'Та одоогоор пост нийтлээгүй байна'
+                          : 'Энэ хэрэглэгч одоогоор пост нийтлээгүй байна'
+                        }
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex-1 overflow-y-auto max-h-[45vh]">
                     <div className="flex flex-col gap-4">
