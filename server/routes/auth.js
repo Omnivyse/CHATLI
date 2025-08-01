@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const PrivacySettings = require('../models/PrivacySettings');
+const Notification = require('../models/Notification');
 const { auth, optionalAuth } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
@@ -436,14 +437,33 @@ router.post('/users/:id/follow', auth, async (req, res) => {
     if (userToFollow.followers.includes(currentUser._id)) {
       return res.status(400).json({ success: false, message: 'Та аль хэдийн дагасан байна' });
     }
-    if (userToFollow.privateProfile) {
+
+    // Check privacy settings
+    const privacySettings = await PrivacySettings.findOne({ userId: userToFollow._id });
+    const isPrivateAccount = privacySettings ? privacySettings.isPrivateAccount : false;
+
+    if (isPrivateAccount) {
       if (userToFollow.followRequests.includes(currentUser._id)) {
         return res.status(400).json({ success: false, message: 'Дагах хүсэлт илгээсэн байна' });
       }
       userToFollow.followRequests.push(currentUser._id);
       await userToFollow.save();
+
+      // Create follow request notification
+      try {
+        await Notification.create({
+          user: userToFollow._id,
+          type: 'follow_request',
+          from: [currentUser._id],
+          message: `${currentUser.name} танд дагах хүсэлт илгээлээ`
+        });
+      } catch (notificationError) {
+        console.error('Follow request notification creation error:', notificationError);
+      }
+
       return res.json({ success: true, message: 'Дагах хүсэлт илгээгдлээ', data: { followRequests: userToFollow.followRequests } });
     }
+
     userToFollow.followers.push(currentUser._id);
     currentUser.following.push(userToFollow._id);
     await userToFollow.save();
@@ -493,13 +513,13 @@ router.post('/users/:id/unfollow', auth, async (req, res) => {
   }
 });
 
-// @route   POST /api/users/:id/accept-request
+// @route   POST /api/auth/users/:id/accept-follow-request
 // @desc    Accept a follow request
 // @access  Private
-router.post('/users/:id/accept-request', auth, async (req, res) => {
+router.post('/users/:id/accept-follow-request', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
-    const requesterId = req.body.requesterId;
+    const requesterId = req.params.id;
     if (!currentUser) {
       return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
     }
@@ -523,13 +543,13 @@ router.post('/users/:id/accept-request', auth, async (req, res) => {
   }
 });
 
-// @route   POST /api/users/:id/reject-request
+// @route   POST /api/auth/users/:id/reject-follow-request
 // @desc    Reject a follow request
 // @access  Private
-router.post('/users/:id/reject-request', auth, async (req, res) => {
+router.post('/users/:id/reject-follow-request', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
-    const requesterId = req.body.requesterId;
+    const requesterId = req.params.id;
     if (!currentUser) {
       return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
     }

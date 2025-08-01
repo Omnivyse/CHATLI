@@ -31,6 +31,7 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
   const [error, setError] = useState('');
   const [profileImageViewerVisible, setProfileImageViewerVisible] = useState(false);
   const [coverImageViewerVisible, setCoverImageViewerVisible] = useState(false);
+  const [followRequestSent, setFollowRequestSent] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
@@ -45,13 +46,16 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
       if (response.success) {
         setProfileUser(response.data.user);
         setIsFollowing(response.data.user.followers?.includes(currentUser._id) || false);
+        // Check if follow request was sent
+        setFollowRequestSent(response.data.user.followRequests?.includes(currentUser._id) || false);
         loadUserPosts();
       } else {
         setError('Хэрэглэгчийн мэдээлэл олдсонгүй');
       }
     } catch (error) {
       console.error('Load user profile error:', error);
-      setError('Хэрэглэгчийн мэдээлэл ачаалахад алдаа гарлаа');
+      // Don't set a general error here, let loadUserPosts handle specific errors
+      setError('');
     } finally {
       setLoading(false);
     }
@@ -70,7 +74,15 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           return;
         }
       } catch (endpointError) {
-        console.log('User posts endpoint not available, using fallback');
+        console.log('User posts endpoint error:', endpointError.message);
+        
+        // Check if it's a privacy error (403)
+        if (endpointError.message && endpointError.message.includes('дагах шаардлагатай')) {
+          // This is a private profile - show appropriate message
+          setPosts([]);
+          setError('Энэ хэрэглэгчийн постуудыг харахын тулд дагах шаардлагатай');
+          return;
+        }
       }
       
       // Fallback: get all posts and filter by user ID
@@ -89,6 +101,11 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
         
         console.log(`Filtered posts for user ${userId}: ${userPosts.length}`);
         setPosts(userPosts);
+        
+        // Clear any previous error if we found posts
+        if (userPosts.length > 0) {
+          setError('');
+        }
       } else {
         console.log('No posts found or API error');
         setPosts([]);
@@ -106,25 +123,63 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
     
     setFollowLoading(true);
     try {
-      const response = isFollowing 
-        ? await api.unfollowUser(userId)
-        : await api.followUser(userId);
-      
-      if (response.success) {
-        setIsFollowing(!isFollowing);
-        // Update follower count
-        setProfileUser(prev => ({
-          ...prev,
-          followers: isFollowing 
-            ? prev.followers.filter(id => id !== currentUser._id)
-            : [...(prev.followers || []), currentUser._id]
-        }));
+      if (isFollowing) {
+        // Unfollow
+        const response = await api.unfollowUser(userId);
+        if (response.success) {
+          setIsFollowing(false);
+          setFollowRequestSent(false);
+          // Update follower count
+          setProfileUser(prev => ({
+            ...prev,
+            followers: prev.followers.filter(id => id !== currentUser._id)
+          }));
+        } else {
+          Alert.alert('Алдаа', response.message || 'Дагахаа болих үйлдэл амжилтгүй');
+        }
       } else {
-        Alert.alert('Алдаа', response.message || 'Дагах/дагахаа болих үйлдэл амжилтгүй');
+        // Follow or send follow request
+        const response = await api.followUser(userId);
+        if (response.success) {
+          if (response.message === 'Дагах хүсэлт илгээгдлээ') {
+            // Follow request sent for private user
+            setFollowRequestSent(true);
+          } else {
+            // Direct follow for public user
+            setIsFollowing(true);
+            setFollowRequestSent(false);
+            // Update follower count
+            setProfileUser(prev => ({
+              ...prev,
+              followers: [...(prev.followers || []), currentUser._id]
+            }));
+          }
+        } else {
+          Alert.alert('Алдаа', response.message || 'Дагах үйлдэл амжилтгүй');
+        }
       }
     } catch (error) {
       console.error('Follow toggle error:', error);
       Alert.alert('Алдаа', 'Дагах/дагахаа болих үйлдэл амжилтгүй');
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const handleCancelFollowRequest = async () => {
+    if (followLoading) return;
+    
+    setFollowLoading(true);
+    try {
+      const response = await api.cancelFollowRequest(userId);
+      if (response.success) {
+        setFollowRequestSent(false);
+      } else {
+        Alert.alert('Алдаа', response.message || 'Хүсэлт цуцлахад алдаа гарлаа');
+      }
+    } catch (error) {
+      console.error('Cancel follow request error:', error);
+      Alert.alert('Алдаа', 'Хүсэлт цуцлахад алдаа гарлаа');
     } finally {
       setFollowLoading(false);
     }
@@ -194,7 +249,7 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
     );
   }
 
-  if (error) {
+  if (error && !error.includes('дагах шаардлагатай')) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -348,27 +403,27 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
               <TouchableOpacity
                 style={[
                   styles.followButton,
-                  { backgroundColor: colors.primary },
-                  isFollowing && { backgroundColor: colors.surfaceVariant }
+                  { backgroundColor: isFollowing ? colors.surfaceVariant : colors.primary },
+                  followRequestSent && { backgroundColor: colors.warning }
                 ]}
-                onPress={handleFollowToggle}
+                onPress={followRequestSent ? handleCancelFollowRequest : handleFollowToggle}
                 disabled={followLoading}
               >
                 {followLoading ? (
-                  <ActivityIndicator size="small" color={isFollowing ? colors.text : colors.textInverse} />
+                  <ActivityIndicator size="small" color={colors.textInverse} />
                 ) : (
                   <>
                     <Ionicons 
-                      name={isFollowing ? "checkmark" : "add"} 
+                      name={isFollowing ? "checkmark" : (followRequestSent ? "time" : "add")} 
                       size={16} 
-                      color={isFollowing ? colors.text : colors.textInverse} 
+                      color={isFollowing ? colors.text : colors.textInverse}
                     />
                     <Text style={[
                       styles.followButtonText,
                       { color: colors.textInverse },
                       isFollowing && { color: colors.text }
                     ]}>
-                      {isFollowing ? 'Дагасан' : 'Дагах'}
+                      {isFollowing ? 'Дагасан' : (followRequestSent ? 'Хүсэлт илгээгдсэн' : 'Дагах')}
                     </Text>
                   </>
                 )}
@@ -397,9 +452,16 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           ) : posts.length === 0 ? (
             <View style={styles.noPostsContainer}>
               <Ionicons name="document-outline" size={48} color={colors.textTertiary} />
-              <Text style={[styles.noPostsTitle, { color: colors.text }]}>Пост байхгүй</Text>
+              <Text style={[styles.noPostsTitle, { color: colors.text }]}>
+                {error && error.includes('дагах шаардлагатай') ? 'Хувийн профайл' : 'Пост байхгүй'}
+              </Text>
               <Text style={[styles.noPostsText, { color: colors.textSecondary }]}>
-                {isOwnProfile ? 'Та одоогоор пост нийтлээгүй байна' : 'Энэ хэрэглэгч одоогоор пост нийтлээгүй байна'}
+                {error && error.includes('дагах шаардлагатай') 
+                  ? 'Энэ хэрэглэгчийн постуудыг харахын тулд дагах шаардлагатай'
+                  : isOwnProfile 
+                    ? 'Та одоогоор пост нийтлээгүй байна' 
+                    : 'Энэ хэрэглэгч одоогоор пост нийтлээгүй байна'
+                }
               </Text>
             </View>
           ) : (

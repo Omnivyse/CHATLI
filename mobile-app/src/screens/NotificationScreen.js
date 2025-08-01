@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 import socketService from '../services/socket';
+import FollowRequestNotification from '../components/FollowRequestNotification';
 
 const NotificationScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
@@ -157,12 +159,52 @@ const NotificationScreen = ({ navigation, user }) => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await api.markAllNotificationsRead();
-      setNotifications(prev => 
-        prev.map(notification => ({ ...notification, isRead: true }))
-      );
+      const response = await api.markAllNotificationsRead();
+      if (response.success) {
+        setNotifications(prev => 
+          prev.map(notification => ({ ...notification, isRead: true }))
+        );
+      }
     } catch (error) {
-      console.error('Mark all notifications as read error:', error);
+      console.error('Mark all as read error:', error);
+    }
+  };
+
+  const handleAcceptFollowRequest = async (requesterId) => {
+    try {
+      const response = await api.acceptFollowRequest(requesterId);
+      if (response.success) {
+        // Remove the follow request notification
+        setNotifications(prev => 
+          prev.filter(notification => 
+            !(notification.type === 'follow_request' && notification.from === requesterId)
+          )
+        );
+      } else {
+        Alert.alert('Алдаа', response.message || 'Хүсэлт зөвшөөрөхөд алдаа гарлаа');
+      }
+    } catch (error) {
+      console.error('Accept follow request error:', error);
+      Alert.alert('Алдаа', 'Хүсэлт зөвшөөрөхөд алдаа гарлаа');
+    }
+  };
+
+  const handleRejectFollowRequest = async (requesterId) => {
+    try {
+      const response = await api.rejectFollowRequest(requesterId);
+      if (response.success) {
+        // Remove the follow request notification
+        setNotifications(prev => 
+          prev.filter(notification => 
+            !(notification.type === 'follow_request' && notification.from === requesterId)
+          )
+        );
+      } else {
+        Alert.alert('Алдаа', response.message || 'Хүсэлт цуцлахад алдаа гарлаа');
+      }
+    } catch (error) {
+      console.error('Reject follow request error:', error);
+      Alert.alert('Алдаа', 'Хүсэлт цуцлахад алдаа гарлаа');
     }
   };
 
@@ -174,8 +216,12 @@ const NotificationScreen = ({ navigation, user }) => {
         return 'chatbubble';
       case 'follow':
         return 'person-add';
-      case 'message':
-        return 'mail';
+      case 'follow_request':
+        return 'person-add';
+      case 'mention':
+        return 'at';
+      case 'event_invite':
+        return 'calendar';
       default:
         return 'notifications';
     }
@@ -184,15 +230,19 @@ const NotificationScreen = ({ navigation, user }) => {
   const getNotificationColor = (type) => {
     switch (type) {
       case 'like':
-        return '#ff3b30';
+        return '#ff4757';
       case 'comment':
-        return '#007aff';
+        return '#2ed573';
       case 'follow':
-        return '#34c759';
-      case 'message':
-        return '#ff9500';
+        return '#3742fa';
+      case 'follow_request':
+        return '#ffa502';
+      case 'mention':
+        return '#ff6348';
+      case 'event_invite':
+        return '#5352ed';
       default:
-        return '#666';
+        return '#747d8c';
     }
   };
 
@@ -224,6 +274,18 @@ const NotificationScreen = ({ navigation, user }) => {
     if (!notification || !notification._id) {
       console.warn('Invalid notification data:', notification);
       return null;
+    }
+
+    // Handle follow request notifications
+    if (notification.type === 'follow_request' && notification.from) {
+      return (
+        <FollowRequestNotification
+          requester={notification.from}
+          onAccept={() => handleAcceptFollowRequest(notification.from._id)}
+          onReject={() => handleRejectFollowRequest(notification.from._id)}
+          onPress={() => handleMarkAsRead(notification._id)}
+        />
+      );
     }
     
     return (

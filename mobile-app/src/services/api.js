@@ -120,6 +120,14 @@ class ApiService {
             throw new Error('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
           }
           
+          // Don't log 403 errors for privacy-related endpoints (they're expected)
+          if (response.status === 403 && (
+            endpoint.includes('/posts/user/') || 
+            endpoint.includes('/posts/') && !endpoint.includes('/comment') && !endpoint.includes('/like')
+          )) {
+            throw new Error(errorMessage);
+          }
+          
           throw new Error(errorMessage);
         }
 
@@ -127,11 +135,18 @@ class ApiService {
         return data;
       } catch (error) {
         lastError = error;
-        console.error(`API Error (attempt ${attempt + 1}):`, {
-          url,
-          error: error.message,
-          endpoint
-        });
+        
+        // Don't log 403 errors for privacy-related endpoints (they're expected)
+        if (error.message.includes('дагах шаардлагатай') || 
+            (error.message.includes('403') && endpoint.includes('/posts/user/'))) {
+          // Skip logging for privacy errors
+        } else {
+          console.error(`API Error (attempt ${attempt + 1}):`, {
+            url,
+            error: error.message,
+            endpoint
+          });
+        }
 
         // If this is the last attempt, throw the error
         if (attempt === maxRetries) {
@@ -495,6 +510,24 @@ class ApiService {
 
   async unfollowUser(userId) {
     return this.request(`/auth/users/${userId}/unfollow`, {
+      method: 'POST',
+    });
+  }
+
+  async acceptFollowRequest(requesterId) {
+    return this.request(`/auth/users/${requesterId}/accept-follow-request`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectFollowRequest(requesterId) {
+    return this.request(`/auth/users/${requesterId}/reject-follow-request`, {
+      method: 'POST',
+    });
+  }
+
+  async cancelFollowRequest(userId) {
+    return this.request(`/auth/users/${userId}/cancel-follow-request`, {
       method: 'POST',
     });
   }
