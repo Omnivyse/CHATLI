@@ -37,6 +37,7 @@ import HelpCenterScreen from './src/screens/HelpCenterScreen';
 
 import EmailVerificationBanner from './src/components/EmailVerificationBanner';
 import EmailVerificationModal from './src/components/EmailVerificationModal';
+import WelcomeModal from './src/components/WelcomeModal';
 
 // Components
 import LoadingScreen from './src/components/LoadingScreen';
@@ -237,7 +238,7 @@ function AuthStackNavigator({ onLogin }) {
   );
 }
 
-function MainStackNavigator({ user, onLogout, onGoToVerification }) {
+function MainStackNavigator({ user, onLogout, onGoToVerification, onShowWelcomeModal }) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
@@ -288,7 +289,7 @@ function MainStackNavigator({ user, onLogout, onGoToVerification }) {
           headerBackTitleVisible: false,
         }}
       >
-        {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} />}
+        {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} onShowWelcomeModal={onShowWelcomeModal} />}
       </Stack.Screen>
       
       <Stack.Screen 
@@ -328,6 +329,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [showVerificationBanner, setShowVerificationBanner] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -420,51 +422,76 @@ export default function App() {
   };
 
   const handleLogin = async (userData, loginInfo = {}) => {
-    setUser(userData);
-    
-    // Track login event
-    if (loginInfo.isNewUser) {
-      analyticsService.trackUserRegister();
-      // Show verification banner for new users
-      setShowVerificationBanner(true);
-    } else {
-      analyticsService.trackUserLogin();
-      // Show verification banner for existing unverified users
-      if (userData && !userData.emailVerified) {
+    try {
+      setUser(userData);
+      
+      // Show welcome modal for new users or on app update
+      const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
+      const appVersion = await AsyncStorage.getItem('appVersion');
+      const currentVersion = '1.0.0'; // Update this when you release new versions
+      
+      if (!hasSeenWelcome || appVersion !== currentVersion) {
+        setShowWelcomeModal(true);
+        await AsyncStorage.setItem('hasSeenWelcome', 'true');
+        await AsyncStorage.setItem('appVersion', currentVersion);
+      }
+      
+      // Initialize services with error handling
+      try {
+        await socketService.connect(userData.token);
+      } catch (socketError) {
+        console.error('Socket connection error:', socketError);
+      }
+      
+      try {
+        if (analyticsService && typeof analyticsService.initialize === 'function') {
+          await analyticsService.initialize(userData._id);
+        }
+      } catch (analyticsError) {
+        console.error('Analytics initialization error:', analyticsError);
+      }
+      
+      try {
+        if (pushNotificationService && typeof pushNotificationService.initialize === 'function') {
+          await pushNotificationService.initialize(userData._id);
+        }
+      } catch (pushError) {
+        console.error('Push notification initialization error:', pushError);
+      }
+      
+      // Set up push notifications
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          await apiService.updatePushToken(token);
+        }
+      } catch (pushTokenError) {
+        console.error('Push token setup error:', pushTokenError);
+      }
+      
+      // Show verification banner if needed
+      if (!userData.emailVerified) {
         setShowVerificationBanner(true);
       }
-    }
-    
-    // Connect to socket with token
-    const token = await AsyncStorage.getItem('token');
-    if (token) {
-      socketService.connect(token);
-    }
-    
-    // Initialize push notifications
-    const pushInitialized = await pushNotificationService.initialize();
-    if (pushInitialized) {
-      const pushToken = pushNotificationService.getPushToken();
-      if (pushToken) {
-        try {
-          await apiService.request('/auth/push-token', {
-            method: 'POST',
-            body: JSON.stringify({ pushToken })
-          });
-          console.log('✅ Push token sent to server');
-        } catch (tokenError) {
-          console.error('❌ Failed to send push token to server:', tokenError);
-        }
-      }
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Алдаа', 'Нэвтрэхэд алдаа гарлаа');
     }
   };
 
   const handleLogout = async () => {
     console.log('🔄 handleLogout called');
     try {
-      // Track logout event
-      analyticsService.trackUserLogout();
-      console.log('📊 Analytics tracked');
+      // Track logout event with error handling
+      try {
+        if (analyticsService && typeof analyticsService.trackUserLogout === 'function') {
+          analyticsService.trackUserLogout();
+          console.log('📊 Analytics tracked');
+        }
+      } catch (analyticsError) {
+        console.error('Analytics tracking error:', analyticsError);
+      }
       
       await apiService.logout();
       console.log('✅ API logout successful');
@@ -528,6 +555,8 @@ export default function App() {
           onVerificationSuccess={handleVerificationSuccess}
           onGoToVerification={handleGoToVerification}
           onCancelVerification={handleCancelVerification}
+          showWelcomeModal={showWelcomeModal}
+          setShowWelcomeModal={setShowWelcomeModal}
         />
       </SafeAreaProvider>
     </ThemeProvider>
@@ -545,7 +574,9 @@ function AppContent({
   setShowVerificationModal,
   onVerificationSuccess,
   onGoToVerification,
-  onCancelVerification
+  onCancelVerification,
+  showWelcomeModal,
+  setShowWelcomeModal
 }) {
   const { theme, isLoading } = useTheme();
   const statusBarStyle = getStatusBarStyle(theme);
@@ -565,7 +596,7 @@ function AppContent({
           barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
         />
         {user ? (
-          <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />
+          <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowWelcomeModal={setShowWelcomeModal} />
         ) : (
           <AuthStackNavigator onLogin={onLogin} />
         )}
@@ -585,6 +616,13 @@ function AppContent({
         onClose={() => setShowVerificationModal(false)}
         user={user}
         onVerificationSuccess={onVerificationSuccess}
+      />
+
+      {/* Welcome Modal */}
+      <WelcomeModal
+        visible={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        user={user}
       />
       
       <Toast />

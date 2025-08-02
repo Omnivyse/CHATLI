@@ -14,6 +14,7 @@ import {
   Animated
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
@@ -28,6 +29,7 @@ const LoginScreen = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Animated blob values
   const blob1Anim = new Animated.Value(0);
@@ -77,10 +79,12 @@ const LoginScreen = ({ onLogin }) => {
     }
 
     setLoading(true);
-    setError('');
+    setError(''); // Clear any previous errors
+    
     try {
       if (mode === 'login') {
         const res = await api.login({ email, password });
+        
         if (res.success) {
           onLogin(res.data.user, { isNewUser: false });
         } else {
@@ -91,18 +95,34 @@ const LoginScreen = ({ onLogin }) => {
             onLogin(res.data.user, { isNewUser: false });
             return;
           }
+          // Display the specific error message from the API
           setError(res.message || 'Нэвтрэхэд алдаа гарлаа');
         }
       } else {
         const res = await api.register({ name, username, email, password });
+        
         if (res.success) {
           onLogin(res.data.user, { isNewUser: true });
         } else {
+          // Display the specific error message from the API
           setError(res.message || 'Бүртгүүлэхэд алдаа гарлаа');
         }
       }
-    } catch (e) {
-      setError(e.message || (mode === 'login' ? 'Нэвтрэхэд алдаа гарлаа' : 'Бүртгүүлэхэд алдаа гарлаа'));
+    } catch (error) {
+      // Handle API errors properly
+      console.error('Login/Register error:', error);
+      
+      // Check if it's a network error
+      if (error.message.includes('Network request failed') || 
+          error.message.includes('fetch') || 
+          error.message.includes('timeout')) {
+        setError('Интернет холболтоо шалгана уу');
+      } else if (error.message.includes('Хүсэлт хугацаа дууссан')) {
+        setError('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.');
+      } else {
+        // Display the specific error message from the API
+        setError(error.message || (mode === 'login' ? 'Нэвтрэхэд алдаа гарлаа' : 'Бүртгүүлэхэд алдаа гарлаа'));
+      }
     } finally {
       setLoading(false);
     }
@@ -110,6 +130,11 @@ const LoginScreen = ({ onLogin }) => {
 
   const handleForgotPasswordSuccess = (user) => {
     onLogin(user, { isNewUser: false });
+  };
+
+  // Test function to verify error display (remove in production)
+  const testErrorDisplay = () => {
+    setError('Тест алдааны мессеж - Имэйл эсвэл нууц үг буруу байна');
   };
 
   const blob1Transform = blob1Anim.interpolate({
@@ -267,13 +292,25 @@ const LoginScreen = ({ onLogin }) => {
                   placeholderTextColor="#666"
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                   autoComplete="password"
                 />
+                <TouchableOpacity
+                  style={styles.showPasswordButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off" : "eye"} 
+                    size={20} 
+                    color="#666" 
+                  />
+                </TouchableOpacity>
               </View>
               
-              {error && typeof error === 'string' ? (
-                <Text style={styles.errorText}>{error}</Text>
+              {error && typeof error === 'string' && error.length > 0 ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
               ) : null}
               
               <TouchableOpacity
@@ -484,6 +521,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
+  errorContainer: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
   submitButton: {
     backgroundColor: '#000',
     borderRadius: 12,
@@ -530,6 +575,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     textDecorationLine: 'underline',
+  },
+  showPasswordButton: {
+    position: 'absolute',
+    right: 0,
+    top: 12,
+    padding: 8,
+    backgroundColor: 'transparent',
+  },
+  showPasswordText: {
+    color: '#333',
+    fontSize: 14,
   },
 });
 

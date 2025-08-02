@@ -100,24 +100,22 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
     setError('');
 
     try {
+      console.log('🔄 Resetting password with token:', resetToken);
       const response = await apiService.resetPassword(resetToken, newPassword);
+      console.log('🔄 Reset password response:', response);
       
       if (response.success) {
-        Alert.alert('Амжилттай', 'Нууц үг амжилттай сэргээгдлээ');
+        console.log('✅ Password reset successful');
         
-        // Auto-login with new token
-        if (response.data.token) {
-          await apiService.setToken(response.data.token);
-          
-          setTimeout(() => {
-            onSuccess(response.data.user);
-            onClose();
-          }, 1500);
-        }
+        // Don't auto-login, just show success message and close modal
+        Alert.alert('Амжилттай', 'Нууц үг амжилттай сэргээгдлээ. Шинэ нууц үгээр нэвтэрнэ үү.');
+        onClose();
       } else {
+        console.log('❌ Password reset failed:', response.message);
         setError(response.message || 'Нууц үг сэргээхэд алдаа гарлаа');
       }
     } catch (error) {
+      console.error('❌ Password reset error:', error);
       setError(error.message || 'Нууц үг сэргээхэд алдаа гарлаа');
     } finally {
       setLoading(false);

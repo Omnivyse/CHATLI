@@ -1154,15 +1154,25 @@ router.post('/reset-password', [
     // Hash new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
+    console.log('🔄 Password reset - New password hashed successfully');
 
-    // Update password and clear reset code
-    user.password = hashedPassword;
-    user.passwordResetCode = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
+    // Update password and clear reset code using updateOne to avoid pre-save hook
+    await User.updateOne(
+      { _id: user._id },
+      { 
+        password: hashedPassword,
+        passwordResetCode: undefined,
+        passwordResetExpires: undefined
+      }
+    );
+    console.log('✅ Password reset - User updated successfully');
+
+    // Fetch updated user
+    const updatedUser = await User.findById(user._id);
+    console.log('✅ Password reset - Updated user fetched');
 
     // Generate new JWT token for automatic login
-    const token = generateToken(user._id);
+    const token = generateToken(updatedUser._id);
 
     res.json({
       success: true,
@@ -1170,13 +1180,13 @@ router.post('/reset-password', [
       data: {
         token: token,
         user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          avatar: user.avatar,
-          isVerified: user.isVerified,
-          emailVerified: user.emailVerified
+          _id: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          username: updatedUser.username,
+          avatar: updatedUser.avatar,
+          isVerified: updatedUser.isVerified,
+          emailVerified: updatedUser.emailVerified
         }
       }
     });

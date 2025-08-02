@@ -117,6 +117,10 @@ class ApiService {
             if (endpoint === '/auth/me') {
               return { success: false, message: 'Authentication failed' };
             }
+            // For login/register, return the error message instead of throwing
+            if (endpoint === '/auth/login' || endpoint === '/auth/register') {
+              return { success: false, message: errorMessage };
+            }
             throw new Error('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
           }
           
@@ -292,13 +296,15 @@ class ApiService {
 
   async resetPassword(resetToken, newPassword) {
     try {
+      console.log('🔄 API: Resetting password with token:', resetToken);
       const response = await this.request('/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({ resetToken, newPassword })
       });
+      console.log('🔄 API: Reset password response:', response);
       return response;
     } catch (error) {
-      console.error('Reset password error:', error);
+      console.error('❌ API: Reset password error:', error);
       throw error;
     }
   }

@@ -107,15 +107,24 @@ const NotificationScreen = ({ navigation, user }) => {
       setLoading(true);
       setError('');
       
+      console.log('🔔 Starting to load notifications...');
       const response = await api.getNotifications();
       console.log('🔔 Notifications response:', response);
       
       if (response.success && response.data.notifications) {
-        console.log('🔔 Loaded notifications:', response.data.notifications);
+        console.log('🔔 Loaded notifications count:', response.data.notifications.length);
+        console.log('🔔 First notification:', response.data.notifications[0]);
         
-        // Filter out invalid follow request notifications
-        const validNotifications = await filterInvalidFollowRequests(response.data.notifications);
+        // Validate notifications before setting
+        const validNotifications = response.data.notifications.filter(notification => {
+          if (!notification || !notification._id) {
+            console.warn('Invalid notification found:', notification);
+            return false;
+          }
+          return true;
+        });
         
+        console.log('🔔 Valid notifications count:', validNotifications.length);
         setNotifications(validNotifications);
       } else {
         console.log('🔔 No notifications or error:', response);
@@ -130,32 +139,15 @@ const NotificationScreen = ({ navigation, user }) => {
     }
   };
 
-  const filterInvalidFollowRequests = async (notifications) => {
-    try {
-      // Get current user's follow requests (people who want to follow us)
-      const userResponse = await api.getCurrentUser();
-      const currentUser = userResponse.success ? userResponse.data.user : null;
-      const followRequests = currentUser ? currentUser.followRequests || [] : [];
-      
-      // Filter out follow request notifications from users who are not in our follow requests
-      return notifications.filter(notification => {
-        if (notification.type === 'follow_request' && notification.from && notification.from.length > 0) {
-          const requesterId = notification.from[0]._id;
-          // If this user is in our follow requests, keep the notification
-          // If this user is not in our follow requests, remove the notification
-          return followRequests.includes(requesterId);
-        }
-        return true; // Keep all other notifications
-      });
-    } catch (error) {
-      console.error('Filter invalid follow requests error:', error);
-      return notifications; // Return original notifications if filtering fails
-    }
-  };
-
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadNotifications();
+    try {
+      await loadNotifications();
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleMarkAsRead = async (notificationId) => {
