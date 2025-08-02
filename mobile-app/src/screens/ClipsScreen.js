@@ -26,12 +26,19 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import api from '../services/api';
 import CommentSection from '../components/CommentSection';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
+import { getThemeColors } from '../utils/themeUtils';
 
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
 const TAB_BAR_HEIGHT = 72; // matches App.js tabBarStyle height
 
 const ClipsScreen = ({ navigation, user, route }) => {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const { language } = useLanguage();
+  const colors = getThemeColors(theme);
   const CLIP_CONTAINER_HEIGHT = windowHeight - TAB_BAR_HEIGHT - insets.bottom;
 
   const [posts, setPosts] = useState([]);
@@ -346,7 +353,7 @@ const ClipsScreen = ({ navigation, user, route }) => {
       }
     } catch (error) {
       console.error('Follow/Unfollow error:', error);
-      Alert.alert('Алдаа', 'Дагах/Дагахаа болих үйлдэл амжилтгүй болсон');
+      Alert.alert('Error', 'Follow/Unfollow action failed');
     } finally {
       setFollowLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -788,7 +795,7 @@ const ClipsScreen = ({ navigation, user, route }) => {
                       styles.followButtonText,
                       followingStatus[item.author._id] && styles.followingButtonText
                     ]}>
-                      {followingStatus[item.author._id] ? 'Дагасан' : 'Дагах'}
+                      {followingStatus[item.author._id] ? 'Following' : 'Follow'}
                     </Text>
                   )}
                 </TouchableOpacity>

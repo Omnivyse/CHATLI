@@ -468,6 +468,12 @@ io.on('connection', (socket) => {
   socket.on('like_post', async (data) => {
     const { postId, likedBy, postOwner } = data;
     try {
+      // Don't send notification if user is liking their own post
+      if (likedBy === postOwner) {
+        console.log(`🔔 Skipping like notification - user liking their own post`);
+        return;
+      }
+      
       // Check if notification already exists (within last 5 minutes)
       const existingNotification = await Notification.findOne({
         user: postOwner,

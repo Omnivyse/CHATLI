@@ -11,6 +11,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { LanguageProvider, useLanguage } from './src/contexts/LanguageContext';
+import { getTranslation } from './src/utils/translations';
 import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors, getThemeColors } from './src/utils/themeUtils';
 
 // Services
@@ -57,6 +59,7 @@ SplashScreen.preventAutoHideAsync();
 
 function MainTabNavigator({ user, onLogout, onGoToVerification }) {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const tabBarColors = getTabBarColors(theme);
   
   return (
@@ -182,19 +185,44 @@ function MainTabNavigator({ user, onLogout, onGoToVerification }) {
         headerShown: false, // We're using custom headers in screens
       })}
     >
-      <Tab.Screen name="Feed">
+      <Tab.Screen 
+        name="Feed"
+        options={{
+          tabBarLabel: getTranslation('feed', language)
+        }}
+      >
         {(props) => <PostFeedScreen {...props} user={user} onGoToVerification={onGoToVerification} />}
       </Tab.Screen>
-      <Tab.Screen name="Clips">
+      <Tab.Screen 
+        name="Clips"
+        options={{
+          tabBarLabel: getTranslation('clips', language)
+        }}
+      >
         {(props) => <ClipsScreen {...props} user={user} />}
       </Tab.Screen>
-      <Tab.Screen name="Chats">
+      <Tab.Screen 
+        name="Chats"
+        options={{
+          tabBarLabel: getTranslation('chats', language)
+        }}
+      >
         {(props) => <ChatListScreen {...props} user={user} />}
       </Tab.Screen>
-      <Tab.Screen name="Notifications">
+      <Tab.Screen 
+        name="Notifications"
+        options={{
+          tabBarLabel: getTranslation('notifications', language)
+        }}
+      >
         {(props) => <NotificationScreen {...props} user={user} />}
       </Tab.Screen>
-      <Tab.Screen name="Profile">
+      <Tab.Screen 
+        name="Profile"
+        options={{
+          tabBarLabel: getTranslation('profile', language)
+        }}
+      >
         {(props) => <ProfileScreen {...props} user={user} onLogout={onLogout} />}
       </Tab.Screen>
     </Tab.Navigator>
@@ -568,23 +596,25 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <SafeAreaProvider>
-        <AppContent 
-          user={user} 
-          onLogout={handleLogout} 
-          onLogin={handleLogin}
-          showSplash={showSplash}
-          onSplashComplete={handleSplashComplete}
-          showVerificationBanner={showVerificationBanner}
-          showVerificationModal={showVerificationModal}
-          setShowVerificationModal={setShowVerificationModal}
-          onVerificationSuccess={handleVerificationSuccess}
-          onGoToVerification={handleGoToVerification}
-          onCancelVerification={handleCancelVerification}
-          // showWelcomeModal={showWelcomeModal} // This line is removed
-          // setShowWelcomeModal={setShowWelcomeModal} // This line is removed
-        />
-      </SafeAreaProvider>
+      <LanguageProvider>
+        <SafeAreaProvider>
+          <AppContent 
+            user={user} 
+            onLogout={handleLogout} 
+            onLogin={handleLogin}
+            showSplash={showSplash}
+            onSplashComplete={handleSplashComplete}
+            showVerificationBanner={showVerificationBanner}
+            showVerificationModal={showVerificationModal}
+            setShowVerificationModal={setShowVerificationModal}
+            onVerificationSuccess={handleVerificationSuccess}
+            onGoToVerification={handleGoToVerification}
+            onCancelVerification={handleCancelVerification}
+            // showWelcomeModal={showWelcomeModal} // This line is removed
+            // setShowWelcomeModal={setShowWelcomeModal} // This line is removed
+          />
+        </SafeAreaProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }
@@ -603,16 +633,17 @@ function AppContent({
   onCancelVerification
 }) {
   const { theme, isLoading } = useTheme();
+  const { language, isLoading: languageLoading } = useLanguage();
   const statusBarStyle = getStatusBarStyle(theme);
   const statusBarBackgroundColor = getStatusBarBackgroundColor(theme);
 
-  if (isLoading) {
+  if (isLoading || languageLoading) {
     return <LoadingScreen />;
   }
 
   return (
     <>
-      <NavigationContainer>
+      <NavigationContainer key={language}>
         <StatusBar 
           style={statusBarStyle} 
           backgroundColor={statusBarBackgroundColor}

@@ -62,7 +62,7 @@ const CreatePostScreen = ({ navigation, user }) => {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Зөвшөөрөл', 'Зураг/видео сонгохын тулд медиа сангийн зөвшөөрөл шаардлагатай.');
+        Alert.alert('Permission', 'Media library permission is required to select photos/videos.');
         return;
       }
 
@@ -103,7 +103,7 @@ const CreatePostScreen = ({ navigation, user }) => {
       }
     } catch (error) {
       console.error('Error selecting media:', error);
-      Alert.alert('Алдаа', 'Медиа файл сонгоход алдаа гарлаа');
+      Alert.alert('Error', 'Failed to select media file');
     }
   };
 
@@ -113,7 +113,7 @@ const CreatePostScreen = ({ navigation, user }) => {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Зөвшөөрөл', 'Зураг авахын тулд камерын зөвшөөрөл шаардлагатай.');
+        Alert.alert('Permission', 'Camera permission is required to take photos.');
         return;
       }
 
@@ -141,7 +141,7 @@ const CreatePostScreen = ({ navigation, user }) => {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert('Алдаа', 'Зураг авахад алдаа гарлаа');
+      Alert.alert('Error', 'Failed to capture photo');
     }
   };
 
@@ -175,7 +175,7 @@ const CreatePostScreen = ({ navigation, user }) => {
 
   const handleCreatePost = async () => {
     if (!content.trim() && selectedMedia.length === 0) {
-      Alert.alert('Анхааруулга', 'Пост текст эсвэл медиа файл оруулна уу');
+      Alert.alert('Warning', 'Please enter post text or add media file');
       return;
     }
 
@@ -209,7 +209,7 @@ const CreatePostScreen = ({ navigation, user }) => {
         navigation.goBack();
       } else {
         console.error('Create post failed:', response);
-        Alert.alert('Алдаа', response.message || 'Пост үүсгэхэд алдаа гарлаа');
+        Alert.alert('Error', 'Failed to create post');
       }
     } catch (error) {
       console.error('Create post error details:', error);
@@ -280,7 +280,7 @@ const CreatePostScreen = ({ navigation, user }) => {
           {loading ? (
             <ActivityIndicator size="small" color={colors.textInverse} />
           ) : (
-            <Text style={[styles.postButtonText, { color: colors.textInverse }]}>Нийтлэх</Text>
+            <Text style={[styles.postButtonText, { color: colors.textInverse }]}>Publish</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -321,7 +321,7 @@ const CreatePostScreen = ({ navigation, user }) => {
             <View style={styles.inputSection}>
               <TextInput
                 style={[styles.contentInput, { color: colors.text, backgroundColor: colors.background }]}
-                placeholder="Юу бодож байна?"
+                placeholder="What are you thinking?"
                 placeholderTextColor={colors.placeholder}
                 value={content}
                 onChangeText={setContent}
@@ -348,7 +348,7 @@ const CreatePostScreen = ({ navigation, user }) => {
             {/* Media Preview */}
             {selectedMedia.length > 0 && (
               <View style={styles.mediaSection}>
-                <Text style={[styles.mediaSectionTitle, { color: colors.text }]}>Медиа файлууд</Text>
+                <Text style={[styles.mediaSectionTitle, { color: colors.text }]}>Media Files</Text>
                 <ScrollView 
                   horizontal 
                   showsHorizontalScrollIndicator={false}
@@ -374,7 +374,7 @@ const CreatePostScreen = ({ navigation, user }) => {
               disabled={loading || selectedMedia.length >= 4}
             >
               <Ionicons name="image" size={22} color={colors.text} />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>Медиа</Text>
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>Media</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -383,7 +383,7 @@ const CreatePostScreen = ({ navigation, user }) => {
               disabled={loading || selectedMedia.length >= 4}
             >
               <Ionicons name="camera" size={22} color={colors.text} />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>Камер</Text>
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>Camera</Text>
             </TouchableOpacity>
           </View>
           

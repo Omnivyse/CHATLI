@@ -18,12 +18,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 import api from '../services/api';
 import socketService from '../services/socket';
 
 const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,11 +101,11 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
         setComments(commentsData);
       } else {
         console.log('❌ Comments load failed:', response.message);
-        Alert.alert('Алдаа', 'Сэтгэгдлүүдийг ачаалахад алдаа гарлаа');
+        Alert.alert('Error', 'Failed to load comments');
       }
     } catch (error) {
       console.error('❌ Load comments error:', error);
-      Alert.alert('Алдаа', 'Сэтгэгдлүүдийг ачаалахад алдаа гарлаа');
+      Alert.alert('Error', 'Failed to load comments');
     } finally {
       setLoading(false);
     }
@@ -142,11 +145,11 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
           scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 100);
       } else {
-        Alert.alert('Алдаа', 'Сэтгэгдэл нэмэхэд алдаа гарлаа');
+        Alert.alert('Error', 'Failed to add comment');
       }
     } catch (error) {
       console.error('Submit comment error:', error);
-      Alert.alert('Алдаа', 'Сэтгэгдэл нэмэхэд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to add comment');
     } finally {
       setSubmitting(false);
     }
@@ -154,19 +157,19 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
 
   const formatTimeAgo = (dateString) => {
     try {
-      if (!dateString) return '0с';
+      if (!dateString) return '0s';
       const now = new Date();
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '0с';
+      if (isNaN(date.getTime())) return '0s';
       
       const diffInSeconds = Math.floor((now - date) / 1000);
       
-      if (diffInSeconds < 60) return String(diffInSeconds) + 'с';
-      if (diffInSeconds < 3600) return String(Math.floor(diffInSeconds / 60)) + 'м';
-      if (diffInSeconds < 86400) return String(Math.floor(diffInSeconds / 3600)) + 'ц';
-      return String(Math.floor(diffInSeconds / 86400)) + 'ө';
+      if (diffInSeconds < 60) return String(diffInSeconds) + 's';
+      if (diffInSeconds < 3600) return String(Math.floor(diffInSeconds / 60)) + 'm';
+      if (diffInSeconds < 86400) return String(Math.floor(diffInSeconds / 3600)) + 'h';
+      return String(Math.floor(diffInSeconds / 86400)) + 'd';
     } catch (error) {
-      return '0с';
+      return '0s';
     }
   };
 
@@ -201,11 +204,9 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="chatbubble-outline" size={48} color={colors.textSecondary} />
-      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-        Сэтгэгдэл байхгүй
-      </Text>
+      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No comments</Text>
       <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-        Эхний сэтгэгдлээ үлдээгээрэй
+        Be the first to leave a comment!
       </Text>
     </View>
   );
@@ -223,7 +224,7 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Сэтгэгдэл ({Array.isArray(comments) ? comments.length : 0})
+            Comments ({Array.isArray(comments) ? comments.length : 0})
           </Text>
           <View style={styles.placeholder} />
         </View>
@@ -270,7 +271,7 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
               style={[styles.textInput, { 
                 color: colors.text,
               }]}
-              placeholder="Сэтгэгдэл бичих..."
+              placeholder="Write a comment..."
               placeholderTextColor={colors.textSecondary}
               value={commentText}
               onChangeText={setCommentText}

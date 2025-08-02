@@ -46,27 +46,27 @@ const RegisterScreen = ({ navigation, onLogin }) => {
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Нэр оруулна уу';
+      newErrors.name = 'Please enter your name';
     }
 
     if (!formData.username.trim()) {
-      newErrors.username = 'Хэрэглэгчийн нэр оруулна уу';
+      newErrors.username = 'Please enter username';
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Имэйл оруулна уу';
+      newErrors.email = 'Please enter email';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Зөв имэйл оруулна уу';
+      newErrors.email = 'Please enter a valid email';
     }
 
     if (!formData.password) {
-      newErrors.password = 'Нууц үг оруулна уу';
+      newErrors.password = 'Please enter password';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой';
+      newErrors.password = 'Password must be at least 6 characters';
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Нууц үг таарахгүй байна';
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
     setErrors(newErrors);
@@ -90,8 +90,8 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       if (response.success) {
         Toast.show({
           type: 'success',
-          text1: 'Бүртгэл амжилттай үүслээ',
-          text2: 'Имэйл хаягаа шалгаж баталгаажуулна уу',
+          text1: 'Registration successful',
+          text2: 'Please check your email for verification',
         });
         
         // For new users, save token and go directly to main app
@@ -111,16 +111,16 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       } else {
         Toast.show({
           type: 'error',
-          text1: 'Бүртгэлийн алдаа',
-          text2: response.message || 'Бүртгэлд алдаа гарлаа',
+          text1: 'Registration error',
+          text2: response.message || 'Registration failed',
         });
       }
     } catch (error) {
       console.error('Register error:', error);
       Toast.show({
         type: 'error',
-        text1: 'Алдаа гарлаа',
-        text2: error.message || 'Серверийн алдаа гарлаа',
+        text1: 'Error',
+        text2: error.message || 'Server error occurred',
       });
     } finally {
       setLoading(false);
@@ -139,17 +139,17 @@ const RegisterScreen = ({ navigation, onLogin }) => {
         >
           <View style={styles.header}>
             <Text style={styles.title}>CHATLI</Text>
-            <Text style={styles.subtitle}>Бүртгүүлэх</Text>
+            <Text style={styles.subtitle}>Register</Text>
           </View>
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нэр</Text>
+              <Text style={styles.label}>Name</Text>
               <View style={[styles.inputWrapper, errors.name && styles.inputError]}>
                 <Ionicons name="person-outline" size={20} color="#666666" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Таны нэр"
+                  placeholder="Your name"
                   placeholderTextColor="#999999"
                   value={formData.name}
                   onChangeText={(value) => handleInputChange('name', value)}
@@ -160,7 +160,7 @@ const RegisterScreen = ({ navigation, onLogin }) => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Хэрэглэгчийн нэр</Text>
+              <Text style={styles.label}>Username</Text>
               <View style={[styles.inputWrapper, errors.username && styles.inputError]}>
                 <Ionicons name="at-outline" size={20} color="#666666" style={styles.inputIcon} />
                 <TextInput
@@ -177,7 +177,7 @@ const RegisterScreen = ({ navigation, onLogin }) => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Имэйл</Text>
+              <Text style={styles.label}>Email</Text>
               <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
                 <Ionicons name="mail-outline" size={20} color="#666666" style={styles.inputIcon} />
                 <TextInput
@@ -195,12 +195,12 @@ const RegisterScreen = ({ navigation, onLogin }) => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг</Text>
+              <Text style={styles.label}>Password</Text>
               <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
                 <Ionicons name="lock-closed-outline" size={20} color="#666666" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Нууц үгээ оруулна уу"
+                  placeholder="Enter password"
                   placeholderTextColor="#999999"
                   value={formData.password}
                   onChangeText={(value) => handleInputChange('password', value)}
@@ -223,12 +223,12 @@ const RegisterScreen = ({ navigation, onLogin }) => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг давтах</Text>
+              <Text style={styles.label}>Confirm Password</Text>
               <View style={[styles.inputWrapper, errors.confirmPassword && styles.inputError]}>
                 <Ionicons name="lock-closed-outline" size={20} color="#666666" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Нууц үгээ дахин оруулна уу"
+                  placeholder="Confirm password"
                   placeholderTextColor="#999999"
                   value={formData.confirmPassword}
                   onChangeText={(value) => handleInputChange('confirmPassword', value)}
@@ -248,14 +248,14 @@ const RegisterScreen = ({ navigation, onLogin }) => {
               {loading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.registerButtonText}>Бүртгүүлэх</Text>
+                <Text style={styles.registerButtonText}>Register</Text>
               )}
             </TouchableOpacity>
 
             <View style={styles.loginContainer}>
-              <Text style={styles.loginText}>Бүртгэлтэй байна уу? </Text>
+              <Text style={styles.loginText}>Already have an account? </Text>
               <TouchableOpacity onPress={() => navigation.goBack()} disabled={loading}>
-                <Text style={styles.loginLink}>Нэвтрэх</Text>
+                <Text style={styles.loginLink}>Login</Text>
               </TouchableOpacity>
             </View>
           </View>

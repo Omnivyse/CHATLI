@@ -16,11 +16,15 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import Post from '../components/Post';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 
 const ProfileScreen = ({ navigation, user, onLogout }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const { language } = useLanguage();
+  const t = getTranslation(language);
   const [loading, setLoading] = useState(false);
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
@@ -29,15 +33,15 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
 
   const handleLogout = () => {
     Alert.alert(
-      'Гарах',
-      'Та гарахдаа итгэлтэй байна уу?',
+      getTranslation('logout', language),
+      getTranslation('logoutConfirm', language),
       [
         {
-          text: 'Болих',
+          text: getTranslation('cancel', language),
           style: 'cancel',
         },
         {
-          text: 'Гарах',
+          text: getTranslation('logout', language),
           style: 'destructive',
           onPress: () => {
             setLoading(true);
@@ -80,7 +84,7 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
         >
           <Ionicons name="settings-outline" size={26} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Профайл</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{getTranslation('profile', language)}</Text>
         <TouchableOpacity
           style={styles.headerIconRight}
           onPress={() => navigation.navigate('EditProfile')}
@@ -145,15 +149,15 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={[styles.statNumber, { color: colors.text }]}>{user.following?.length || 0}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагаж байна</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{getTranslation('following', language)}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statNumber, { color: colors.text }]}>{user.followers?.length || 0}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагагч</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{getTranslation('followers', language)}</Text>
             </View>
             <View style={styles.statItem}>
-                              <Text style={[styles.statNumber, { color: colors.text }]}>{String(posts.length)}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Пост</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{String(posts.length)}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{getTranslation('posts', language)}</Text>
             </View>
           </View>
         </View>
@@ -182,17 +186,17 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
 
         {/* Posts Section */}
         <View style={[styles.postsSection, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.postsSectionTitle, { color: colors.text }]}>Таны постууд</Text>
+          <Text style={[styles.postsSectionTitle, { color: colors.text }]}>Your Posts</Text>
           {postsLoading ? (
             <View style={styles.postsLoading}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.postsLoadingText, { color: colors.textSecondary }]}>Постууд ачаалж байна...</Text>
+              <Text style={[styles.postsLoadingText, { color: colors.textSecondary }]}>Loading posts...</Text>
             </View>
           ) : posts.length === 0 ? (
             <View style={styles.noPostsContainer}>
               <Ionicons name="document-text-outline" size={48} color={colors.textTertiary} />
-              <Text style={[styles.noPostsTitle, { color: colors.text }]}>Пост алга</Text>
-              <Text style={[styles.noPostsText, { color: colors.textSecondary }]}>Та одоогоор пост оруулаагүй байна.</Text>
+              <Text style={[styles.noPostsTitle, { color: colors.text }]}>No Posts</Text>
+              <Text style={[styles.noPostsText, { color: colors.textSecondary }]}>You haven't posted anything yet.</Text>
             </View>
           ) : (
             <FlatList

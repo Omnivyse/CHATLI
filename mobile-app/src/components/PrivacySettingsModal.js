@@ -83,7 +83,7 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
       if (!response.success) {
         // Revert to previous state if failed
         setPrivacySettings(previousSettings);
-        Alert.alert('Алдаа', response.message || 'Тохиргоо хадгалахад алдаа гарлаа');
+        Alert.alert('Error', 'Failed to save settings');
       } else {
         console.log('Privacy setting updated successfully:', settingKey, value);
       }
@@ -100,11 +100,10 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
   const handlePrivateAccountToggle = async (value) => {
     if (value) {
       Alert.alert(
-        'Хувийн аккаунт',
-        'Хувийн аккаунт болгосноор зөвхөн таны дагалтчид таны постуудыг харах боломжтой болно. Та энэ өөрчлөлтийг хийхдээ итгэлтэй байна уу?',
+        'Making your account private will only allow your followers to see your posts. Are you sure you want to make this change?',
         [
-          { text: 'Болих', style: 'cancel' },
-          { text: 'Тийм', onPress: () => handleToggleSetting('isPrivateAccount', value) }
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Yes', onPress: () => handleToggleSetting('isPrivateAccount', value) }
         ]
       );
     } else {
@@ -114,12 +113,12 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
 
   const privacySections = [
     {
-      title: 'Профайл нууцлал',
+      title: 'Profile Visibility',
       items: [
         {
           key: 'isPrivateAccount',
           title: 'Хувийн аккаунт',
-          subtitle: 'Зөвхөн дагалтчид таны постуудыг харах',
+          subtitle: 'Only followers can see your posts',
           type: 'switch',
           value: privacySettings.isPrivateAccount,
           onToggle: handlePrivateAccountToggle,
@@ -128,7 +127,7 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
         {
           key: 'showProfileInSearch',
           title: 'Хайлтад харагдах',
-          subtitle: 'Хайлтын үр дүнд профайл харагдах',
+          subtitle: 'Profile appears in search results',
           type: 'switch',
           value: privacySettings.showProfileInSearch,
           onToggle: (value) => handleToggleSetting('showProfileInSearch', value),
@@ -137,7 +136,7 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
         {
           key: 'allowProfileViews',
           title: 'Профайл харагдах',
-          subtitle: 'Хүмүүс таны профайлыг харах боломжтой',
+          subtitle: 'People can view your profile',
           type: 'switch',
           value: privacySettings.allowProfileViews,
           onToggle: (value) => handleToggleSetting('allowProfileViews', value),
@@ -150,8 +149,8 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
       items: [
         {
           key: 'allowMessagesFromStrangers',
-          title: 'Гаднаас мессеж',
-          subtitle: 'Танихгүй хүмүүсээс мессеж хүлээн авах',
+          title: 'Messages from Strangers',
+          subtitle: 'Receive messages from unknown people',
           type: 'switch',
           value: privacySettings.allowMessagesFromStrangers,
           onToggle: (value) => handleToggleSetting('allowMessagesFromStrangers', value),
@@ -159,8 +158,8 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
         },
         {
           key: 'allowEventInvites',
-          title: 'Event урилга',
-          subtitle: 'Event урилга хүлээн авах',
+          title: 'Event Invites',
+          subtitle: 'Receive event invitations',
           type: 'switch',
           value: privacySettings.allowEventInvites,
           onToggle: (value) => handleToggleSetting('allowEventInvites', value),
@@ -169,7 +168,7 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
       ],
     },
     {
-      title: 'Онлайн статус',
+      title: 'Online Status',
       items: [
         {
           key: 'showOnlineStatus',
@@ -196,8 +195,8 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
       items: [
         {
           key: 'allowPostComments',
-          title: 'Пост сэтгэгдэл',
-          subtitle: 'Пост дээр сэтгэгдэл бичих боломжтой',
+          title: 'Post Comments',
+          subtitle: 'Allow comments on posts',
           type: 'switch',
           value: privacySettings.allowPostComments,
           onToggle: (value) => handleToggleSetting('allowPostComments', value),
@@ -264,7 +263,7 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Нууцлалын тохиргоо
+            Privacy Settings
           </Text>
           <View style={{ width: 24 }} />
         </View>
@@ -274,7 +273,7 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Тохиргоо ачаалж байна...
+              Loading settings...
             </Text>
           </View>
         ) : (

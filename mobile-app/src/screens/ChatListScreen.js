@@ -18,10 +18,13 @@ import api from '../services/api';
 import socketService from '../services/socket';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 
 const ChatListScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,16 +46,16 @@ const ChatListScreen = ({ navigation, user }) => {
         });
         setChats(sortedChats);
       } else {
-        setError('Чат жагсаалтыг уншихад алдаа гарлаа');
+        setError(getTranslation('chatsLoadError', language));
       }
     } catch (error) {
       console.error('Load chats error:', error);
-      setError('Чат жагсаалтыг уншихад алдаа гарлаа');
+      setError(getTranslation('chatsLoadError', language));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     loadChats();
@@ -128,12 +131,12 @@ const ChatListScreen = ({ navigation, user }) => {
   };
 
   const getLastMessageText = (chat) => {
-    if (!chat.lastMessage?.text) return 'Мессеж байхгүй';
+    if (!chat.lastMessage?.text) return 'Message not found';
     
     const sender = chat.lastMessage.sender;
     const isOwnMessage = sender?._id === user._id;
     
-          return isOwnMessage ? 'Та: ' + (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '') : (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '');
+          return isOwnMessage ? 'You: ' + (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '') : (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '');
   };
 
   const getDisplayDate = (timestamp) => {
@@ -147,15 +150,15 @@ const ChatListScreen = ({ navigation, user }) => {
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
     if (diffInMinutes < 1) {
-      return 'одоо';
+      return 'now';
     } else if (diffInMinutes < 60) {
-      return String(diffInMinutes) + 'м';
+      return String(diffInMinutes) + 'm';
     } else if (diffInHours < 24) {
-      return String(diffInHours) + 'ц';
+      return String(diffInHours) + 'h';
     } else if (diffInDays === 1) {
-      return 'өчигдөр';
+      return 'yesterday';
     } else if (diffInDays < 7) {
-      return String(diffInDays) + ' өдөр';
+      return String(diffInDays) + ' days';
     } else {
       return date.toLocaleDateString('mn-MN', { 
         month: 'short', 
@@ -180,7 +183,7 @@ const ChatListScreen = ({ navigation, user }) => {
       });
     } catch (error) {
       console.error('Error opening chat:', error);
-      Alert.alert('Алдаа', 'Чатыг нээхэд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to open chat');
     }
   };
 
@@ -189,7 +192,7 @@ const ChatListScreen = ({ navigation, user }) => {
       await api.deleteChat(chatId);
       setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
     } catch (error) {
-      Alert.alert('Алдаа', 'Чат устгахад алдаа гарлаа');
+      Alert.alert('Error', 'Failed to delete chat');
     }
   };
 
@@ -206,11 +209,11 @@ const ChatListScreen = ({ navigation, user }) => {
       onPress={() => handleChatPress(chat)}
       onLongPress={() => {
         Alert.alert(
-          'Чат устгах',
-          'Энэ чатыг устгах уу?',
+          'Delete Chat',
+          'Delete this chat?',
           [
-            { text: 'Болих', style: 'cancel' },
-            { text: 'Устгах', style: 'destructive', onPress: () => handleDeleteChat(chat._id) }
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => handleDeleteChat(chat._id) }
           ]
         );
       }}
@@ -282,7 +285,7 @@ const ChatListScreen = ({ navigation, user }) => {
     >
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Чат</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
         <TouchableOpacity 
           style={styles.searchButton}
           onPress={() => navigation.navigate('UserSearch')}
@@ -296,7 +299,7 @@ const ChatListScreen = ({ navigation, user }) => {
         <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Хайх..."
+          placeholder="Search..."
           placeholderTextColor={colors.placeholder}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -316,20 +319,20 @@ const ChatListScreen = ({ navigation, user }) => {
       ) : error ? (
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-          {error && typeof error === 'string' ? error : 'Алдаа гарлаа'}
+          {error && typeof error === 'string' ? error : 'Error occurred'}
         </Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadChats}
           >
-            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Дахин оролдох</Text>
+            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : filteredChats.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="chatbubbles-outline" size={64} color={colors.textTertiary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            {searchQuery ? 'Хайлтад тохирох чат олдсонгүй' : 'Чат байхгүй байна'}
+            {searchQuery ? 'No chats found matching your search' : 'No chats yet'}
           </Text>
           {!searchQuery && (
             <TouchableOpacity 

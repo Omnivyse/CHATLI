@@ -262,7 +262,7 @@ const LoginScreen = ({ onLogin }) => {
                   <View style={styles.inputContainer}>
                     <TextInput
                       style={styles.input}
-                      placeholder="Нэр"
+                      placeholder="Username"
                       placeholderTextColor="#666"
                       value={username}
                       onChangeText={setUsername}

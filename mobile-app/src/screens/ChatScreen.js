@@ -637,7 +637,7 @@ const ChatScreen = ({ navigation, route, user }) => {
               {chatTitle && typeof chatTitle === 'string' ? chatTitle : 'Chat'}
             </Text>
           </TouchableOpacity>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Онлайн</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Online</Text>
         </View>
         
         <TouchableOpacity style={[styles.headerAction, { backgroundColor: colors.surfaceVariant }] }>
@@ -688,7 +688,7 @@ const ChatScreen = ({ navigation, route, user }) => {
           <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceVariant }] }>
             <TextInput
               style={[styles.textInput, { color: colors.text }]}
-              placeholder="Мессеж бичих..."
+              placeholder="Write a message..."
               placeholderTextColor={colors.placeholder}
               value={newMessage}
               onChangeText={handleTextChange}

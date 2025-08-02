@@ -116,7 +116,7 @@ const UserSearchScreen = ({ navigation, user }) => {
           chatTitle: targetUser.name
         });
       } else {
-        Alert.alert('Алдаа', 'Чат үүсгэхэд алдаа гарлаа');
+        Alert.alert('Error', 'Failed to create chat');
       }
     } catch (error) {
       console.error('Create chat error:', error);
@@ -277,7 +277,7 @@ const UserSearchScreen = ({ navigation, user }) => {
         >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч хайх</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Search Users</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -287,7 +287,7 @@ const UserSearchScreen = ({ navigation, user }) => {
           <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Нэр, имэйл хайх..."
+            placeholder="Search by name, email..."
             placeholderTextColor={colors.placeholder}
             value={searchQuery}
             onChangeText={handleSearchChange}
@@ -322,9 +322,9 @@ const UserSearchScreen = ({ navigation, user }) => {
           ) : searchResults.length === 0 && searchQuery ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="search" size={64} color="#ccc" />
-              <Text style={styles.emptyTitle}>Хэрэглэгч олдсонгүй</Text>
+              <Text style={styles.emptyTitle}>No users found</Text>
               <Text style={styles.emptySubtitle}>
-                Өөр нэрээр хайж үзээрэй
+                Try searching with a different name
               </Text>
             </View>
           ) : (
@@ -341,10 +341,7 @@ const UserSearchScreen = ({ navigation, user }) => {
         // Following List
         <View style={styles.content}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Дагагчид</Text>
-            <Text style={styles.sectionSubtitle}>
-              Дагасан хүмүүстэйгээ чат эхлүүлээрэй
-            </Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Followers</Text>
           </View>
 
           {loadingFollowing ? (
@@ -357,8 +354,7 @@ const UserSearchScreen = ({ navigation, user }) => {
             <View style={styles.emptyContainer}>
               <Ionicons name="people-outline" size={64} color="#ccc" />
               <Text style={styles.emptyTitle}>Дагагч байхгүй</Text>
-              <Text style={styles.emptySubtitle}>
-                Хэрэглэгчдийг хайж дагаарай
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               </Text>
             </View>
           ) : (

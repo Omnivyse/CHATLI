@@ -40,7 +40,7 @@ const FollowRequestNotification = ({
             {requester.name}
           </Text>
           <Text style={[styles.message, { color: colors.textSecondary }]}>
-            танд дагах хүсэлт илгээлээ
+            sent you a follow request
           </Text>
         </View>
 

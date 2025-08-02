@@ -62,7 +62,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
   const handleJoinEvent = async () => {
     // Prevent joining if already joined
     if (isJoined) {
-      Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
+      Alert.alert('Info', 'You have already joined this event');
       return;
     }
 
@@ -81,7 +81,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
         setIsJoined(true);
         Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
       } else {
-        Alert.alert('Алдаа', 'Event-д нэгдэхэд алдаа гарлаа');
+        Alert.alert('Error', 'Failed to join event');
       }
     }
   };
@@ -93,7 +93,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
     }
 
     if (password.length !== 4) {
-      Alert.alert('Алдаа', 'Нууц үг 4 оронтой байх ёстой');
+      Alert.alert('Алдаа', 'Password must be 4 digits');
       return;
     }
 
@@ -111,7 +111,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
         setPassword('');
         Alert.alert('Мэдээлэл', 'Та энэ event-д аль хэдийн нэгдсэн байна');
       } else {
-        Alert.alert('Алдаа', 'Event-д нэгдэхэд алдаа гарлаа');
+        Alert.alert('Алдаа', 'Wrong password');
       }
     }
   };
@@ -126,37 +126,24 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
       await onLeaveEvent(event._id);
       setIsJoined(false);
     } catch (error) {
-      Alert.alert('Алдаа', 'Event-с гаргахад алдаа гарлаа');
+      Alert.alert('Error', 'Failed to leave event');
     }
   };
 
   const handleKickUser = async (userId, userName) => {
     Alert.alert(
-      'Хэрэглэгчийг хас',
-      `${userName}-г энэ event-с хасахдаа итгэлтэй байна уу?`,
+      'Remove User',
+      `Are you sure you want to remove ${userName} from this event?`,
       [
-        {
-          text: 'Цуцлах',
-          style: 'cancel'
-        },
-        {
-          text: 'Хас',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await onKickEventUser(event._id, userId);
-            } catch (error) {
-              Alert.alert('Алдаа', 'Хэрэглэгчийг хасхад алдаа гарлаа');
-            }
-          }
-        }
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => handleKickUser(userId, userName) }
       ]
     );
   };
 
   const handleLikeEvent = async () => {
     if (!isJoined) {
-      Alert.alert('Мэдээлэл', 'Event-д нэгдсний дараа лайк хийх боломжтой');
+      Alert.alert('Info', 'You can only like after joining the event');
       return;
     }
 
@@ -164,18 +151,18 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
       await onLikeEvent(event._id);
       setIsLiked(!isLiked);
     } catch (error) {
-      Alert.alert('Алдаа', 'Лайк хийхэд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to like');
     }
   };
 
   const handleComment = async () => {
     if (!isJoined) {
-      Alert.alert('Мэдээлэл', 'Event-д нэгдсний дараа сэтгэгдэл бичих боломжтой');
+      Alert.alert('Info', 'You can only comment after joining the event');
       return;
     }
 
     if (!commentText.trim()) {
-      Alert.alert('Алдаа', 'Сэтгэгдэл бичнэ үү');
+      Alert.alert('Error', 'Please write a comment');
       return;
     }
 
@@ -184,27 +171,17 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
       setCommentText('');
       setShowComments(false);
     } catch (error) {
-      Alert.alert('Алдаа', 'Сэтгэгдэл бичихэд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to add comment');
     }
   };
 
   const handleDeleteEvent = async () => {
     Alert.alert(
-      'Event устгах',
-      'Энэ event-ийг устгахдаа итгэлтэй байна уу?',
+      'Delete Event',
+      'Are you sure you want to delete this event?',
       [
-        { text: 'Болих', style: 'cancel' },
-        { 
-          text: 'Устгах', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await onDeleteEvent(event._id);
-            } catch (error) {
-              Alert.alert('Алдаа', 'Event устгахад алдаа гарлаа');
-            }
-          }
-        }
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: handleDeleteEvent }
       ]
     );
   };
@@ -222,7 +199,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
     <View style={[styles.commentItem, { borderBottomColor: colors.border }]}>
       <View style={styles.commentHeader}>
         <Text style={[styles.commentAuthor, { color: colors.text }]}>
-          {item.author?.name || 'Хэрэглэгч'}
+          {item.author?.name || 'User'}
         </Text>
         <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
           {new Date(item.createdAt).toLocaleDateString('mn-MN')}
@@ -250,7 +227,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
         )}
         <View style={styles.joinedUserInfo}>
           <Text style={[styles.joinedUserName, { color: colors.text }]}>
-            {item.name || 'Хэрэглэгч'}
+            {item.name || 'User'}
           </Text>
           <Text style={[styles.joinedUserDate, { color: colors.textSecondary }]}>
             {new Date(item.joinedAt || Date.now()).toLocaleDateString('mn-MN')}
@@ -333,7 +310,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
           <View style={styles.statItem}>
             <Ionicons name="people" size={16} color={colors.textSecondary} />
             <Text style={[styles.statText, { color: colors.textSecondary }]}>
-              {event.joinedUsers?.length || 0}/{event.userNumber} хүн
+              {event.joinedUsers?.length || 0}/{event.userNumber} people
             </Text>
           </View>
           <View style={styles.statItem}>
@@ -374,7 +351,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
           onPress={isJoined ? handleLeaveEvent : handleJoinEvent}
         >
           <Text style={[styles.joinButtonText, { color: '#ffffff' }]}>
-            {isJoined ? 'Гарах' : 'Нэгдэх'}
+            {isJoined ? 'Leave' : 'Join'}
           </Text>
         </TouchableOpacity>
 
@@ -426,7 +403,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Сэтгэгдэл ({event.comments?.length || 0})
+              Comments ({event.comments?.length || 0})
             </Text>
             <View style={{ width: 24 }} />
           </View>
@@ -441,7 +418,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
               }]}
               value={commentText}
               onChangeText={setCommentText}
-              placeholder="Сэтгэгдэл бичнэ үү..."
+              placeholder="Write a comment..."
               placeholderTextColor={colors.placeholder}
               multiline
               maxLength={200}
@@ -524,7 +501,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Нууц үг оруулах
+              Enter password to join this event
             </Text>
             <View style={{ width: 24 }} />
           </View>
@@ -532,10 +509,10 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
           {/* Password Input */}
           <View style={styles.passwordContainer}>
             <Text style={[styles.passwordTitle, { color: colors.text }]}>
-              Хувийн Event
+              Private Event
             </Text>
             <Text style={[styles.passwordSubtitle, { color: colors.textSecondary }]}>
-              Энэ event-д нэгдэхийн тулд нууц үг оруулна уу
+              Please enter the password to join this event
             </Text>
             
             <TextInput
@@ -563,7 +540,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
               onPress={handleJoinWithPassword}
             >
               <Text style={[styles.joinButtonText, { color: '#ffffff' }]}>
-                Нэгдэх
+                Join
               </Text>
             </TouchableOpacity>
           </View>

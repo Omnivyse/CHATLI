@@ -12,6 +12,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 import socketService from '../services/socket';
 import apiService from '../services/api';
@@ -35,6 +37,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   }
 
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [localPost, setLocalPost] = useState(post);
   const [liking, setLiking] = useState(false);
@@ -192,7 +195,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       console.error('Like post error:', error);
       // Don't show alert for network errors, just log them
       if (!error.message.includes('Network') && !error.message.includes('timeout')) {
-        Alert.alert('Алдаа', 'Лайк хийхэд алдаа гарлаа');
+        Alert.alert('Error', 'Failed to like post');
       }
     } finally {
       setLiking(false);
@@ -201,12 +204,12 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
 
   const handleDeletePost = () => {
     Alert.alert(
-      'Устгах',
-      'Постыг устгах уу?',
+      'Delete',
+      'Delete this post?',
       [
-        { text: 'Болих', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Устгах',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -215,7 +218,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 onPostUpdate && onPostUpdate();
               }
             } catch (error) {
-              Alert.alert('Алдаа', 'Пост устгахад алдаа гарлаа');
+              Alert.alert('Error', 'Failed to delete post');
             }
           },
         },
@@ -232,13 +235,13 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
 
-      if (minutes < 1) return 'яг одоо';
-      if (minutes < 60) return String(minutes) + 'м';
-      if (hours < 24) return String(hours) + 'ц';
-      if (days < 7) return String(days) + 'ө';
-      return date.toLocaleDateString('mn-MN');
+      if (minutes < 1) return 'just now';
+      if (minutes < 60) return String(minutes) + 'm';
+      if (hours < 24) return String(hours) + 'h';
+      if (days < 7) return String(days) + 'd';
+      return date.toLocaleDateString('en-US');
     } catch (error) {
-      return 'яг одоо';
+      return 'just now';
     }
   };
 

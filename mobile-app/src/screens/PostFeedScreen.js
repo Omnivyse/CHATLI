@@ -17,6 +17,8 @@ import Event from '../components/Event';
 import EventCreationModal from '../components/EventCreationModal';
 import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 import Toast from 'react-native-toast-message';
 
@@ -24,6 +26,7 @@ const { width: screenWidth } = Dimensions.get('window');
 
 const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [posts, setPosts] = useState([]);
   const [events, setEvents] = useState([]);
@@ -85,7 +88,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         setPage(pageNum);
       } else {
         console.log('❌ Posts fetch failed:', response.message);
-        setError(response.message || 'Постуудыг ачаалахад алдаа гарлаа');
+        setError(response.message || getTranslation('postsLoadError', language));
       }
     } catch (error) {
       console.error('Fetch posts error:', error);
@@ -93,7 +96,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       // Handle authentication errors for unverified users
       if (error.message && error.message.includes('Нэвтрэх эрх дууссан')) {
         if (user && !user.emailVerified) {
-          setError('Имэйл хаягаа баталгаажуулна уу');
+          setError('Please verify your email address');
         } else {
           setError('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
         }
@@ -167,11 +170,11 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       // If user is not verified, show verification prompt
       if (user && !user.emailVerified) {
         Alert.alert(
-          'Имэйл баталгаажуулалт',
-          'Энэ үйлдлийг хийхийн тулд имэйл хаягаа баталгаажуулна уу',
+          'Email Verification',
+          'Please verify your email address to perform this action',
           [
-            { text: 'Цуцлах', style: 'cancel' },
-            { text: 'Баталгаажуулах', onPress: () => onGoToVerification && onGoToVerification() }
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Verify', onPress: onGoToVerification }
           ]
         );
         return;
@@ -199,7 +202,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
           type: 'success',
           text1: 'Амжилттай',
           text2: action === 'like' ? 'Лайк хийгдлээ' : 
-                 action === 'comment' ? 'Сэтгэгдэл нэмэгдлээ' : 'Пост устгагдлаа'
+                 action === 'comment' ? 'Comment added' : 'Post deleted'
         });
       }
     } catch (error) {
@@ -221,14 +224,14 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         // Refresh events to show the new event
         fetchEvents();
       } else {
-        throw new Error(response.message || 'Event үүсгэхэд алдаа гарлаа');
+        throw new Error(response.message || 'Failed to create event');
       }
     } catch (error) {
       console.error('Create event error:', error);
       Toast.show({
         type: 'error',
         text1: 'Алдаа гарлаа',
-        text2: error.message || 'Event үүсгэхэд алдаа гарлаа'
+        text2: error.message || 'Failed to create event'
       });
       throw error;
     }
@@ -253,14 +256,14 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         // Refresh events to show updated data
         fetchEvents();
       } else {
-        throw new Error(response.message || 'Event-д нэгдэхэд алдаа гарлаа');
+        throw new Error(response.message || 'Failed to join event');
       }
     } catch (error) {
       console.error('Join event error:', error);
       Toast.show({
         type: 'error',
         text1: 'Алдаа гарлаа',
-        text2: error.message || 'Event-д нэгдэхэд алдаа гарлаа'
+        text2: error.message || 'Failed to join event'
       });
       throw error;
     }
@@ -274,14 +277,14 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         // Refresh events to show updated data
         fetchEvents();
       } else {
-        throw new Error(response.message || 'Event-ээс гарахад алдаа гарлаа');
+        throw new Error(response.message || 'Failed to leave event');
       }
     } catch (error) {
       console.error('Leave event error:', error);
       Toast.show({
         type: 'error',
         text1: 'Алдаа гарлаа',
-        text2: error.message || 'Event-ээс гарахад алдаа гарлаа'
+        text2: error.message || 'Failed to leave event'
       });
       throw error;
     }
@@ -295,14 +298,14 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         // Refresh events to show updated data
         fetchEvents();
       } else {
-        throw new Error(response.message || 'Хэрэглэгчийг хасхад алдаа гарлаа');
+        throw new Error(response.message || 'Failed to remove user');
       }
     } catch (error) {
       console.error('Kick event user error:', error);
       Toast.show({
         type: 'error',
         text1: 'Алдаа гарлаа',
-        text2: error.message || 'Хэрэглэгчийг хасхад алдаа гарлаа'
+        text2: error.message || 'Failed to remove user'
       });
       throw error;
     }
@@ -362,7 +365,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         Toast.show({
           type: 'error',
           text1: 'Алдаа',
-          text2: response.message || 'Event устгахад алдаа гарлаа'
+          text2: response.message || 'Failed to delete event'
         });
       }
     } catch (error) {
@@ -404,7 +407,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color="#000000" />
           <Text style={styles.emptyText}>
-            {selectedFilter === 'Events' ? 'Event-үүдийг ачаалж байна...' : 'Постуудыг ачаалж байна...'}
+            {selectedFilter === 'Events' ? 'Loading events...' : 'Loading posts...'}
           </Text>
         </View>
       );
@@ -455,7 +458,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
           onPress={() => isEventsFilter ? setShowEventModal(true) : navigation.navigate('CreatePost')}
         >
           <Text style={styles.createPostButtonText}>
-            {isEventsFilter ? 'Event үүсгэх' : 'Пост үүсгэх'}
+            {isEventsFilter ? 'Create Event' : 'Create Post'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -544,7 +547,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
             <View style={styles.loadingMore}>
               <ActivityIndicator size="small" color="#000000" />
               <Text style={[styles.loadingMoreText, { color: colors.textSecondary }]}>
-                Илүү ихийг ачаалж байна...
+                Loading more...
               </Text>
             </View>
           ) : null

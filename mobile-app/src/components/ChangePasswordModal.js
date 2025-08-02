@@ -96,7 +96,7 @@ const ChangePasswordModal = ({ visible, onClose, onSuccess, onLogout }) => {
           error.message.includes('timeout')) {
         setError('Интернет холболтоо шалгана уу');
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        setError('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
+        setError('Session expired. Please login again.');
       } else {
         setError(error.message || 'Нууц үг солиход алдаа гарлаа');
       }

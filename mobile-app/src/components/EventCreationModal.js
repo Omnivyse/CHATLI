@@ -11,6 +11,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,7 +27,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
   const [userNumber, setUserNumber] = useState('5');
   const [eventImage, setEventImage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivateEvent, setIsPrivateEvent] = useState(false);
   const [password, setPassword] = useState('');
 
   const pickImage = async () => {
@@ -42,44 +43,44 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
         setEventImage(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Алдаа', 'Зураг сонгоход алдаа гарлаа');
+      Alert.alert('Error', 'Error occurred while picking image');
     }
   };
 
   const handleCreateEvent = async () => {
     if (!eventName.trim()) {
-      Alert.alert('Алдаа', 'Event-ийн нэрийг оруулна уу');
+      Alert.alert('Error', 'Please enter event name');
       return;
     }
 
     if (!description.trim()) {
-      Alert.alert('Алдаа', 'Event-ийн тайлбарыг оруулна уу');
+      Alert.alert('Error', 'Please enter event description');
       return;
     }
 
     const userNum = parseInt(userNumber);
     if (userNum < 5) {
-      Alert.alert('Алдаа', 'Хамгийн багадаа 5 хүн байх ёстой');
+      Alert.alert('Error', 'Minimum 5 people are required');
       return;
     }
 
     if (!eventImage) {
-      Alert.alert('Алдаа', 'Event-ийн зургийг оруулна уу');
+      Alert.alert('Error', 'Please add event image');
       return;
     }
 
     // Validate password for private events
-    if (isPrivate) {
+    if (isPrivateEvent) {
       if (!password.trim()) {
-        Alert.alert('Алдаа', 'Нууц үгийг оруулна уу');
+        Alert.alert('Error', 'Please enter password');
         return;
       }
       if (password.length !== 4) {
-        Alert.alert('Алдаа', 'Нууц үг 4 оронтой байх ёстой');
+        Alert.alert('Error', 'Password must be 4 digits');
         return;
       }
       if (!/^\d{4}$/.test(password)) {
-        Alert.alert('Алдаа', 'Нууц үг зөвхөн тоо агуулсан байх ёстой');
+        Alert.alert('Error', 'Password must contain only numbers');
         return;
       }
     }
@@ -92,8 +93,8 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
         userNumber: userNum,
         image: eventImage,
         type: 'event',
-        isPrivate: isPrivate,
-        password: isPrivate ? password.trim() : null,
+        isPrivate: isPrivateEvent,
+        password: isPrivateEvent ? password.trim() : null,
         createdAt: new Date().toISOString(),
       };
 
@@ -104,11 +105,11 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
       setDescription('');
       setUserNumber('5');
       setEventImage(null);
-      setIsPrivate(false);
+      setIsPrivateEvent(false);
       setPassword('');
       onClose();
     } catch (error) {
-      Alert.alert('Алдаа', 'Event үүсгэхэд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to create event');
     } finally {
       setLoading(false);
     }
@@ -136,7 +137,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Event үүсгэх
+            Create Event
           </Text>
           <TouchableOpacity 
             onPress={handleCreateEvent}
@@ -150,7 +151,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
             ]}
           >
             <Text style={[styles.createButtonText, { color: '#ffffff' }]}>
-              {loading ? 'Үүсгэж байна...' : 'Үүсгэх'}
+              {loading ? 'Creating...' : 'Create'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -159,7 +160,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
           {/* Image Upload */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Event-ийн зураг
+              Event Image
             </Text>
             <TouchableOpacity 
               style={[styles.imageUpload, { borderColor: colors.border }]}
@@ -171,7 +172,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
                 <View style={styles.imagePlaceholder}>
                   <Ionicons name="camera" size={32} color={colors.textSecondary} />
                   <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>
-                    Зураг оруулах
+                    Upload Image
                   </Text>
                 </View>
               )}
@@ -179,28 +180,27 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
           </View>
 
           {/* Event Name */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Event-ийн нэр
+          <View style={styles.inputContainer}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
+              Event Name
             </Text>
             <TextInput
               style={[styles.textInput, { 
-                backgroundColor: colors.surface, 
-                borderColor: colors.border,
-                color: colors.text 
+                color: colors.text, 
+                backgroundColor: colors.surface,
+                borderColor: colors.border 
               }]}
               value={eventName}
               onChangeText={setEventName}
-              placeholder="Event-ийн нэрийг оруулна уу"
-              placeholderTextColor={colors.placeholder}
-              maxLength={100}
+              placeholder="Enter event name"
+              placeholderTextColor={colors.textSecondary}
             />
           </View>
 
           {/* Description */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Тайлбар
+              Description
             </Text>
             <TextInput
               style={[styles.textArea, { 
@@ -210,7 +210,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
               }]}
               value={description}
               onChangeText={setDescription}
-              placeholder="Event-ийн тайлбарыг оруулна уу"
+              placeholder="Enter event description"
               placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={4}
@@ -221,7 +221,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
           {/* User Number */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Хамгийн бага хүний тоо
+              Minimum User Number
             </Text>
             <TextInput
               style={[styles.textInput, { 
@@ -237,45 +237,33 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
               maxLength={4}
             />
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              Хамгийн багадаа 5 хүн байх ёстой
+              Minimum 5 people are required
             </Text>
           </View>
 
           {/* Private Event Toggle */}
-          <View style={styles.section}>
-            <View style={styles.toggleContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Хувийн Event
+          <View style={styles.toggleContainer}>
+            <View style={styles.toggleHeader}>
+              <Text style={[styles.toggleTitle, { color: colors.text }]}>
+                Private Event
               </Text>
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  { 
-                    backgroundColor: isPrivate ? '#000000' : colors.surface,
-                    borderColor: colors.border
-                  }
-                ]}
-                onPress={() => setIsPrivate(!isPrivate)}
-              >
-                <View style={[
-                  styles.toggleCircle,
-                  { 
-                    backgroundColor: '#ffffff',
-                    transform: [{ translateX: isPrivate ? 20 : 0 }]
-                  }
-                ]} />
-              </TouchableOpacity>
+              <Switch
+                value={isPrivateEvent}
+                onValueChange={setIsPrivateEvent}
+                trackColor={{ false: colors.surfaceVariant, true: colors.primary + '40' }}
+                thumbColor={isPrivateEvent ? colors.primary : colors.textSecondary}
+              />
             </View>
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              Хувийн event-д зөвхөн нууц үгтэй хэрэглэгчид нэгдэх боломжтой
+            <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+              Private events can only be joined by users with the password
             </Text>
           </View>
 
           {/* Password Field (only show if private) */}
-          {isPrivate && (
+          {isPrivateEvent && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Нууц үг (4 оронтой)
+                Password (4 digits)
               </Text>
               <TextInput
                 style={[styles.textInput, { 
@@ -292,7 +280,7 @@ const EventCreationModal = ({ visible, onClose, onCreateEvent }) => {
                 secureTextEntry={false}
               />
               <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                4 оронтой тоо оруулна уу
+                Enter 4-digit number
               </Text>
             </View>
           )}
@@ -385,23 +373,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   toggleContainer: {
+    marginBottom: 8,
+  },
+  toggleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
+  },
+  toggleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  toggleDescription: {
+    fontSize: 14,
+  },
+  inputContainer: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
     marginBottom: 8,
-  },
-  toggleButton: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-  },
-  toggleCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
   },
 });
 

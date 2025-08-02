@@ -50,7 +50,7 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
         setFollowRequestSent(response.data.user.followRequests?.includes(currentUser._id) || false);
         loadUserPosts();
       } else {
-        setError('Хэрэглэгчийн мэдээлэл олдсонгүй');
+        setError('User not found');
       }
     } catch (error) {
       console.error('Load user profile error:', error);
@@ -135,7 +135,7 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
             followers: prev.followers.filter(id => id !== currentUser._id)
           }));
         } else {
-          Alert.alert('Алдаа', response.message || 'Дагахаа болих үйлдэл амжилтгүй');
+          Alert.alert('Error', response.message || 'Failed to unfollow');
         }
       } else {
         // Follow or send follow request
@@ -155,12 +155,12 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
             }));
           }
         } else {
-          Alert.alert('Алдаа', response.message || 'Дагах үйлдэл амжилтгүй');
+          Alert.alert('Error', response.message || 'Failed to follow');
         }
       }
     } catch (error) {
       console.error('Follow toggle error:', error);
-      Alert.alert('Алдаа', 'Дагах/дагахаа болих үйлдэл амжилтгүй');
+      Alert.alert('Error', 'Failed to follow/unfollow');
     } finally {
       setFollowLoading(false);
     }
@@ -175,11 +175,11 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
       if (response.success) {
         setFollowRequestSent(false);
       } else {
-        Alert.alert('Алдаа', response.message || 'Хүсэлт цуцлахад алдаа гарлаа');
+        Alert.alert('Error', response.message || 'Failed to cancel follow request');
       }
     } catch (error) {
       console.error('Cancel follow request error:', error);
-      Alert.alert('Алдаа', 'Хүсэлт цуцлахад алдаа гарлаа');
+      Alert.alert('Error', 'Failed to cancel follow request');
     } finally {
       setFollowLoading(false);
     }
@@ -216,11 +216,11 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           chatTitle: profileUser.name
         });
       } else {
-        Alert.alert('Алдаа', 'Чат үүсгэхэд алдаа гарлаа');
+        Alert.alert('Error', 'Failed to create chat');
       }
     } catch (error) {
       console.error('Create chat error:', error);
-      Alert.alert('Алдаа', 'Чат үүсгэхэд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to create chat');
     }
   };
 
@@ -238,12 +238,12 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           >
             <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>User</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Хэрэглэгчийн мэдээлэл ачаалж байна...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading user information...</Text>
         </View>
       </SafeAreaView>
     );
@@ -259,20 +259,20 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           >
             <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>User</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="person-outline" size={64} color={colors.textTertiary} />
-          <Text style={[styles.errorTitle, { color: colors.text }]}>Алдаа гарлаа</Text>
+          <Text style={[styles.errorTitle, { color: colors.text }]}>Error</Text>
           <Text style={[styles.errorText, { color: colors.error }]}>
-          {error && typeof error === 'string' ? error : 'Алдаа гарлаа'}
+          {error && typeof error === 'string' ? error : 'Error'}
         </Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadUserProfile}
           >
-            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Дахин оролдох</Text>
+            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -289,13 +289,13 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           >
             <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Хэрэглэгч</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>User</Text>
           <View style={styles.placeholder} />
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="person-outline" size={64} color={colors.textTertiary} />
-          <Text style={[styles.errorTitle, { color: colors.text }]}>Хэрэглэгч олдсонгүй</Text>
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>Энэ хэрэглэгч байхгүй байна</Text>
+          <Text style={[styles.errorTitle, { color: colors.text }]}>User not found</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>This user does not exist</Text>
         </View>
       </SafeAreaView>
     );
@@ -385,15 +385,15 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={[styles.statNumber, { color: colors.text }]}>{profileUser.following?.length || 0}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагаж байна</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Following</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statNumber, { color: colors.text }]}>{profileUser.followers?.length || 0}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Дагагч</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Followers</Text>
             </View>
             <View style={styles.statItem}>
                               <Text style={[styles.statNumber, { color: colors.text }]}>{String(posts.length)}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Пост</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Posts</Text>
             </View>
           </View>
 
@@ -423,7 +423,7 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
                       { color: colors.textInverse },
                       isFollowing && { color: colors.text }
                     ]}>
-                      {isFollowing ? 'Дагасан' : (followRequestSent ? 'Хүсэлт илгээгдсэн' : 'Дагах')}
+                      {isFollowing ? 'Following' : (followRequestSent ? 'Follow request sent' : 'Follow')}
                     </Text>
                   </>
                 )}
@@ -434,7 +434,7 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
                 onPress={handleStartChat}
               >
                 <Ionicons name="chatbubble" size={16} color={colors.text} />
-                <Text style={[styles.messageButtonText, { color: colors.text }]}>Мессеж</Text>
+                <Text style={[styles.messageButtonText, { color: colors.text }]}>Message</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -442,25 +442,25 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
 
         {/* Posts Section */}
         <View style={[styles.postsSection, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.postsSectionTitle, { color: colors.text }]}>Постууд</Text>
+          <Text style={[styles.postsSectionTitle, { color: colors.text }]}>Posts</Text>
           
           {postsLoading ? (
             <View style={styles.postsLoading}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.postsLoadingText, { color: colors.textSecondary }]}>Постууд ачаалж байна...</Text>
+              <Text style={[styles.postsLoadingText, { color: colors.textSecondary }]}>Loading posts...</Text>
             </View>
           ) : posts.length === 0 ? (
             <View style={styles.noPostsContainer}>
               <Ionicons name="document-outline" size={48} color={colors.textTertiary} />
               <Text style={[styles.noPostsTitle, { color: colors.text }]}>
-                {error && error.includes('дагах шаардлагатай') ? 'Хувийн профайл' : 'Пост байхгүй'}
+                {error && error.includes('дагах шаардлагатай') ? 'Private Profile' : 'No posts'}
               </Text>
               <Text style={[styles.noPostsText, { color: colors.textSecondary }]}>
                 {error && error.includes('дагах шаардлагатай') 
-                  ? 'Энэ хэрэглэгчийн постуудыг харахын тулд дагах шаардлагатай'
+                  ? 'You need to follow this user to see their posts'
                   : isOwnProfile 
-                    ? 'Та одоогоор пост нийтлээгүй байна' 
-                    : 'Энэ хэрэглэгч одоогоор пост нийтлээгүй байна'
+                    ? 'You have not posted yet' 
+                    : 'This user has not posted yet'
                 }
               </Text>
             </View>

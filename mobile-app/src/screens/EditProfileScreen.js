@@ -62,7 +62,7 @@ const EditProfileScreen = ({ navigation, user }) => {
     // TODO: Implement save logic (API call)
     setTimeout(() => {
       setSaving(false);
-      Alert.alert('Амжилттай', 'Профайл шинэчлэгдлээ!');
+      Alert.alert('Success', 'Profile updated successfully!');
       navigation.goBack();
     }, 1200);
   };
@@ -77,7 +77,7 @@ const EditProfileScreen = ({ navigation, user }) => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Профайл засах</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Profile</Text>
         <View style={{ width: 40 }} />
       </View>
       <ScrollView contentContainerStyle={[styles.content]} showsVerticalScrollIndicator={false}>

@@ -358,10 +358,10 @@ const TempClipsModal = ({
               <View style={styles.emptyComments}>
                 <Ionicons name="chatbubble-outline" size={48} color={colors.textSecondary} />
                 <Text style={[styles.emptyCommentsText, { color: colors.textSecondary }]}>
-                  Сэтгэгдэл байхгүй
+                  No comments
                 </Text>
                 <Text style={[styles.emptyCommentsSubtext, { color: colors.textTertiary }]}>
-                  Эхний сэтгэгдлээ үлдээгээрэй
+                  Be the first to leave a comment!
                 </Text>
               </View>
             )}

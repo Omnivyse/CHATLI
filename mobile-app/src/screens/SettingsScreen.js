@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,102 +7,112 @@ import {
   ScrollView,
   Switch,
   Alert,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getThemeColors } from '../utils/themeUtils';
 import ThemeToggle from '../components/ThemeToggle';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import PrivacySettingsModal from '../components/PrivacySettingsModal';
 
+const { width } = Dimensions.get('window');
+
 const SettingsScreen = ({ navigation, user, onLogout }) => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
+  const { language, setLanguage } = useLanguage();
   const colors = getThemeColors(theme);
+  
   const [notifications, setNotifications] = useState(true);
-  const [autoDownload, setAutoDownload] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [autoDownload, setAutoDownload] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
 
-  const settingsSections = [
+  // Recreate settings data when language changes
+  useEffect(() => {
+    console.log('🔄 Language changed, recreating settings data');
+  }, [language]);
+
+  const settingsData = [
     {
-      title: 'Ерөнхий',
+      title: getTranslation('account', language),
       items: [
         {
+          icon: 'person-outline',
+          title: getTranslation('editProfile', language),
+          subtitle: getTranslation('editProfile', language),
+          type: 'arrow',
+          onPress: () => navigation.navigate('EditProfile'),
+        },
+        {
           icon: 'notifications-outline',
-          title: 'Мэдэгдэл',
-          subtitle: 'Мэдэгдлийн тохиргоо',
+          title: getTranslation('notifications', language),
+          subtitle: getTranslation('notifications', language),
           type: 'arrow',
           onPress: () => navigation.navigate('Notifications'),
-        },
-        {
-          icon: 'moon-outline',
-          title: 'Харанхуй горим',
-          subtitle: 'Хар болон цагаан горим',
-          type: 'custom',
-          value: theme === 'dark',
-          onToggle: toggleTheme,
-          disabled: false,
-        },
-        {
-          icon: 'volume-high-outline',
-          title: 'Дуу чимээ',
-          subtitle: 'Мессежийн дуу чимээ',
-          type: 'switch',
-          value: soundEnabled,
-          onToggle: setSoundEnabled,
         },
       ],
     },
     {
-      title: 'Мэдээлэл',
+      title: getTranslation('settings', language),
       items: [
-
         {
           icon: 'download-outline',
-          title: 'Автомат татах',
-          subtitle: 'Зураг, видео автомат татах',
+          title: getTranslation('autoDownload', language),
+          subtitle: getTranslation('autoDownload', language),
           type: 'switch',
           value: autoDownload,
           onToggle: setAutoDownload,
         },
         {
           icon: 'cellular-outline',
-          title: 'Мобайл дата',
-          subtitle: 'Мобайл дата ашиглах тохиргоо',
+          title: getTranslation('mobileData', language),
+          subtitle: getTranslation('mobileData', language),
           type: 'arrow',
           onPress: () => {
             Toast.show({
               type: 'info',
-              text1: 'Удахгүй',
-              text2: 'Мобайл дата тохиргоо удахгүй нэмэгдэнэ',
+              text1: getTranslation('comingSoon', language),
+              text2: getTranslation('mobileDataComingSoon', language),
             });
           },
+        },
+        {
+          icon: 'language-outline',
+          title: getTranslation('language', language),
+          subtitle: language === 'mn' ? getTranslation('mongolian', language) : getTranslation('english', language),
+          type: 'arrow',
+          onPress: () => setShowLanguageModal(true),
         },
       ],
     },
     {
-      title: 'Нууцлал ба аюулгүй байдал',
+      title: getTranslation('privacy', language),
       items: [
         {
           icon: 'shield-outline',
-          title: 'Хоёр алхамын нотолгоо',
-          subtitle: 'Нэмэлт аюулгүй байдал',
+          title: getTranslation('twoFactorAuth', language),
+          subtitle: getTranslation('twoFactorAuth', language),
           type: 'arrow',
           onPress: () => {
             Toast.show({
               type: 'info',
-              text1: 'Удахгүй',
-              text2: 'Хоёр алхамын нотолгоо удахгүй нэмэгдэнэ',
+              text1: getTranslation('comingSoon', language),
+              text2: getTranslation('twoFactorAuthComingSoon', language),
             });
           },
         },
         {
           icon: 'lock-closed-outline',
-          title: 'Нууц үг солих',
-          subtitle: 'Нууц үгээ шинэчлэх',
+          title: getTranslation('changePassword', language),
+          subtitle: getTranslation('changePassword', language),
           type: 'arrow',
           onPress: () => {
             console.log('🔄 Password change button pressed');
@@ -111,8 +121,8 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
         },
         {
           icon: 'shield-checkmark-outline',
-          title: 'Нууцлалын тохиргоо',
-          subtitle: 'Профайл болон контентын нууцлал',
+          title: getTranslation('privacySettings', language),
+          subtitle: getTranslation('privacySettings', language),
           type: 'arrow',
           onPress: () => {
             setShowPrivacySettings(true);
@@ -120,26 +130,26 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
         },
         {
           icon: 'eye-off-outline',
-          title: 'Нууцлалын бодлого',
-          subtitle: 'Нууцлалын дэлгэрэнгүй мэдээлэл',
+          title: getTranslation('privacyPolicy', language),
+          subtitle: getTranslation('privacyPolicy', language),
           type: 'arrow',
           onPress: () => {
             Alert.alert(
-              'Нууцлалын бодлого',
-              'CHATLI нь таны хувийн мэдээллийг хамгаалахыг эрхэмлэдэг. Бид таны мэдээллийг гуравдагч талд дамжуулдаггүй.',
-              [{ text: 'OK' }]
+              getTranslation('privacyPolicy', language),
+              getTranslation('privacyPolicyText', language),
+              [{ text: getTranslation('ok', language) }]
             );
           },
         },
       ],
     },
     {
-      title: 'Тусламж ба дэмжлэг',
+      title: getTranslation('help', language),
       items: [
         {
           icon: 'help-circle-outline',
-          title: 'Тусламж төв',
-          subtitle: 'Асуулт хариулт',
+          title: getTranslation('helpCenter', language),
+          subtitle: getTranslation('helpCenter', language),
           type: 'arrow',
           onPress: () => {
             navigation.navigate('HelpCenter');
@@ -147,27 +157,30 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
         },
         {
           icon: 'mail-outline',
-          title: 'Холбогдох',
-          subtitle: 'Санал хүсэлт, асуудлаа доорх хаягаар илгээнэ үү:\n\nsupport@chatli.mn',
+          title: getTranslation('contact', language),
+          subtitle: getTranslation('contactText', language),
           type: 'arrow',
           onPress: () => {
             Alert.alert(
-              'Холбогдох',
-              'Санал хүсэлт, асуудлаа доорх хаягаар илгээнэ үү:\n\nsupport@chatli.mn',
-              [{ text: 'OK' }]
+              getTranslation('contact', language),
+              getTranslation('contactText', language),
+              [{ text: getTranslation('ok', language) }]
             );
           },
         },
         {
-          icon: 'information-circle-outline',
-          title: 'Апп-ийн тухай',
-          subtitle: 'Хувилбар, лиценз',
+          icon: 'log-out-outline',
+          title: getTranslation('logout', language),
+          subtitle: getTranslation('logout', language),
           type: 'arrow',
           onPress: () => {
             Alert.alert(
-              'CHATLI v1.0.0',
-              'Монголын анхны чат апп\n\n© 2024 CHATLI\nБүх эрх хуулиар хамгаалагдсан.',
-              [{ text: 'OK' }]
+              getTranslation('logout', language),
+              getTranslation('logoutConfirm', language),
+              [
+                { text: getTranslation('cancel', language), style: 'cancel' },
+                { text: getTranslation('logout', language), onPress: onLogout, style: 'destructive' }
+              ]
             );
           },
         },
@@ -180,134 +193,200 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
       <TouchableOpacity
         key={index}
         style={[
-          styles.settingItem, 
-          { borderBottomColor: colors.border },
-          item.disabled && styles.settingItemDisabled
+          styles.settingItem,
+          { backgroundColor: colors.surface },
+          index === 0 && { borderTopLeftRadius: 12, borderTopRightRadius: 12 },
+          index === settingsData.find(section => section.items.includes(item))?.items.length - 1 && 
+            { borderBottomLeftRadius: 12, borderBottomRightRadius: 12, borderBottomWidth: 0 }
         ]}
         onPress={item.onPress}
-        disabled={item.disabled || item.type === 'switch'}
+        disabled={item.type === 'switch'}
+        activeOpacity={0.7}
       >
-        <View style={[styles.settingIcon, { backgroundColor: colors.surfaceVariant }]}>
-          <Ionicons 
-            name={item.icon} 
-            size={24} 
-            color={item.disabled ? colors.disabledText : colors.text} 
-          />
+        <View style={styles.settingItemLeft}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.primary + '15' }]}>
+            <Ionicons name={item.icon} size={22} color={colors.primary} />
+          </View>
+          <View style={styles.settingContent}>
+            <Text style={[styles.settingTitle, { color: colors.text }]}>
+              {item.title}
+            </Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
+              {item.subtitle}
+            </Text>
+          </View>
         </View>
-        <View style={styles.settingContent}>
-          <Text style={[
-            styles.settingTitle, 
-            { color: colors.text },
-            item.disabled && { color: colors.disabledText }
-          ]}>
-            {item.title}
-          </Text>
-          <Text style={[
-            styles.settingSubtitle,
-            { color: colors.textSecondary },
-            item.disabled && { color: colors.disabledText }
-          ]}>
-            {item.subtitle}
-          </Text>
-        </View>
-        <View style={styles.settingAction}>
+        
+        <View style={styles.settingItemRight}>
           {item.type === 'switch' ? (
             <Switch
               value={item.value}
               onValueChange={item.onToggle}
-              disabled={item.disabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={item.value ? colors.textInverse : colors.surfaceVariant}
+              trackColor={{ false: colors.surfaceVariant, true: colors.primary + '40' }}
+              thumbColor={item.value ? colors.primary : colors.textSecondary}
+              ios_backgroundColor={colors.surfaceVariant}
             />
-          ) : item.type === 'custom' ? (
-            <ThemeToggle size={20} />
-          ) : (
-            <Ionicons 
-              name="chevron-forward" 
-              size={20} 
-              color={item.disabled ? colors.disabledText : colors.textSecondary} 
-            />
-          )}
+          ) : item.type === 'arrow' ? (
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          ) : null}
         </View>
       </TouchableOpacity>
     );
   };
 
+  const handleLanguageChange = async (newLanguage) => {
+    try {
+      console.log('🔄 Changing language to:', newLanguage);
+      await setLanguage(newLanguage);
+      console.log('✅ Language changed successfully');
+      setShowLanguageModal(false);
+      
+      // Show success message
+      Toast.show({
+        type: 'success',
+        text1: getTranslation('success', newLanguage),
+        text2: getTranslation('languageChanged', newLanguage),
+      });
+    } catch (error) {
+      console.error('❌ Language change error:', error);
+      Toast.show({
+        type: 'error',
+        text1: getTranslation('error', newLanguage),
+        text2: getTranslation('languageChangeError', newLanguage),
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView style={styles.scrollView}>
-        {settingsSections.map((section, sectionIndex) => (
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {getTranslation('settings', language)}
+        </Text>
+      </View>
+      
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {settingsData.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
-            {section.items.map((item, itemIndex) => renderSettingItem(item, itemIndex))}
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              {section.title}
+            </Text>
+            <View style={[styles.sectionContainer, { backgroundColor: colors.surface }]}>
+              {section.items.map((item, itemIndex) => renderSettingItem(item, itemIndex))}
+            </View>
           </View>
         ))}
-
-        {/* Logout Button at the bottom */}
-        <View style={styles.logoutSection}>
-          <TouchableOpacity
-            style={[styles.logoutButton, { 
-              backgroundColor: colors.error + '10', 
-              borderColor: colors.error + '20' 
-            }]}
-            onPress={() => {
-              console.log('Logout button pressed, onLogout function:', !!onLogout);
-              if (onLogout) {
-                Alert.alert(
-                  'Гарах',
-                  'Та гарахдаа итгэлтэй байна уу?',
-                  [
-                    { text: 'Болих', style: 'cancel' },
-                    { text: 'Гарах', style: 'destructive', onPress: () => {
-                      console.log('Logout confirmed, calling onLogout function');
-                      onLogout();
-                    }},
-                  ]
-                );
-              } else {
-                console.error('onLogout function not provided to SettingsScreen');
-                Alert.alert('Logout', 'onLogout function not provided!');
-              }
-            }}
-          >
-            <Ionicons name="log-out-outline" size={24} color={colors.error} />
-            <Text style={[styles.logoutText, { color: colors.error }]}>Гарах</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer */}
+        
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.textTertiary }]}>CHATLI v1.0.0</Text>
-          <Text style={[styles.footerText, { color: colors.textTertiary }]}>Монголын анхны чат апп</Text>
-          <Text style={[styles.footerText, { color: colors.textTertiary }]}>© 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</Text>
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+            CHATLI v1.0.0 Beta
+          </Text>
+          <Text style={[styles.footerSubtext, { color: colors.textTertiary }]}>
+            {getTranslation('betaVersion', language)}
+          </Text>
         </View>
       </ScrollView>
+
       <ChangePasswordModal
         visible={showChangePassword}
         onClose={() => setShowChangePassword(false)}
         onSuccess={() => {
           Toast.show({
             type: 'success',
-            text1: 'Нууц үг солих амжилттай',
-            text2: 'Нууц үгээ шинэчлэх амжилттай.',
+            text1: getTranslation('success', language),
+            text2: getTranslation('passwordChangeSuccess', language),
           });
           setShowChangePassword(false);
         }}
         onLogout={onLogout}
       />
+
       <PrivacySettingsModal
-        key={showPrivacySettings ? 'open' : 'closed'}
         visible={showPrivacySettings}
         onClose={() => setShowPrivacySettings(false)}
         onSuccess={() => {
           Toast.show({
             type: 'success',
-            text1: 'Нууцлалын тохиргоо амжилттай',
-            text2: 'Нууцлалын тохиргоо шинэчлэх амжилттай.',
+            text1: getTranslation('success', language),
+            text2: getTranslation('privacySettingsSuccessDescription', language),
           });
           setShowPrivacySettings(false);
         }}
       />
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: colors.background + 'F0' }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {getTranslation('selectLanguage', language)}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowLanguageModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.languageOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.languageOption,
+                  { backgroundColor: colors.surfaceVariant },
+                  language === 'mn' && { backgroundColor: colors.primary + '20' }
+                ]}
+                onPress={() => handleLanguageChange('mn')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.languageInfo}>
+                  <Text style={[styles.languageName, { color: colors.text }]}>
+                    {getTranslation('mongolian', 'mn')}
+                  </Text>
+                  <Text style={[styles.languageNative, { color: colors.textSecondary }]}>
+                    English
+                  </Text>
+                </View>
+                {language === 'mn' && (
+                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.languageOption,
+                  { backgroundColor: colors.surfaceVariant },
+                  language === 'en' && { backgroundColor: colors.primary + '20' }
+                ]}
+                onPress={() => handleLanguageChange('en')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.languageInfo}>
+                  <Text style={[styles.languageName, { color: colors.text }]}>
+                    {getTranslation('english', 'en')}
+                  </Text>
+                  <Text style={[styles.languageNative, { color: colors.textSecondary }]}>
+                    English
+                  </Text>
+                </View>
+                {language === 'en' && (
+                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -315,39 +394,64 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  header: {
+    paddingTop: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
   },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
   section: {
-    paddingTop: 24,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666666',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: 4,
+    paddingBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  sectionContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
-  settingItemDisabled: {
-    opacity: 0.5,
+  settingItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   settingIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -358,21 +462,14 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
-    marginBottom: 2,
-  },
-  settingTitleDisabled: {
-    color: '#cccccc',
+    marginBottom: 4,
   },
   settingSubtitle: {
     fontSize: 14,
-    color: '#666666',
+    lineHeight: 18,
   },
-  settingSubtitleDisabled: {
-    color: '#cccccc',
-  },
-  settingAction: {
-    marginLeft: 16,
+  settingItemRight: {
+    alignItems: 'center',
   },
   footer: {
     alignItems: 'center',
@@ -380,30 +477,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   footerText: {
-    fontSize: 12,
-    color: '#cccccc',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '500',
     textAlign: 'center',
   },
-  logoutSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  footerSubtext: {
+    fontSize: 12,
+    marginTop: 4,
+    opacity: 0.7,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  modalOverlay: {
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 8,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
+    alignItems: 'center',
+    padding: 20,
   },
-  logoutText: {
-    fontSize: 16,
+  modalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  languageOptions: {
+    gap: 16,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  languageInfo: {
+    flex: 1,
+  },
+  languageName: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#ef4444',
-    marginLeft: 8,
+    marginBottom: 4,
+  },
+  languageNative: {
+    fontSize: 16,
+    opacity: 0.7,
   },
 });
 

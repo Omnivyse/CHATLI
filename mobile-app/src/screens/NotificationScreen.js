@@ -13,12 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 import socketService from '../services/socket';
 import FollowRequestNotification from '../components/FollowRequestNotification';
 
 const NotificationScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +135,7 @@ const NotificationScreen = ({ navigation, user }) => {
       }
     } catch (error) {
       console.error('Load notifications error:', error);
-      setError('Мэдэгдлийг ачаалахад алдаа гарлаа');
+      setError('Failed to load notifications');
       setNotifications([]);
     } finally {
       setLoading(false);
@@ -198,11 +201,11 @@ const NotificationScreen = ({ navigation, user }) => {
           )
         );
       } else {
-        Alert.alert('Алдаа', response.message || 'Хүсэлт зөвшөөрөхөд алдаа гарлаа');
+        Alert.alert('Error', response.message || 'Failed to accept follow request');
       }
     } catch (error) {
       console.error('Accept follow request error:', error);
-      Alert.alert('Алдаа', 'Хүсэлт зөвшөөрөхөд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to accept follow request');
     }
   };
 
@@ -220,11 +223,11 @@ const NotificationScreen = ({ navigation, user }) => {
           )
         );
       } else {
-        Alert.alert('Алдаа', response.message || 'Хүсэлт цуцлахад алдаа гарлаа');
+        Alert.alert('Error', response.message || 'Failed to reject follow request');
       }
     } catch (error) {
       console.error('Reject follow request error:', error);
-      Alert.alert('Алдаа', 'Хүсэлт цуцлахад алдаа гарлаа');
+      Alert.alert('Error', 'Failed to reject follow request');
     }
   };
 
@@ -275,17 +278,17 @@ const NotificationScreen = ({ navigation, user }) => {
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
     if (diffInMinutes < 1) {
-      return 'одоо';
+      return 'now';
     } else if (diffInMinutes < 60) {
-      return String(diffInMinutes) + 'м өмнө';
+      return String(diffInMinutes) + 'm ago';
     } else if (diffInHours < 24) {
-      return String(diffInHours) + 'ц өмнө';
+      return String(diffInHours) + 'h ago';
     } else if (diffInDays === 1) {
-      return 'өчигдөр';
+      return 'yesterday';
     } else if (diffInDays < 7) {
-      return String(diffInDays) + ' өдөр өмнө';
+      return String(diffInDays) + ' days ago';
     } else {
-      return date.toLocaleDateString('mn-MN');
+      return date.toLocaleDateString('en-US');
     }
   };
 
@@ -328,7 +331,7 @@ const NotificationScreen = ({ navigation, user }) => {
       
       <View style={styles.notificationContent}>
         <Text style={[styles.notificationTitle, { color: colors.text }]}>
-          {notification.title || 'Шинэ мэдэгдэл'}
+          {notification.title || 'New notification'}
         </Text>
         {notification.message && (
           <Text style={[styles.notificationMessage, { color: colors.textSecondary }]}>
@@ -351,7 +354,7 @@ const NotificationScreen = ({ navigation, user }) => {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
         <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Мэдэгдэл</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
         </View>
         <View style={styles.loadingContainer}>
           <View style={[styles.loadingSpinner, { backgroundColor: colors.surface }]}>
@@ -366,13 +369,13 @@ const NotificationScreen = ({ navigation, user }) => {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Мэдэгдэл</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
         {notifications.some(n => !n.isRead) && (
           <TouchableOpacity
             style={[styles.markAllButton, { backgroundColor: colors.primary }]}
             onPress={handleMarkAllAsRead}
           >
-            <Text style={[styles.markAllText, { color: colors.textInverse }]}>Бүгдийг унших</Text>
+            <Text style={[styles.markAllText, { color: colors.textInverse }]}>Mark all as read</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -381,21 +384,21 @@ const NotificationScreen = ({ navigation, user }) => {
       {error ? (
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.error }]}>
-          {error && typeof error === 'string' ? error : 'Алдаа гарлаа'}
+          {error && typeof error === 'string' ? error : 'Error occurred'}
         </Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadNotifications}
           >
-            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Дахин оролдох</Text>
+            <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="notifications-outline" size={64} color={colors.textTertiary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Мэдэгдэл байхгүй</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No notifications</Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Шинэ мэдэгдэл ирэхэд энд харагдана
+            New notifications will appear here
           </Text>
         </View>
       ) : (

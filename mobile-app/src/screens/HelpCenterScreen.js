@@ -17,114 +17,86 @@ const HelpCenterScreen = ({ navigation }) => {
   const colors = getThemeColors(theme);
   const [expandedItems, setExpandedItems] = useState({});
 
-  const helpSections = [
+  const helpData = [
     {
-      title: 'Ерөнхий асуултууд',
-      icon: 'help-circle-outline',
+      title: 'Getting Started',
       items: [
         {
-          question: 'CHATLI гэж юу вэ?',
-          answer: 'CHATLI нь Монголын анхны чат апп бөгөөд танд найдвартай, хурдан мессеж илгээх боломжийг олгодог. Та найзуудтайгаа чат хийх, зураг, видео хуваалцах, дуу дуудах зэрэг олон боломжтой.'
-        },
-        {
-          question: 'Хэрхэн бүртгэл үүсгэх вэ?',
-          answer: '1. Апп-аа нээх\n2. "Бүртгүүлэх" товчийг дарх\n3. Нэр, имэйл, нууц үг оруулах\n4. "Бүртгүүлэх" товчийг дарх\n5. Имэйл хаягаа баталгаажуулах'
-        },
-        {
-          question: 'Нууц үгээ мартсан бол яах вэ?',
-          answer: 'Нууц үгээ мартсан бол нэвтрэх хуудас дээр "Нууц үг мартсан?" товчийг дарж, имэйл хаягаа оруулна уу. Таны имэйл хаяг руу нууц үг сэргээх холбоос илгээгдэнэ.'
-        },
-        {
-          question: 'Хэрхэн найз нэмэх вэ?',
-          answer: '1. Хайх хэсэгт очох\n2. Хайх хэрэглэгчийн нэр эсвэл имэйл оруулах\n3. Хайлтын үр дүнгээс хэрэглэгчийг олох\n4. "Дагах" товчийг дарх\n5. Хэрэглэгч таны дагах хүсэлтийг зөвшөөрөх'
+          question: 'What is CHATLI?',
+          answer: 'CHATLI is Mongolia\'s first chat app that provides you with reliable, fast messaging capabilities. You can chat with friends, share photos, videos, make voice calls, and much more.'
         }
       ]
     },
     {
-      title: 'Чат болон мессеж',
-      icon: 'chatbubbles-outline',
+      title: 'Chat and Messaging',
       items: [
         {
-          question: 'Хэрхэн чат эхлэх вэ?',
-          answer: '1. Хэрэглэгчийн профайл руу очох\n2. "Мессеж илгээх" товчийг дарх\n3. Мессежээ бичих\n4. "Илгээх" товчийг дарх'
+          question: 'How to start a chat?',
+          answer: '1. Go to user profile\n2. Tap "Send Message" button\n3. Write your message\n4. Tap "Send" button'
         },
         {
-          question: 'Зураг, видео хэрхэн илгээх вэ?',
-          answer: '1. Чат хуудас дээр "+" товчийг дарх\n2. "Зураг" эсвэл "Видео" сонгох\n3. Файлаа сонгох\n4. "Илгээх" товчийг дарх'
+          question: 'How to send photos/videos?',
+          answer: '1. In chat page, tap "+" button\n2. Select "Photo" or "Video"\n3. Choose your file\n4. Tap "Send" button'
         },
         {
-          question: 'Мессежийг хэрхэн устгах вэ?',
-          answer: 'Мессеж дээр удаан дарж, "Устгах" сонголтыг сонгоно уу. Зөвхөн өөрийн илгээсэн мессежийг устгах боломжтой.'
-        },
-        {
-          question: 'Чатийг хэрхэн устгах вэ?',
-          answer: 'Чат жагсаалтаас чат дээр удаан дарж, "Устгах" сонголтыг сонгоно уу. Энэ нь зөвхөн таны харагдах байдлаас устгана.'
+          question: 'How to delete a chat?',
+          answer: 'Long press on chat in chat list and select "Delete" option. This will only delete it from your view.'
         }
       ]
     },
     {
-      title: 'Профайл болон тохиргоо',
-      icon: 'person-outline',
+      title: 'Profile and Settings',
       items: [
         {
-          question: 'Профайл зураг хэрхэн солих вэ?',
-          answer: '1. Профайл хуудас руу очох\n2. Профайл зураг дээр дарх\n3. "Зураг сонгох" товчийг дарх\n4. Шинэ зураг сонгох\n5. "Хадгалах" товчийг дарх'
+          question: 'How to change profile picture?',
+          answer: '1. Go to profile page\n2. Tap on profile picture\n3. Tap "Choose Photo" button\n4. Select new photo\n5. Tap "Save" button'
         },
         {
-          question: 'Харанхуй горим хэрхэн идэвхжүүлэх вэ?',
-          answer: '1. Тохиргоо хуудас руу очох\n2. "Харанхуй горим" хэсгийг олох\n3. Товчлуурыг идэвхжүүлэх'
+          question: 'How to enable dark mode?',
+          answer: '1. Go to settings page\n2. Find "Dark Mode" section\n3. Enable the toggle'
         },
         {
-          question: 'Мэдэгдлийг хэрхэн удирдах вэ?',
-          answer: '1. Тохиргоо хуудас руу очох\n2. "Мэдэгдэл" хэсгийг олох\n3. Хүссэн тохиргоог сонгох\n4. "Хадгалах" товчийг дарх'
+          question: 'How to manage notifications?',
+          answer: '1. Go to settings page\n2. Find "Notifications" section\n3. Choose desired settings\n4. Tap "Save" button'
         },
         {
-          question: 'Нууц үг хэрхэн солих вэ?',
-          answer: '1. Тохиргоо хуудас руу очох\n2. "Нууцлал ба аюулгүй байдал" хэсгийг олох\n3. "Нууц үг солих" дээр дарх\n4. Одоогийн болон шинэ нууц үг оруулах'
+          question: 'How to change password?',
+          answer: '1. Go to settings page\n2. Find "Privacy and Security" section\n3. Tap "Change Password"\n4. Enter current and new password'
         }
       ]
     },
     {
-      title: 'Техникийн асуудлууд',
-      icon: 'construct-outline',
+      title: 'Troubleshooting',
       items: [
         {
-          question: 'Апп удаан ажиллаж байна',
-          answer: '1. Интернэт холболтоо шалгах\n2. Апп-аа дахин эхлүүлэх\n3. Утсыг дахин эхлүүлэх\n4. Апп-ын кэшийг цэвэрлэх\n5. Апп-аа шинэчлэх'
+          question: 'Photos/videos not downloading?',
+          answer: '1. Check your internet connection\n2. Check phone storage space\n3. Check app permissions\n4. Check if "Auto Download" is enabled in settings'
         },
         {
-          question: 'Мессеж илгээхэд алдаа гарч байна',
-          answer: '1. Интернэт холболтоо шалгах\n2. Хүлээн авагчийн нэр зөв эсэхийг шалгах\n3. Хүлээн авагч таныг блоклосон эсэхийг шалгах\n4. Апп-аа дахин эхлүүлэх'
-        },
-        {
-          question: 'Зураг, видео татагдахгүй байна',
-          answer: '1. Интернэт холболтоо шалгах\n2. Утасны санах ойн зай шалгах\n3. Апп-ын зөвшөөрөл шалгах\n4. Тохиргоо дээр "Автомат татах" идэвхтэй эсэхийг шалгах'
-        },
-        {
-          question: 'Апп-аа шинэчлэх хэрэгтэй юу?',
-          answer: 'Тийм, апп-аа тогтмол шинэчлэх нь чухал. Шинэ хувилбар нь аюулгүй байдлын засвар, шинэ онцлогууд, алдаа засваруудыг агуулдаг.'
+          question: 'App not working properly?',
+          answer: '1. Restart the app\n2. Check internet connection\n3. Update the app\n4. Clear app cache\n5. Reinstall the app'
         }
       ]
     },
     {
-      title: 'Аюулгүй байдал',
-      icon: 'shield-outline',
+      title: 'Privacy and Security',
       items: [
         {
-          question: 'Миний мэдээлэл аюулгүй юу?',
-          answer: 'Тийм, CHATLI нь таны хувийн мэдээллийг хамгаалахыг эрхэмлэдэг. Бид end-to-end шифрлэлт ашиглаж, таны мессежийг хамгаалдаг.'
+          question: 'Is my information secure?',
+          answer: 'Yes, CHATLI values your privacy. We use end-to-end encryption to protect your messages.'
         },
         {
-          question: 'Хэрэглэгчийг хэрхэн блоклох вэ?',
-          answer: '1. Хэрэглэгчийн профайл руу очох\n2. "..." товчийг дарх\n3. "Блоклох" сонголтыг сонгох\n4. "Блоклох" товчийг дарх'
-        },
+          question: 'How to block a user?',
+          answer: '1. Go to user profile\n2. Tap "..." button\n3. Select "Block" option\n4. Tap "Block" button'
+        }
+      ]
+    },
+    {
+      title: 'Account Management',
+      items: [
         {
-          question: 'Мессежийг хэрхэн нууцлах вэ?',
-          answer: 'Одоогоор мессеж нууцлах боломж байхгүй байна. Гэхдээ бид энэ онцлогийг удахгүй нэмэхээр ажиллаж байна.'
-        },
-        {
-          question: 'Акаунтаа хэрхэн устгах вэ?',
-          answer: '1. Тохиргоо хуудас руу очох\n2. "Акаунт устгах" хэсгийг олох\n3. Нууц үгээ оруулах\n4. "Акаунт устгах" товчийг дарх'
+          question: 'How to delete account?',
+          answer: '1. Go to settings page\n2. Find "Delete Account" section\n3. Enter your password\n4. Tap "Delete Account" button'
         }
       ]
     }
@@ -217,7 +189,7 @@ const HelpCenterScreen = ({ navigation }) => {
         </View>
 
         {/* Help Sections */}
-        {helpSections.map((section, index) => renderHelpSection(section, index))}
+        {helpData.map((section, index) => renderHelpSection(section, index))}
 
         {/* Contact Section */}
         <View style={[styles.contactSection, { backgroundColor: colors.surface }]}>
