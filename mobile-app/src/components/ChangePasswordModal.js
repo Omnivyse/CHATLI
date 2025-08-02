@@ -16,7 +16,7 @@ import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 
-const ChangePasswordModal = ({ visible, onClose, onSuccess }) => {
+const ChangePasswordModal = ({ visible, onClose, onSuccess, onLogout }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -64,10 +64,24 @@ const ChangePasswordModal = ({ visible, onClose, onSuccess }) => {
       
       if (response.success) {
         console.log('✅ Password changed successfully');
-        Alert.alert('Амжилттай', 'Нууц үг амжилттай солигдлоо', [
+        
+        // Call logout API to invalidate current session
+        try {
+          await apiService.logout();
+          console.log('✅ Logout successful after password change');
+        } catch (logoutError) {
+          console.error('❌ Logout error after password change:', logoutError);
+        }
+        
+        Alert.alert('Амжилттай', 'Нууц үг амжилттай солигдлоо. Бүх төхөөрөмжөөс гарах шаардлагатай.', [
           { text: 'OK', onPress: () => {
+            // Log out the user after password change
             onSuccess();
             onClose();
+            // Trigger logout - we need to pass this from parent component
+            if (typeof onLogout === 'function') {
+              onLogout();
+            }
           }}
         ]);
       } else {

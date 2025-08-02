@@ -300,6 +300,7 @@ const SettingsScreen = ({ navigation, user, onLogout, onShowWelcomeModal }) => {
           });
           setShowChangePassword(false);
         }}
+        onLogout={onLogout}
       />
       <PrivacySettingsModal
         key={showPrivacySettings ? 'open' : 'closed'}

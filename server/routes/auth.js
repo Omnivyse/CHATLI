@@ -407,16 +407,16 @@ router.put('/profile', auth, [
 });
 
 // @route   POST /api/auth/logout
-// @desc    Logout user
+// @desc    Logout user (invalidate current session)
 // @access  Private
 router.post('/logout', auth, async (req, res) => {
   try {
-    // Update user status to offline
-    await User.findByIdAndUpdate(req.user._id, {
-      status: 'offline',
-      lastSeen: new Date()
-    });
-
+    console.log('🔄 Logout request for user:', req.user._id);
+    
+    // For JWT-based auth, we can't invalidate the token server-side
+    // But we can add a logout timestamp that can be checked
+    // For now, just return success - the client should clear the token
+    
     res.json({
       success: true,
       message: 'Амжилттай гарлаа'
@@ -1264,14 +1264,20 @@ router.post('/change-password', auth, [
     const hashedPassword = await bcrypt.hash(newPassword, salt);
     console.log('✅ New password hashed successfully');
 
-    // Update password
-    user.password = hashedPassword;
-    await user.save();
+    // Update password using updateOne to bypass pre-save hook
+    await User.updateOne(
+      { _id: user._id },
+      { 
+        password: hashedPassword,
+        passwordChangedAt: new Date()
+      }
+    );
     console.log('✅ Password updated successfully in database');
 
     res.json({
       success: true,
-      message: 'Нууц үг амжилттай солигдлоо'
+      message: 'Нууц үг амжилттай солигдлоо. Бүх төхөөрөмжөөс гарах шаардлагатай.',
+      requiresReauth: true
     });
 
   } catch (error) {

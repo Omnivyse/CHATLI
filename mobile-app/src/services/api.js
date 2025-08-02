@@ -218,13 +218,16 @@ class ApiService {
 
   async logout() {
     try {
-      await this.request('/auth/logout', {
-        method: 'POST',
+      const response = await this.request('/auth/logout', {
+        method: 'POST'
       });
+      await this.clearToken();
+      return response;
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      await this.setToken(null);
+      // Always clear token even if logout fails
+      await this.clearToken();
+      return { success: true, message: 'Амжилттай гарлаа' };
     }
   }
 

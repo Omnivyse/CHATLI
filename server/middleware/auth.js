@@ -22,6 +22,17 @@ const auth = async (req, res, next) => {
       });
     }
 
+    // Check if password was changed after token was issued
+    if (user.passwordChangedAt) {
+      const passwordChangedAt = new Date(user.passwordChangedAt).getTime() / 1000;
+      if (decoded.iat < passwordChangedAt) {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Нууц үг солигдсон. Дахин нэвтэрнэ үү.' 
+        });
+      }
+    }
+
     req.user = user;
     next();
   } catch (error) {
