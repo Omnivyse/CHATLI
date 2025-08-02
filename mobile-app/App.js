@@ -459,15 +459,20 @@ export default function App() {
         console.error('Push notification initialization error:', pushError);
       }
       
-      // Set up push notifications
-      try {
-        const token = await registerForPushNotificationsAsync();
-        if (token) {
-          await apiService.updatePushToken(token);
+      // Set up push notifications (optional - won't block login)
+      setTimeout(async () => {
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            await apiService.updatePushToken(token);
+            console.log('Push token sent to server successfully');
+          } else {
+            console.log('No push token available (this is normal in development)');
+          }
+        } catch (pushTokenError) {
+          console.error('Push token setup error (non-blocking):', pushTokenError);
         }
-      } catch (pushTokenError) {
-        console.error('Push token setup error:', pushTokenError);
-      }
+      }, 1000); // Delay push notification setup to not block login
       
       // Show verification banner if needed
       if (!userData.emailVerified) {
@@ -637,25 +642,47 @@ function AppContent({
 
 // Helper function
 async function registerForPushNotificationsAsync() {
-  let token;
-  if (RNPlatform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
+  try {
+    let token;
+    
+    // Check if we're in development or production
+    const isDevelopment = __DEV__;
+    
+    if (RNPlatform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+    
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    
+    if (finalStatus !== 'granted') {
+      console.log('Push notification permission not granted');
+      return null;
+    }
+    
+    // Only try to get push token if we have proper configuration
+    try {
+      token = (await Notifications.getExpoPushTokenAsync({
+        projectId: process.env.EXPO_PROJECT_ID || 'your-project-id' // Add your actual project ID here
+      })).data;
+      console.log('Push token obtained successfully:', token);
+    } catch (pushTokenError) {
+      console.log('Push token error (this is normal in development):', pushTokenError.message);
+      return null;
+    }
+    
+    return token;
+  } catch (error) {
+    console.log('Push notification setup error (this is normal in development):', error.message);
+    return null;
   }
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== 'granted') {
-    alert('Failed to get push token for push notification!');
-    return;
-  }
-  token = (await Notifications.getExpoPushTokenAsync()).data;
-  return token;
 } 

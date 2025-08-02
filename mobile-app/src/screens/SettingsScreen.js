@@ -112,6 +112,7 @@ const SettingsScreen = ({ navigation, user, onLogout, onShowWelcomeModal }) => {
           subtitle: 'Нууц үгээ шинэчлэх',
           type: 'arrow',
           onPress: () => {
+            console.log('🔄 Password change button pressed');
             setShowChangePassword(true);
           },
         },

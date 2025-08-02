@@ -1208,8 +1208,11 @@ router.post('/change-password', auth, [
   body('newPassword').isLength({ min: 6 }).withMessage('Шинэ нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой')
 ], async (req, res) => {
   try {
+    console.log('🔄 Change password request received for user:', req.user._id);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         message: errors.array()[0].msg
@@ -1217,19 +1220,27 @@ router.post('/change-password', auth, [
     }
 
     const { currentPassword, newPassword } = req.body;
+    console.log('🔄 Password change request - current password length:', currentPassword.length);
+    console.log('🔄 Password change request - new password length:', newPassword.length);
 
     // Find user
     const user = await User.findById(req.user._id);
     if (!user) {
+      console.log('❌ User not found:', req.user._id);
       return res.status(404).json({
         success: false,
         message: 'Хэрэглэгч олдсонгүй'
       });
     }
 
+    console.log('✅ User found:', user._id);
+
     // Verify current password
     const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    console.log('🔄 Current password validation result:', isCurrentPasswordValid);
+    
     if (!isCurrentPasswordValid) {
+      console.log('❌ Current password is invalid');
       return res.status(400).json({
         success: false,
         message: 'Одоогийн нууц үг буруу байна'
@@ -1238,7 +1249,10 @@ router.post('/change-password', auth, [
 
     // Check if new password is same as current
     const isNewPasswordSame = await user.comparePassword(newPassword);
+    console.log('🔄 New password same as current check:', isNewPasswordSame);
+    
     if (isNewPasswordSame) {
+      console.log('❌ New password is same as current password');
       return res.status(400).json({
         success: false,
         message: 'Шинэ нууц үг нь одоогийн нууц үгтэй адил байж болохгүй'
@@ -1248,10 +1262,12 @@ router.post('/change-password', auth, [
     // Hash new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
+    console.log('✅ New password hashed successfully');
 
     // Update password
     user.password = hashedPassword;
     await user.save();
+    console.log('✅ Password updated successfully in database');
 
     res.json({
       success: true,
@@ -1259,7 +1275,7 @@ router.post('/change-password', auth, [
     });
 
   } catch (error) {
-    console.error('Change password error:', error);
+    console.error('❌ Change password error:', error);
     res.status(500).json({
       success: false,
       message: 'Серверийн алдаа'

@@ -311,14 +311,20 @@ class ApiService {
 
   async changePassword(currentPassword, newPassword) {
     try {
+      console.log('🔄 API: Changing password...');
       const response = await this.request('/auth/change-password', {
         method: 'POST',
         body: JSON.stringify({ currentPassword, newPassword })
       });
+      console.log('🔄 API: Change password response:', response);
       return response;
     } catch (error) {
-      console.error('Change password error:', error);
-      throw error;
+      console.error('❌ API: Change password error:', error);
+      // Don't throw the error, return it as a response object
+      return { 
+        success: false, 
+        message: error.message || 'Нууц үг солиход алдаа гарлаа' 
+      };
     }
   }
 
@@ -355,6 +361,19 @@ class ApiService {
       // Clear token on any error
       await this.clearToken();
       return { success: false, message: 'Authentication failed' };
+    }
+  }
+
+  async updatePushToken(pushToken) {
+    try {
+      const response = await this.request('/auth/push-token', {
+        method: 'POST',
+        body: JSON.stringify({ pushToken })
+      });
+      return response;
+    } catch (error) {
+      console.error('Update push token error:', error);
+      throw error;
     }
   }
 

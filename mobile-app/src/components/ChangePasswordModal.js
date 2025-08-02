@@ -58,9 +58,12 @@ const ChangePasswordModal = ({ visible, onClose, onSuccess }) => {
     setError('');
 
     try {
+      console.log('🔄 Changing password...');
       const response = await apiService.changePassword(currentPassword, newPassword);
+      console.log('🔄 Change password response:', response);
       
       if (response.success) {
+        console.log('✅ Password changed successfully');
         Alert.alert('Амжилттай', 'Нууц үг амжилттай солигдлоо', [
           { text: 'OK', onPress: () => {
             onSuccess();
@@ -68,10 +71,20 @@ const ChangePasswordModal = ({ visible, onClose, onSuccess }) => {
           }}
         ]);
       } else {
+        console.log('❌ Password change failed:', response.message);
         setError(response.message || 'Нууц үг солиход алдаа гарлаа');
       }
     } catch (error) {
-      setError(error.message || 'Нууц үг солиход алдаа гарлаа');
+      console.error('❌ Password change error:', error);
+      if (error.message.includes('Network request failed') || 
+          error.message.includes('fetch') || 
+          error.message.includes('timeout')) {
+        setError('Интернет холболтоо шалгана уу');
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        setError('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
+      } else {
+        setError(error.message || 'Нууц үг солиход алдаа гарлаа');
+      }
     } finally {
       setLoading(false);
     }
@@ -208,9 +221,13 @@ const ChangePasswordModal = ({ visible, onClose, onSuccess }) => {
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }]}
+              style={[
+                styles.button, 
+                { backgroundColor: colors.primary },
+                (!currentPassword || !newPassword || !confirmPassword) && { opacity: 0.5 }
+              ]}
               onPress={handleChangePassword}
-              disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+              disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#ffffff" />
