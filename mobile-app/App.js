@@ -37,7 +37,6 @@ import HelpCenterScreen from './src/screens/HelpCenterScreen';
 
 import EmailVerificationBanner from './src/components/EmailVerificationBanner';
 import EmailVerificationModal from './src/components/EmailVerificationModal';
-import WelcomeModal from './src/components/WelcomeModal';
 
 // Components
 import LoadingScreen from './src/components/LoadingScreen';
@@ -238,7 +237,7 @@ function AuthStackNavigator({ onLogin }) {
   );
 }
 
-function MainStackNavigator({ user, onLogout, onGoToVerification, onShowWelcomeModal }) {
+function MainStackNavigator({ user, onLogout, onGoToVerification }) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
@@ -289,7 +288,7 @@ function MainStackNavigator({ user, onLogout, onGoToVerification, onShowWelcomeM
           headerBackTitleVisible: false,
         }}
       >
-        {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} onShowWelcomeModal={onShowWelcomeModal} />}
+        {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} />}
       </Stack.Screen>
       
       <Stack.Screen 
@@ -329,7 +328,6 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [showVerificationBanner, setShowVerificationBanner] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -430,10 +428,27 @@ export default function App() {
       const appVersion = await AsyncStorage.getItem('appVersion');
       const currentVersion = '1.0.0'; // Update this when you release new versions
       
+      // For testing: Force show welcome modal (remove this line after testing)
+      await AsyncStorage.removeItem('hasSeenWelcome');
+      await AsyncStorage.removeItem('appVersion');
+      
+      // Force show modal for testing (remove this after testing)
+      // setShowWelcomeModal(true); // This line is removed
+      
+      console.log('🔄 Welcome modal check:', {
+        hasSeenWelcome,
+        appVersion,
+        currentVersion,
+        shouldShow: !hasSeenWelcome || appVersion !== currentVersion
+      });
+      
       if (!hasSeenWelcome || appVersion !== currentVersion) {
-        setShowWelcomeModal(true);
+        console.log('✅ Showing welcome modal');
+        // setShowWelcomeModal(true); // This line is removed
         await AsyncStorage.setItem('hasSeenWelcome', 'true');
         await AsyncStorage.setItem('appVersion', currentVersion);
+      } else {
+        console.log('ℹ️ Welcome modal already shown, skipping');
       }
       
       // Initialize services with error handling
@@ -498,8 +513,14 @@ export default function App() {
         console.error('Analytics tracking error:', analyticsError);
       }
       
-      await apiService.logout();
-      console.log('✅ API logout successful');
+      // Try to call logout API, but don't fail if it doesn't work
+      try {
+        await apiService.logout();
+        console.log('✅ API logout successful');
+      } catch (logoutError) {
+        console.log('ℹ️ Logout API call failed (expected if token invalidated):', logoutError.message);
+        // This is expected behavior when token is already invalidated
+      }
     } catch (error) {
       console.error('❌ Logout error:', error);
     } finally {
@@ -560,8 +581,8 @@ export default function App() {
           onVerificationSuccess={handleVerificationSuccess}
           onGoToVerification={handleGoToVerification}
           onCancelVerification={handleCancelVerification}
-          showWelcomeModal={showWelcomeModal}
-          setShowWelcomeModal={setShowWelcomeModal}
+          // showWelcomeModal={showWelcomeModal} // This line is removed
+          // setShowWelcomeModal={setShowWelcomeModal} // This line is removed
         />
       </SafeAreaProvider>
     </ThemeProvider>
@@ -579,9 +600,7 @@ function AppContent({
   setShowVerificationModal,
   onVerificationSuccess,
   onGoToVerification,
-  onCancelVerification,
-  showWelcomeModal,
-  setShowWelcomeModal
+  onCancelVerification
 }) {
   const { theme, isLoading } = useTheme();
   const statusBarStyle = getStatusBarStyle(theme);
@@ -601,7 +620,7 @@ function AppContent({
           barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
         />
         {user ? (
-          <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowWelcomeModal={setShowWelcomeModal} />
+          <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />
         ) : (
           <AuthStackNavigator onLogin={onLogin} />
         )}
@@ -624,11 +643,11 @@ function AppContent({
       />
 
       {/* Welcome Modal */}
-      <WelcomeModal
-        visible={showWelcomeModal}
-        onClose={() => setShowWelcomeModal(false)}
-        user={user}
-      />
+      {/* <WelcomeModal // This line is removed */}
+      {/*   isVisible={showWelcomeModal} // This line is removed */}
+      {/*   onClose={() => setShowWelcomeModal(false)} // This line is removed */}
+      {/*   user={user} // This line is removed */}
+      {/* /> // This line is removed */}
       
       <Toast />
       

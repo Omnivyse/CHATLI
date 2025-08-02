@@ -17,7 +17,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import PrivacySettingsModal from '../components/PrivacySettingsModal';
 
-const SettingsScreen = ({ navigation, user, onLogout, onShowWelcomeModal }) => {
+const SettingsScreen = ({ navigation, user, onLogout }) => {
   const { theme, toggleTheme } = useTheme();
   const colors = getThemeColors(theme);
   const [notifications, setNotifications] = useState(true);
@@ -33,10 +33,9 @@ const SettingsScreen = ({ navigation, user, onLogout, onShowWelcomeModal }) => {
         {
           icon: 'notifications-outline',
           title: 'Мэдэгдэл',
-          subtitle: 'Push мэдэгдэл авах',
-          type: 'switch',
-          value: notifications,
-          onToggle: setNotifications,
+          subtitle: 'Мэдэгдлийн тохиргоо',
+          type: 'arrow',
+          onPress: () => navigation.navigate('Notifications'),
         },
         {
           icon: 'moon-outline',
@@ -60,13 +59,7 @@ const SettingsScreen = ({ navigation, user, onLogout, onShowWelcomeModal }) => {
     {
       title: 'Мэдээлэл',
       items: [
-        {
-          icon: 'information-circle-outline',
-          title: 'Хувилбар болон онцлогууд',
-          subtitle: 'Beta хувилбар 1.0.0',
-          type: 'arrow',
-          onPress: onShowWelcomeModal,
-        },
+
         {
           icon: 'download-outline',
           title: 'Автомат татах',

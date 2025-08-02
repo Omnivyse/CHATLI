@@ -224,7 +224,9 @@ class ApiService {
       await this.clearToken();
       return response;
     } catch (error) {
-      console.error('Logout error:', error);
+      // Don't log this as an error since it's expected behavior
+      // when token is already invalidated (e.g., after password change)
+      console.log('Logout API call failed (expected if token invalidated):', error.message);
       // Always clear token even if logout fails
       await this.clearToken();
       return { success: true, message: 'Амжилттай гарлаа' };

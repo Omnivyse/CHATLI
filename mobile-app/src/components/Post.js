@@ -306,19 +306,20 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             <TouchableOpacity 
               onPress={handleVideoPress}
               activeOpacity={0.9}
+              style={[styles.videoContainer, { borderColor: colors.border }]}
             >
               <Video
                 source={{ uri: mediaItem.url }}
-                style={{
-                  width: '100%',
-                  height: 200,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-                useNativeControls
-                resizeMode="contain"
+                style={styles.videoPlayer}
+                useNativeControls={false}
+                resizeMode="cover"
+                shouldPlay={false}
+                isLooping={false}
+                isMuted={true}
               />
+              <View style={styles.videoPlayOverlay}>
+                <Ionicons name="play-circle" size={48} color="#ffffff" />
+              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -401,19 +402,20 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
               <TouchableOpacity 
                 onPress={handleVideoPress}
                 activeOpacity={0.9}
+                style={[styles.videoContainer, { borderColor: colors.border }]}
               >
                 <Video
                   source={{ uri: firstItem.url }}
-                  style={{
-                    width: '100%',
-                    height: 200,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                  useNativeControls
-                  resizeMode="contain"
+                  style={styles.videoPlayer}
+                  useNativeControls={false}
+                  resizeMode="cover"
+                  shouldPlay={false}
+                  isLooping={false}
+                  isMuted={true}
                 />
+                <View style={styles.videoPlayOverlay}>
+                  <Ionicons name="play-circle" size={48} color="#ffffff" />
+                </View>
               </TouchableOpacity>
             )}
             {/* Show dots for multiple media */}
@@ -462,7 +464,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
             </TouchableOpacity>
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
-              <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+              <Ionicons name="person" size={24} color={colors.textSecondary} />
             </View>
           )}
           <View style={styles.userDetails}>
@@ -827,6 +829,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+  },
+  videoContainer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+    backgroundColor: '#000', // Add background color for video
+  },
+  videoPlayer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000', // Add background color for video
+  },
+  videoPlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 8,
   },
 });
 

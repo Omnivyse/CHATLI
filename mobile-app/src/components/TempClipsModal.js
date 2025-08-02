@@ -177,7 +177,7 @@ const TempClipsModal = ({
           <Image source={{ uri: item.author.avatar }} style={styles.avatar} />
         ) : (
           <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
-            <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+            <Ionicons name="person" size={16} color={colors.textSecondary} />
           </View>
         )}
       </View>
@@ -346,9 +346,23 @@ const TempClipsModal = ({
                   Loading comments...
                 </Text>
               </View>
+            ) : comments.length > 0 ? (
+              <FlatList
+                data={comments}
+                renderItem={renderComment}
+                keyExtractor={(item, index) => `comment-${item._id || index}`}
+                showsVerticalScrollIndicator={false}
+                style={styles.commentsList}
+              />
             ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
-                <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+              <View style={styles.emptyComments}>
+                <Ionicons name="chatbubble-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.emptyCommentsText, { color: colors.textSecondary }]}>
+                  Сэтгэгдэл байхгүй
+                </Text>
+                <Text style={[styles.emptyCommentsSubtext, { color: colors.textTertiary }]}>
+                  Эхний сэтгэгдлээ үлдээгээрэй
+                </Text>
               </View>
             )}
           </View>
@@ -386,6 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 20, // Add top margin to move video down
   },
   videoWrapper: {
     width: '100%',
@@ -537,13 +552,21 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyComments: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 40,
   },
   emptyCommentsText: {
-    marginTop: 8,
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 12,
     textAlign: 'center',
-    fontSize: 14,
+  },
+  emptyCommentsSubtext: {
+    marginTop: 4,
+    fontSize: 12,
+    textAlign: 'center',
   },
   commentInputContainer: {
     paddingVertical: 12,

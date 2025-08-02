@@ -65,12 +65,13 @@ const ChangePasswordModal = ({ visible, onClose, onSuccess, onLogout }) => {
       if (response.success) {
         console.log('✅ Password changed successfully');
         
-        // Call logout API to invalidate current session
+        // Don't call logout API since the token is already invalidated
+        // Just clear the local token and proceed with logout
         try {
-          await apiService.logout();
-          console.log('✅ Logout successful after password change');
-        } catch (logoutError) {
-          console.error('❌ Logout error after password change:', logoutError);
+          await apiService.clearToken();
+          console.log('✅ Token cleared after password change');
+        } catch (clearError) {
+          console.error('❌ Token clear error after password change:', clearError);
         }
         
         Alert.alert('Амжилттай', 'Нууц үг амжилттай солигдлоо. Бүх төхөөрөмжөөс гарах шаардлагатай.', [

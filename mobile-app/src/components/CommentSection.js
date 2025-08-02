@@ -89,14 +89,19 @@ const CommentSection = ({ post, user, onClose, onCommentAdded }) => {
   const loadComments = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Loading comments for post:', post._id);
       const response = await api.getComments(post._id);
+      console.log('🔄 Comments response:', response);
       if (response.success) {
-        setComments(response.data.post.comments || []);
+        const commentsData = response.data.post.comments || [];
+        console.log('✅ Comments loaded successfully:', commentsData.length, 'comments');
+        setComments(commentsData);
       } else {
+        console.log('❌ Comments load failed:', response.message);
         Alert.alert('Алдаа', 'Сэтгэгдлүүдийг ачаалахад алдаа гарлаа');
       }
     } catch (error) {
-      console.error('Load comments error:', error);
+      console.error('❌ Load comments error:', error);
       Alert.alert('Алдаа', 'Сэтгэгдлүүдийг ачаалахад алдаа гарлаа');
     } finally {
       setLoading(false);
