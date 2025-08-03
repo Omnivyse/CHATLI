@@ -72,8 +72,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         setIsSecretPostUnlocked(true);
         setSecretPasswordModalOpen(false);
         setSecretPassword('');
-        // Update the post with the verified content
-        setLocalPost(response.data.post);
+        // Don't update the post with server data - keep local state only
       }
     } catch (error) {
       alert(error.message || 'Failed to verify password');
@@ -87,13 +86,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       return;
     }
     
-    // Check if user has already verified this post
-    if (localPost.passwordVerifiedUsers && localPost.passwordVerifiedUsers.includes(user._id)) {
-      setIsSecretPostUnlocked(true);
-      return;
-    }
-    
-    // Show password modal
+    // Show password modal - no persistent verification
     setSecretPasswordModalOpen(true);
   };
 
@@ -159,18 +152,31 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       </div>
       <div
         className={`mb-2 whitespace-pre-line cursor-pointer hover:bg-muted/50 dark:hover:bg-muted-dark/50 rounded transition text-foreground dark:text-foreground-dark ${
-          localPost.isSecret && !isSecretPostUnlocked ? 'relative' : ''
+          localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id ? 'relative' : ''
         }`}
-        onClick={localPost.isSecret && !isSecretPostUnlocked ? handleSecretPostPress : () => setShowModal(true)}
+        onClick={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id ? handleSecretPostPress : () => setShowModal(true)}
       >
-        {localPost.content}
-        {localPost.isSecret && !isSecretPostUnlocked && (
-          <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
-            <div className="text-center text-white">
-              <svg className="w-6 h-6 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+        <div className="flex items-start gap-2">
+          {localPost.isSecret && localPost.author._id !== user._id && (
+            <div className="flex-shrink-0 mt-1">
+              <svg className={`w-4 h-4 ${
+                isSecretPostUnlocked ? 'text-primary dark:text-primary-dark' : 'text-secondary dark:text-secondary-dark'
+              }`} fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
               </svg>
-              <p className="text-sm">Click to enter password</p>
+            </div>
+          )}
+          <div className="flex-1">
+            {localPost.content}
+          </div>
+        </div>
+        {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id && (
+          <div className="absolute inset-0 bg-black/60 rounded flex items-center justify-center backdrop-blur-sm">
+            <div className="text-center text-white bg-black/40 rounded-lg p-4 backdrop-blur-sm">
+              <svg className="w-8 h-8 mx-auto mb-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm font-medium">Click to enter password</p>
             </div>
           </div>
         )}
@@ -179,14 +185,17 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       {Array.isArray(localPost.media) && localPost.media.length > 0 && !settingsModalOpen && (
         localPost.isSecret && !isSecretPostUnlocked ? (
           <div 
-            className="relative w-full h-48 bg-muted dark:bg-muted-dark rounded border border-border dark:border-border-dark flex items-center justify-center cursor-pointer hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition"
+            className="relative w-full h-48 bg-muted dark:bg-muted-dark rounded-lg border-2 border-dashed border-border dark:border-border-dark flex items-center justify-center cursor-pointer hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-all duration-200"
             onClick={handleSecretPostPress}
           >
-            <div className="text-center text-secondary dark:text-secondary-dark">
-              <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-              </svg>
-              <p className="text-sm">Media hidden - Enter password to view</p>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-background dark:bg-background-dark rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <svg className="w-8 h-8 text-secondary dark:text-secondary-dark" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-foreground dark:text-foreground-dark">Media hidden</p>
+              <p className="text-xs text-secondary dark:text-secondary-dark mt-1">Enter password to view</p>
             </div>
           </div>
         ) : (

@@ -235,8 +235,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       if (response.success) {
         setIsSecretPostUnlocked(true);
         setSecretPasswordModalVisible(false);
-        // Update the post with the verified content
-        setLocalPost(response.data.post);
+        // Don't update the post with server data - keep local state only
       }
     } catch (error) {
       throw new Error(error.message || 'Failed to verify password');
@@ -250,13 +249,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       return;
     }
     
-    // Check if user has already verified this post
-    if (post.passwordVerifiedUsers && post.passwordVerifiedUsers.includes(user?._id)) {
-      setIsSecretPostUnlocked(true);
-      return;
-    }
-    
-    // Show password modal
+    // Show password modal - no persistent verification
     setSecretPasswordModalVisible(true);
   };
 
@@ -353,6 +346,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 shouldPlay={false}
                 isLooping={false}
                 isMuted={true}
+                shouldCorrectPitch={false}
               />
               <View style={styles.videoPlayOverlay}>
                 <Ionicons name="play-circle" size={48} color="#ffffff" />
@@ -534,36 +528,51 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       {/* Post Content */}
       {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
         <TouchableOpacity
-          onPress={localPost.isSecret && !isSecretPostUnlocked ? handleSecretPostPress : undefined}
-          activeOpacity={localPost.isSecret && !isSecretPostUnlocked ? 0.7 : 1}
-          style={localPost.isSecret && !isSecretPostUnlocked ? styles.secretContentContainer : null}
+          onPress={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? handleSecretPostPress : undefined}
+          activeOpacity={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? 0.7 : 1}
+          style={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? styles.secretContentContainer : null}
         >
-          <Text style={[styles.content, { color: colors.text }]}>
-            {localPost.content}
-          </Text>
-          {localPost.isSecret && !isSecretPostUnlocked && (
+          <View style={styles.contentContainer}>
+            {localPost.isSecret && localPost.author._id !== user?._id && (
+              <View style={styles.lockIconContainer}>
+                <Ionicons 
+                  name="lock-closed" 
+                  size={16} 
+                  color={isSecretPostUnlocked ? colors.primary : colors.textSecondary} 
+                />
+              </View>
+            )}
+            <Text style={[styles.content, { color: colors.text }]}>
+              {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id 
+                ? 'Content hidden' 
+                : localPost.content
+              }
+            </Text>
+          </View>
+          {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && (
             <View style={styles.secretOverlay}>
-              <Ionicons name="lock-closed" size={20} color={colors.textSecondary} />
-              <Text style={[styles.secretText, { color: colors.textSecondary }]}>
-                Tap to enter password
-              </Text>
+              <View style={styles.secretOverlayContent}>
+                <Ionicons name="lock-closed" size={24} color="#ffffff" />
+                <Text style={[styles.secretText, { color: "#ffffff" }]}>Tap to enter password</Text>
+              </View>
             </View>
           )}
         </TouchableOpacity>
       )}
 
       {/* Post Media - Simple Multi-Image Recognition */}
-      {localPost.isSecret && !isSecretPostUnlocked ? (
+      {localPost.isSecret && !isSecretPostUnlocked && mediaArray.length > 0 ? (
         <TouchableOpacity
           onPress={handleSecretPostPress}
           activeOpacity={0.7}
           style={styles.secretMediaContainer}
         >
-          <View style={[styles.secretMediaPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
-            <Ionicons name="lock-closed" size={48} color={colors.textSecondary} />
-            <Text style={[styles.secretMediaText, { color: colors.textSecondary }]}>
-              Media hidden - Enter password to view
-            </Text>
+          <View style={styles.secretMediaPlaceholder}>
+            <View style={[styles.secretMediaIconContainer, { backgroundColor: colors.surfaceVariant }]}>
+              <Ionicons name="lock-closed" size={48} color={colors.textSecondary} />
+            </View>
+            <Text style={[styles.secretMediaText, { color: colors.text }]}>Media hidden</Text>
+            <Text style={[styles.secretMediaSubtext, { color: colors.textSecondary }]}>Enter password to view</Text>
           </View>
         </TouchableOpacity>
       ) : (
@@ -910,12 +919,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     overflow: 'hidden',
-    backgroundColor: '#000', // Add background color for video
+    backgroundColor: '#000',
+    marginBottom: 0,
+    position: 'relative',
   },
   videoPlayer: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#000', // Add background color for video
+    backgroundColor: '#000',
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   videoPlayOverlay: {
     position: 'absolute',
@@ -943,28 +957,50 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     zIndex: 1,
   },
+  secretOverlayContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   secretText: {
-    marginTop: 8,
+    color: '#ffffff',
     fontSize: 14,
+    fontWeight: '500',
   },
   secretMediaContainer: {
     width: '100%',
     height: 250,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.surfaceVariant,
   },
   secretMediaPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+  secretMediaIconContainer: {
+    borderRadius: 24,
+    padding: 10,
+  },
   secretMediaText: {
     marginTop: 10,
     fontSize: 14,
+    fontWeight: '600',
+  },
+  secretMediaSubtext: {
+    marginTop: 4,
+    fontSize: 12,
+  },
+  contentContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  lockIconContainer: {
+    marginRight: 8,
+    marginTop: 2,
   },
 });
 

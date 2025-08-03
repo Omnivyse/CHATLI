@@ -77,7 +77,9 @@ const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAutho
 
           <View style={styles.content}>
             <View style={styles.iconContainer}>
-              <Ionicons name="lock-closed" size={48} color={colors.primary} />
+              <View style={styles.iconBackground}>
+                <Ionicons name="lock-closed" size={48} color={colors.primary} />
+              </View>
             </View>
             
             <Text style={[styles.description, { color: colors.textSecondary }]}>
@@ -173,6 +175,14 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginBottom: 16,
+  },
+  iconBackground: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   description: {
     fontSize: 16,

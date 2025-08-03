@@ -372,7 +372,7 @@ const CreatePostScreen = ({ navigation, user }) => {
             </View>
 
             {/* Secret Post Toggle */}
-            <View style={styles.secretPostSection}>
+            <View style={[styles.secretPostSection, { backgroundColor: colors.surfaceVariant }]}>
               <TouchableOpacity
                 style={styles.secretPostToggle}
                 onPress={() => {
@@ -387,14 +387,21 @@ const CreatePostScreen = ({ navigation, user }) => {
                 activeOpacity={0.7}
               >
                 <View style={styles.secretPostToggleContent}>
-                  <Ionicons 
-                    name={isSecretPost ? "lock-closed" : "lock-open"} 
-                    size={20} 
-                    color={isSecretPost ? colors.primary : colors.textSecondary} 
-                  />
-                  <Text style={[styles.secretPostText, { color: colors.text }]}>
-                    Secret Post
-                  </Text>
+                  <View style={[styles.secretPostIconContainer, { backgroundColor: colors.surface }]}>
+                    <Ionicons 
+                      name={isSecretPost ? "lock-closed" : "lock-open"} 
+                      size={20} 
+                      color={isSecretPost ? colors.primary : colors.textSecondary} 
+                    />
+                  </View>
+                  <View style={styles.secretPostTextContainer}>
+                    <Text style={[styles.secretPostText, { color: colors.text }]}>
+                      Secret Post
+                    </Text>
+                    <Text style={[styles.secretPostSubtext, { color: colors.textSecondary }]}>
+                      {isSecretPost ? 'Password protected' : 'Public post'}
+                    </Text>
+                  </View>
                 </View>
                 <View style={[
                   styles.toggleSwitch,
@@ -409,17 +416,11 @@ const CreatePostScreen = ({ navigation, user }) => {
                   ]} />
                 </View>
               </TouchableOpacity>
-              
-              {isSecretPost && (
-                <Text style={[styles.secretPostDescription, { color: colors.textSecondary }]}>
-                  Only users with the correct password can view this post
-                </Text>
-              )}
             </View>
 
             {/* Secret Post Password Input */}
             {showPasswordInput && isSecretPost && (
-              <View style={styles.passwordSection}>
+              <View style={[styles.passwordSection, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[styles.passwordLabel, { color: colors.text }]}>
                   Set 4-digit password:
                 </Text>
@@ -716,9 +717,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f5f5f5',
     borderRadius: 12,
     marginTop: 12,
+    marginHorizontal: 16,
   },
   secretPostToggle: {
     flexDirection: 'row',
@@ -729,26 +730,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 10,
+    flex: 1,
+  },
+  secretPostIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  secretPostTextContainer: {
+    flex: 1,
   },
   secretPostText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
+    marginBottom: 2,
+  },
+  secretPostSubtext: {
+    fontSize: 12,
   },
   toggleSwitch: {
-    width: 32,
-    height: 18,
-    borderRadius: 9,
+    width: 44,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ccc',
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
   toggleKnob: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#fff',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
   },
   secretPostDescription: {
     fontSize: 12,
@@ -756,30 +780,30 @@ const styles = StyleSheet.create({
   },
   passwordSection: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f5f5f5',
+    paddingVertical: 16,
     borderRadius: 12,
-    marginTop: 12,
+    marginTop: 8,
+    marginHorizontal: 16,
   },
   passwordLabel: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   passwordInput: {
-    fontSize: 16,
-    color: '#000',
+    fontSize: 18,
     lineHeight: 22,
-    minHeight: 40,
+    minHeight: 48,
     textAlignVertical: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderRadius: 8,
-    borderColor: '#ccc',
+    textAlign: 'center',
+    letterSpacing: 8,
   },
   passwordHint: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 8,
   },
 });
 
