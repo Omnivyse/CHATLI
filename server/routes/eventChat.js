@@ -77,6 +77,8 @@ router.post('/:eventId/messages', auth, async (req, res) => {
     const { eventId } = req.params;
     const { content, type = 'text' } = req.body;
 
+    console.log('Send message request:', { eventId, content, type, userId: req.user._id });
+
     if (!content || !content.trim()) {
       return res.status(400).json({
         success: false,
@@ -88,6 +90,13 @@ router.post('/:eventId/messages', auth, async (req, res) => {
       .populate('chat')
       .populate('joinedUsers', 'name username avatar');
 
+    console.log('Found event:', event ? { 
+      id: event._id, 
+      name: event.name, 
+      joinedUsers: event.joinedUsers?.length,
+      hasChat: !!event.chat 
+    } : 'Not found');
+
     if (!event) {
       return res.status(404).json({
         success: false,
@@ -97,7 +106,22 @@ router.post('/:eventId/messages', auth, async (req, res) => {
 
     // Check if user has joined the event
     const isJoined = event.joinedUsers.some(user => user._id.toString() === req.user._id.toString());
-    if (!isJoined) {
+    console.log('Join check:', { 
+      userId: req.user._id, 
+      joinedUsers: event.joinedUsers.map(u => u._id), 
+      isJoined 
+    });
+
+    // Check if user is event creator
+    const isEventCreator = event.author.toString() === req.user._id.toString();
+    console.log('Creator check:', { 
+      eventAuthor: event.author, 
+      userId: req.user._id, 
+      isEventCreator 
+    });
+
+    // Allow if joined OR if event creator
+    if (!isJoined && !isEventCreator) {
       return res.status(403).json({
         success: false,
         message: 'You must join the event to send messages'
@@ -107,6 +131,7 @@ router.post('/:eventId/messages', auth, async (req, res) => {
     // Create chat if it doesn't exist
     let chat = event.chat;
     if (!chat) {
+      console.log('Creating new chat for event');
       chat = new Chat({
         type: 'group',
         name: `${event.name} Chat`,
@@ -118,6 +143,7 @@ router.post('/:eventId/messages', auth, async (req, res) => {
       // Update event with chat reference
       event.chat = chat._id;
       await event.save();
+      console.log('Chat created and linked to event');
     }
 
     // Create message
@@ -131,6 +157,7 @@ router.post('/:eventId/messages', auth, async (req, res) => {
     });
 
     await message.save();
+    console.log('Message saved:', message._id);
 
     // Update chat's last message
     chat.lastMessage = {
@@ -153,6 +180,7 @@ router.post('/:eventId/messages', auth, async (req, res) => {
     // Populate message for response
     await message.populate('sender', 'name username avatar');
 
+    console.log('Message sent successfully');
     res.status(201).json({
       success: true,
       message: 'Message sent successfully',

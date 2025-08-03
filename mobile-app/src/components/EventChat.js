@@ -35,15 +35,30 @@ const EventChat = ({ event, user, onClose }) => {
     joinedUser._id === user?._id || joinedUser === user?._id
   );
 
+  // Check if user is the event creator
+  const isEventCreator = event.author?._id === user?._id || event.author === user?._id;
+
+  // Allow access if joined OR if event creator
+  const canAccessChat = isJoined || isEventCreator;
+
   useEffect(() => {
-    if (isJoined) {
+    console.log('Event Chat Debug:');
+    console.log('Event ID:', event._id);
+    console.log('User ID:', user?._id);
+    console.log('Event Author ID:', event.author?._id);
+    console.log('Joined Users:', event.joinedUsers?.map(u => u._id || u));
+    console.log('Is Joined:', isJoined);
+    console.log('Is Event Creator:', isEventCreator);
+    console.log('Can Access Chat:', canAccessChat);
+    
+    if (canAccessChat) {
       loadMessages();
       markAsRead();
     }
-  }, [event._id, isJoined]);
+  }, [event._id, isJoined, canAccessChat]);
 
   const loadMessages = async (pageNum = 1, refresh = false) => {
-    if (!isJoined) return;
+    if (!canAccessChat) return;
 
     try {
       setLoading(true);
@@ -69,9 +84,13 @@ const EventChat = ({ event, user, onClose }) => {
 
   const markAsRead = async () => {
     try {
-      await apiService.markEventChatAsRead(event._id);
+      // Only mark as read if we have messages and the user is joined
+      if (messages.length > 0 && canAccessChat) {
+        await apiService.markEventChatAsRead(event._id);
+      }
     } catch (error) {
-      console.error('Error marking messages as read:', error);
+      // Don't show error for this - it's not critical
+      console.log('Note: Could not mark messages as read (chat may not exist yet)');
     }
   };
 
@@ -80,6 +99,24 @@ const EventChat = ({ event, user, onClose }) => {
 
     try {
       setSending(true);
+      console.log('Sending message to event:', event._id);
+      console.log('Message content:', newMessage.trim());
+      console.log('User ID:', user?._id);
+      console.log('Is joined:', isJoined);
+      console.log('Is event creator:', isEventCreator);
+      console.log('Can access chat:', canAccessChat);
+      
+      // If user is event creator but not in joinedUsers, try to auto-join them
+      if (isEventCreator && !isJoined) {
+        console.log('Auto-joining event creator to event');
+        try {
+          await apiService.joinEvent(event._id);
+          console.log('Successfully auto-joined event creator');
+        } catch (joinError) {
+          console.log('Auto-join failed (might already be joined):', joinError.message);
+        }
+      }
+      
       const response = await apiService.sendEventChatMessage(event._id, newMessage.trim());
       
       if (response.success) {
@@ -93,7 +130,8 @@ const EventChat = ({ event, user, onClose }) => {
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
+      console.error('Error details:', error.message);
+      Alert.alert('Error', `Failed to send message: ${error.message}`);
     } finally {
       setSending(false);
     }
@@ -166,9 +204,13 @@ const EventChat = ({ event, user, onClose }) => {
     </View>
   );
 
-  if (!isJoined) {
+  if (!canAccessChat) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView 
+        style={[styles.container, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.text} />
@@ -187,7 +229,7 @@ const EventChat = ({ event, user, onClose }) => {
             Only event participants can send messages
           </Text>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -195,16 +237,24 @@ const EventChat = ({ event, user, onClose }) => {
     <KeyboardAvoidingView 
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { 
+        borderBottomColor: colors.border,
+        backgroundColor: colors.surface 
+      }]}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {event.name} Chat
-        </Text>
+        <View style={styles.headerContent}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {event.name}
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+            Event Chat
+          </Text>
+        </View>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -228,7 +278,10 @@ const EventChat = ({ event, user, onClose }) => {
       />
 
       {/* Input */}
-      <View style={[styles.inputContainer, { borderTopColor: colors.border }]}>
+      <View style={[styles.inputContainer, { 
+        borderTopColor: colors.border,
+        backgroundColor: colors.surface 
+      }]}>
         <TextInput
           style={[styles.textInput, { 
             backgroundColor: colors.surfaceVariant,
@@ -245,7 +298,11 @@ const EventChat = ({ event, user, onClose }) => {
         <TouchableOpacity
           style={[
             styles.sendButton,
-            { backgroundColor: newMessage.trim() ? colors.primary : colors.surfaceVariant }
+            { 
+              backgroundColor: newMessage.trim() 
+                ? '#000000'  // Black for active
+                : '#E5E5EA'  // Gray for inactive
+            }
           ]}
           onPress={handleSendMessage}
           disabled={!newMessage.trim() || sending}
@@ -256,7 +313,7 @@ const EventChat = ({ event, user, onClose }) => {
             <Ionicons 
               name="send" 
               size={20} 
-              color={newMessage.trim() ? '#ffffff' : colors.textSecondary} 
+              color={newMessage.trim() ? '#ffffff' : '#8E8E93'} 
             />
           )}
         </TouchableOpacity>
@@ -275,6 +332,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
+    paddingTop: 50, // Add safe area padding
   },
   closeButton: {
     padding: 8,
@@ -285,6 +343,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  headerSubtitle: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerSpacer: {
     width: 40,
   },
@@ -293,6 +360,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    paddingTop: 50, // Add safe area padding
   },
   notJoinedText: {
     fontSize: 18,
@@ -311,6 +379,7 @@ const styles = StyleSheet.create({
   messagesContainer: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    paddingBottom: 20, // Add bottom padding
   },
   messageContainer: {
     marginVertical: 4,
@@ -373,6 +442,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
+    paddingBottom: 30, // Add safe area padding
   },
   textInput: {
     flex: 1,

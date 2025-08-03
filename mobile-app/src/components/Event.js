@@ -357,6 +357,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={() => setShowChat(false)}
+        statusBarTranslucent={true}
       >
         <EventChat 
           event={event}
