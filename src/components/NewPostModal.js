@@ -7,7 +7,6 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
   const [content, setContent] = useState('');
   const [media, setMedia] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showMediaPicker, setShowMediaPicker] = useState(false);
   const textareaRef = useRef(null);
 
   const handleFileChange = async (e) => {
@@ -32,16 +31,6 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
 
   const handleRemoveMedia = (index) => {
     setMedia(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleMediaNavigation = (direction) => {
-    if (media.length > 1) {
-      if (direction === 'next') {
-        setCurrentMedia((currentMedia + 1) % media.length);
-      } else {
-        setCurrentMedia((currentMedia - 1 + media.length) % media.length);
-      }
-    }
   };
 
   const handleCreatePost = async () => {

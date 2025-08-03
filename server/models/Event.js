@@ -70,6 +70,10 @@ const eventSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  chat: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chat'
+  },
   type: {
     type: String,
     default: 'event'

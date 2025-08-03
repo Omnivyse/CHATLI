@@ -15,15 +15,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
+import EventChat from './EventChat';
 
 const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentEvent, onDeleteEvent, onKickEventUser, navigation }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
-  const [showComments, setShowComments] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [showJoinedUsers, setShowJoinedUsers] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [commentText, setCommentText] = useState('');
   const [password, setPassword] = useState('');
   const [isJoined, setIsJoined] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -142,36 +142,11 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
   };
 
   const handleLikeEvent = async () => {
-    if (!isJoined) {
-      Alert.alert('Info', 'You can only like after joining the event');
-      return;
-    }
-
     try {
       await onLikeEvent(event._id);
       setIsLiked(!isLiked);
     } catch (error) {
-      Alert.alert('Error', 'Failed to like');
-    }
-  };
-
-  const handleComment = async () => {
-    if (!isJoined) {
-      Alert.alert('Info', 'You can only comment after joining the event');
-      return;
-    }
-
-    if (!commentText.trim()) {
-      Alert.alert('Error', 'Please write a comment');
-      return;
-    }
-
-    try {
-      await onCommentEvent(event._id, commentText.trim());
-      setCommentText('');
-      setShowComments(false);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add comment');
+      Alert.alert('Error', 'Failed to like event');
     }
   };
 
@@ -181,35 +156,26 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
       'Are you sure you want to delete this event?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: handleDeleteEvent }
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await onDeleteEvent(event._id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete event');
+            }
+          }
+        }
       ]
     );
   };
 
   const handleUserPress = (userId, userName) => {
-    if (navigation) {
-      navigation.navigate('UserProfile', {
-        userId: userId,
-        userName: userName
-      });
+    if (navigation && userId && user?._id && userId !== user._id) {
+      navigation.navigate('UserProfile', { userId, userName });
     }
   };
-
-  const renderComment = ({ item }) => (
-    <View style={[styles.commentItem, { borderBottomColor: colors.border }]}>
-      <View style={styles.commentHeader}>
-        <Text style={[styles.commentAuthor, { color: colors.text }]}>
-          {item.author?.name || 'User'}
-        </Text>
-        <Text style={[styles.commentDate, { color: colors.textSecondary }]}>
-          {new Date(item.createdAt).toLocaleDateString('mn-MN')}
-        </Text>
-      </View>
-      <Text style={[styles.commentText, { color: colors.text }]}>
-        {item.content}
-      </Text>
-    </View>
-  );
 
   const renderJoinedUser = ({ item }) => (
     <TouchableOpacity 
@@ -370,7 +336,7 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
 
             <TouchableOpacity
               style={[styles.actionButton, { borderColor: colors.border }]}
-              onPress={() => setShowComments(true)}
+              onPress={() => setShowChat(true)}
             >
               <Ionicons name="chatbubble-outline" size={20} color={colors.text} />
             </TouchableOpacity>
@@ -385,61 +351,18 @@ const Event = ({ event, user, onJoinEvent, onLeaveEvent, onLikeEvent, onCommentE
         )}
       </View>
 
-      {/* Comments Modal */}
+      {/* Event Chat Modal */}
       <Modal
-        visible={showComments}
+        visible={showChat}
         animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowComments(false)}
-        style={{ zIndex: 9999 }}
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowChat(false)}
       >
-        <KeyboardAvoidingView 
-          style={[styles.modalContainer, { backgroundColor: colors.background, zIndex: 9999, elevation: 9999 }]}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          {/* Modal Header */}
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => setShowComments(false)}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Comments ({event.comments?.length || 0})
-            </Text>
-            <View style={{ width: 24 }} />
-          </View>
-
-          {/* Comment Input at Top */}
-          <View style={[styles.commentInput, { borderBottomColor: colors.border }]}>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: colors.surface, 
-                borderColor: colors.border,
-                color: colors.text 
-              }]}
-              value={commentText}
-              onChangeText={setCommentText}
-              placeholder="Write a comment..."
-              placeholderTextColor={colors.placeholder}
-              multiline
-              maxLength={200}
-            />
-            <TouchableOpacity
-              style={[styles.sendButton, { backgroundColor: '#000000' }]}
-              onPress={handleComment}
-            >
-              <Ionicons name="send" size={20} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Comments List */}
-          <FlatList
-            data={event.comments || []}
-            renderItem={renderComment}
-            keyExtractor={(item, index) => `comment-${item._id || index}`}
-            style={styles.commentsList}
-            showsVerticalScrollIndicator={false}
-          />
-        </KeyboardAvoidingView>
+        <EventChat 
+          event={event}
+          user={user}
+          onClose={() => setShowChat(false)}
+        />
       </Modal>
 
       {/* Joined Users Modal */}

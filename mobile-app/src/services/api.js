@@ -779,7 +779,25 @@ class ApiService {
 
   async deleteEvent(eventId) {
     return this.request(`/events/${eventId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+    });
+  }
+
+  // Event Chat Methods
+  async getEventChatMessages(eventId, page = 1, limit = 50) {
+    return this.request(`/event-chats/${eventId}/messages?page=${page}&limit=${limit}`);
+  }
+
+  async sendEventChatMessage(eventId, content, type = 'text') {
+    return this.request(`/event-chats/${eventId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content, type }),
+    });
+  }
+
+  async markEventChatAsRead(eventId) {
+    return this.request(`/event-chats/${eventId}/messages/read`, {
+      method: 'PUT',
     });
   }
 }

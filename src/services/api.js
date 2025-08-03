@@ -838,16 +838,69 @@ class ApiService {
   }
 
   async trackAnalyticsEvent(eventData) {
-    const adminToken = localStorage.getItem('adminToken');
-    const response = await fetch(`${this.baseURL}/admin/analytics/track`, {
+    return this.request('/analytics/track', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${adminToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(eventData)
+      body: JSON.stringify(eventData),
     });
-    return response.json();
+  }
+
+  // Event Methods
+  async getEvents() {
+    return this.request('/events');
+  }
+
+  async createEvent(eventData) {
+    return this.request('/events', {
+      method: 'POST',
+      body: JSON.stringify(eventData),
+    });
+  }
+
+  async getEvent(eventId) {
+    return this.request(`/events/${eventId}`);
+  }
+
+  async joinEvent(eventId, password = null) {
+    return this.request(`/events/${eventId}/join`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  async leaveEvent(eventId) {
+    return this.request(`/events/${eventId}/leave`, {
+      method: 'POST',
+    });
+  }
+
+  async likeEvent(eventId) {
+    return this.request(`/events/${eventId}/like`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteEvent(eventId) {
+    return this.request(`/events/${eventId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Event Chat Methods
+  async getEventChatMessages(eventId, page = 1, limit = 50) {
+    return this.request(`/event-chats/${eventId}/messages?page=${page}&limit=${limit}`);
+  }
+
+  async sendEventChatMessage(eventId, content, type = 'text') {
+    return this.request(`/event-chats/${eventId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content, type }),
+    });
+  }
+
+  async markEventChatAsRead(eventId) {
+    return this.request(`/event-chats/${eventId}/messages/read`, {
+      method: 'PUT',
+    });
   }
 }
 

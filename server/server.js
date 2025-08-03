@@ -21,6 +21,7 @@ const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 const eventRoutes = require('./routes/events');
+const eventChatRoutes = require('./routes/eventChat');
 
 // Import models
 const User = require('./models/User');
@@ -177,6 +178,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/event-chats', eventChatRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
