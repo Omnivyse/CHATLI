@@ -298,6 +298,10 @@ class ApiService {
     return this.request('/posts');
   }
 
+  async getTopWeeklyPosts() {
+    return this.request('/posts/top-weekly');
+  }
+
   async createPost(postData) {
     return this.request('/posts', {
       method: 'POST',

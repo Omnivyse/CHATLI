@@ -510,4 +510,105 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+// Get top posts from current week (for Top Feeds)
+router.get('/top-weekly', auth, async (req, res) => {
+  try {
+    // Calculate the start of the current week (Monday)
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Monday
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    // Calculate the end of the current week (Sunday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    
+    console.log('📅 Top posts query period:', {
+      startOfWeek: startOfWeek.toISOString(),
+      endOfWeek: endOfWeek.toISOString(),
+      currentTime: now.toISOString()
+    });
+
+    // Get posts from current week, sorted by likes count (descending)
+    let posts = await Post.find({
+      createdAt: { $gte: startOfWeek, $lte: endOfWeek }
+    })
+    .sort({ 'likes.length': -1, createdAt: -1 })
+    .limit(10) // Get top 10 posts
+    .populate('author', 'name avatar isVerified');
+    
+    // Filter out posts with null authors
+    posts = posts.filter(post => {
+      if (!post.author) {
+        console.log('Found post with null author in top posts, skipping:', post._id);
+        return false;
+      }
+      return true;
+    });
+    
+    // Get privacy settings for all post authors
+    const authorIds = [...new Set(posts.map(post => post.author._id))];
+    const privacySettings = await PrivacySettings.find({ userId: { $in: authorIds } });
+    const privacyMap = new Map(privacySettings.map(ps => [ps.userId.toString(), ps]));
+    
+    // Get current user's following list
+    const currentUser = await User.findById(req.user._id).select('following');
+    const followingIds = currentUser ? currentUser.following.map(id => id.toString()) : [];
+    
+    // Filter out posts from private users
+    posts = posts.filter(post => {
+      const author = post.author;
+      
+      // Check privacy settings for the author
+      const authorPrivacy = privacyMap.get(author._id.toString());
+      if (authorPrivacy && authorPrivacy.isPrivateAccount) {
+        // If author has private account, only show to themselves or followers
+        if (String(author._id) === String(req.user._id)) return true;
+        
+        // Check if current user is following the author
+        if (followingIds.includes(author._id.toString())) {
+          return true;
+        }
+        
+        return false;
+      }
+      
+      return true;
+    });
+    
+    // Populate comments.author for filtered posts
+    try {
+      await Post.populate(posts, { 
+        path: 'comments.author', 
+        select: 'name avatar',
+        transform: (doc) => {
+          if (!doc) return null;
+          return doc;
+        }
+      });
+    } catch (populateError) {
+      console.error('Error populating comments for top posts:', populateError);
+    }
+    
+    console.log(`✅ Top posts fetched: ${posts.length} posts from current week`);
+    
+    res.json({
+      success: true,
+      message: 'Top posts fetched successfully',
+      data: {
+        posts,
+        weekInfo: {
+          startDate: startOfWeek.toISOString(),
+          endDate: endOfWeek.toISOString(),
+          currentTime: now.toISOString()
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get top weekly posts error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
 module.exports = router; 

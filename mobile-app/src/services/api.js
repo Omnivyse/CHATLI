@@ -451,8 +451,11 @@ class ApiService {
 
   // Post endpoints
   async getPosts(page = 1) {
-    // Server doesn't support pagination yet, so we ignore the page parameter
-    return this.request('/posts');
+    return this.request(`/posts?page=${page}`);
+  }
+
+  async getTopWeeklyPosts() {
+    return this.request('/posts/top-weekly');
   }
 
   async createPost(postData) {

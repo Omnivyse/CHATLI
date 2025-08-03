@@ -29,6 +29,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
   const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [posts, setPosts] = useState([]);
+  const [topWeeklyPosts, setTopWeeklyPosts] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,6 +40,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('CHATLI');
   const [showEventModal, setShowEventModal] = useState(false);
+  const [topPostsLastUpdated, setTopPostsLastUpdated] = useState(null);
   const flatListRef = useRef(null);
 
   const fetchPosts = async (pageNum = 1, isRefresh = false) => {
@@ -110,6 +112,45 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     }
   };
 
+  const fetchTopWeeklyPosts = async () => {
+    try {
+      console.log('📡 Fetching top weekly posts...');
+      const response = await apiService.getTopWeeklyPosts();
+      
+      if (response.success) {
+        const newTopPosts = response.data.posts || [];
+        console.log('✅ Top weekly posts fetched successfully:', newTopPosts.length, 'posts');
+        
+        setTopWeeklyPosts(newTopPosts);
+        setTopPostsLastUpdated(new Date());
+        
+        // Log week info for debugging
+        if (response.data.weekInfo) {
+          console.log('📅 Week info:', response.data.weekInfo);
+        }
+      } else {
+        console.log('❌ Top weekly posts fetch failed:', response.message);
+      }
+    } catch (error) {
+      console.error('Fetch top weekly posts error:', error);
+      // Don't set error for top posts, just log it
+    }
+  };
+
+  const shouldRefreshTopPosts = () => {
+    if (!topPostsLastUpdated) return true;
+    
+    const now = new Date();
+    const lastUpdate = new Date(topPostsLastUpdated);
+    const daysSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60 * 24);
+    
+    // Refresh if it's been more than 7 days or if it's a new week
+    const isNewWeek = now.getDay() === 1 && daysSinceUpdate >= 1; // Monday
+    const isOverWeek = daysSinceUpdate >= 7;
+    
+    return isNewWeek || isOverWeek;
+  };
+
   useEffect(() => {
     fetchPosts();
   }, [user, user?.emailVerified]);
@@ -118,9 +159,29 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     fetchEvents();
   }, [user, user?.emailVerified]);
 
+  useEffect(() => {
+    // Fetch top posts on mount and when user changes
+    if (user && user.emailVerified) {
+      fetchTopWeeklyPosts();
+    }
+  }, [user, user?.emailVerified]);
+
+  // Check for weekly refresh every time the component mounts or user changes
+  useEffect(() => {
+    if (user && user.emailVerified && shouldRefreshTopPosts()) {
+      console.log('🔄 Refreshing top posts due to weekly refresh...');
+      fetchTopWeeklyPosts();
+    }
+  }, [user, user?.emailVerified]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchPosts(1, true);
+    
+    // Also refresh top posts on manual refresh
+    if (user && user.emailVerified) {
+      fetchTopWeeklyPosts();
+    }
   };
 
   const handleLoadMore = () => {
@@ -148,11 +209,8 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     if (selectedFilter === 'CHATLI') {
       filteredPosts = posts; // Show all posts
     } else if (selectedFilter === 'Top Feeds') {
-      // Filter posts with high engagement (likes, comments)
-      filteredPosts = posts.filter(post => {
-        const engagement = (post.likes?.length || 0) + (post.comments?.length || 0);
-        return engagement >= 5; // Posts with 5+ total interactions
-      });
+      // Use the top weekly posts data
+      filteredPosts = topWeeklyPosts;
     } else {
       filteredPosts = posts;
     }
@@ -407,7 +465,8 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color="#000000" />
           <Text style={styles.emptyText}>
-            {selectedFilter === 'Events' ? 'Loading events...' : 'Loading posts...'}
+            {selectedFilter === 'Events' ? 'Loading events...' : 
+             selectedFilter === 'Top Feeds' ? 'Loading top posts...' : 'Loading posts...'}
           </Text>
         </View>
       );
@@ -430,7 +489,9 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Имэйл хаягаа баталгаажуулна уу</Text>
           <Text style={styles.emptySubtext}>
-            {selectedFilter === 'Events' ? 'Event-үүдийг харахын тулд имэйл хаягаа баталгаажуулна уу' : 'Постуудыг харахын тулд имэйл хаягаа баталгаажуулна уу'}
+            {selectedFilter === 'Events' ? 'Event-үүдийг харахын тулд имэйл хаягаа баталгаажуулна уу' : 
+             selectedFilter === 'Top Feeds' ? 'Top posts-ийг харахын тулд имэйл хаягаа баталгаажуулна уу' :
+             'Постуудыг харахын тулд имэйл хаягаа баталгаажуулна уу'}
           </Text>
         </View>
       );
@@ -438,7 +499,10 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
 
     // Show welcome message for new users or when no content exists
     const isEventsFilter = selectedFilter === 'Events';
-    const hasContent = isEventsFilter ? events.length > 0 : posts.length > 0;
+    const isTopFeedsFilter = selectedFilter === 'Top Feeds';
+    const hasContent = isEventsFilter ? events.length > 0 : 
+                      isTopFeedsFilter ? topWeeklyPosts.length > 0 : 
+                      posts.length > 0;
     
     return (
       <View style={styles.emptyContainer}>
@@ -447,9 +511,13 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
           {!hasContent 
             ? (isEventsFilter 
                 ? 'Одоогоор event-үүд байхгүй байна. Эхний event-ээ үүсгэж эхлээрэй!' 
+                : isTopFeedsFilter
+                ? 'Одоогоор энэ долоо хоногт лайктай постууд байхгүй байна. Постуудаа лайк хийж эхлээрэй!'
                 : 'Одоогоор постууд байхгүй байна. Эхний постоо үүсгэж эхлээрэй!')
             : (isEventsFilter 
                 ? 'Event-үүдийг харахын тулд дээрээс доош чирнэ үү'
+                : isTopFeedsFilter
+                ? 'Энэ долоо хоногийн хамгийн лайктай постуудыг харахын тулд дээрээс доош чирнэ үү'
                 : 'Постуудыг харахын тулд дээрээс доош чирнэ үү')
           }
         </Text>
@@ -476,6 +544,14 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
             activeOpacity={0.7}
           >
             <Text style={[styles.headerTitle, { color: colors.text }]}>{selectedFilter}</Text>
+            {selectedFilter === 'Top Feeds' && topPostsLastUpdated && (
+              <Text style={[styles.weekInfo, { color: colors.textSecondary }]}>
+                {`Week of ${new Date(topPostsLastUpdated).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}`}
+              </Text>
+            )}
             <Ionicons 
               name={showDropdown ? "chevron-up" : "chevron-down"} 
               size={16} 
@@ -745,6 +821,11 @@ const styles = StyleSheet.create({
     color: '#FF0000',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  weekInfo: {
+    fontSize: 12,
+    marginLeft: 8,
+    opacity: 0.7,
   },
 });
 
