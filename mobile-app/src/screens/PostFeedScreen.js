@@ -130,10 +130,12 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         }
       } else {
         console.log('❌ Top weekly posts fetch failed:', response.message);
+        // Don't set error state, just log it
       }
     } catch (error) {
       console.error('Fetch top weekly posts error:', error);
-      // Don't set error for top posts, just log it
+      // Don't set error for top posts, just log it and keep existing data
+      // This prevents the error from breaking the main feed functionality
     }
   };
 
@@ -209,8 +211,16 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     if (selectedFilter === 'CHATLI') {
       filteredPosts = posts; // Show all posts
     } else if (selectedFilter === 'Top Feeds') {
-      // Use the top weekly posts data
-      filteredPosts = topWeeklyPosts;
+      // Use the top weekly posts data, fallback to regular posts if empty
+      if (topWeeklyPosts.length > 0) {
+        filteredPosts = topWeeklyPosts;
+      } else {
+        // Fallback: show posts with high engagement from regular posts
+        filteredPosts = posts.filter(post => {
+          const engagement = (post.likes?.length || 0) + (post.comments?.length || 0);
+          return engagement >= 3; // Posts with 3+ total interactions
+        });
+      }
     } else {
       filteredPosts = posts;
     }
@@ -501,7 +511,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
     const isEventsFilter = selectedFilter === 'Events';
     const isTopFeedsFilter = selectedFilter === 'Top Feeds';
     const hasContent = isEventsFilter ? events.length > 0 : 
-                      isTopFeedsFilter ? topWeeklyPosts.length > 0 : 
+                      isTopFeedsFilter ? (topWeeklyPosts.length > 0 || posts.length > 0) : 
                       posts.length > 0;
     
     return (
