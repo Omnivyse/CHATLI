@@ -30,7 +30,22 @@ const postSchema = new mongoose.Schema({
     }
   ],
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  comments: [commentSchema]
+  comments: [commentSchema],
+  // Secret post fields
+  isSecret: {
+    type: Boolean,
+    default: false
+  },
+  secretPassword: {
+    type: String,
+    minlength: [4, 'Password must be at least 4 digits'],
+    maxlength: [4, 'Password must be exactly 4 digits']
+  },
+  // Track users who have successfully entered the password
+  passwordVerifiedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }]
 }, {
   timestamps: true
 });

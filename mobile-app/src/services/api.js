@@ -465,6 +465,13 @@ class ApiService {
     });
   }
 
+  async verifySecretPostPassword(postId, password) {
+    return this.request(`/posts/${postId}/verify-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+  }
+
   async likePost(postId) {
     return this.request(`/posts/${postId}/like`, {
       method: 'POST',

@@ -15,22 +15,49 @@ router.post('/', auth, [
   body('content').trim().notEmpty().withMessage('Постын агуулга шаардлагатай'),
   body('media').optional().isArray(),
   body('media.*.type').optional().isIn(['image', 'video']),
-  body('media.*.url').optional().isString()
+  body('media.*.url').optional().isString(),
+  body('isSecret').optional().isBoolean(),
+  body('secretPassword').optional().isLength({ min: 4, max: 4 }).withMessage('Password must be exactly 4 digits')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ success: false, message: 'Оролтын алдаа', errors: errors.array() });
     }
-    const { content, media } = req.body;
+    
+    const { content, media, isSecret, secretPassword } = req.body;
+    
+    // Validate secret post requirements
+    if (isSecret && !secretPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Secret post requires a 4-digit password' 
+      });
+    }
+    
+    if (isSecret && !/^\d{4}$/.test(secretPassword)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Password must be exactly 4 digits' 
+      });
+    }
+    
     const post = new Post({
       author: req.user._id,
       content,
-      media: Array.isArray(media) ? media : []
+      media: Array.isArray(media) ? media : [],
+      isSecret: isSecret || false,
+      secretPassword: isSecret ? secretPassword : undefined
     });
+    
     await post.save();
     await post.populate('author', 'name avatar isVerified');
-    res.status(201).json({ success: true, message: 'Пост үүслээ', data: { post } });
+    
+    res.status(201).json({ 
+      success: true, 
+      message: isSecret ? 'Secret post created successfully' : 'Пост үүслээ', 
+      data: { post } 
+    });
   } catch (error) {
     console.error('Create post error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
@@ -62,9 +89,27 @@ router.get('/', auth, async (req, res) => {
     const currentUser = await User.findById(req.user._id).select('following');
     const followingIds = currentUser ? currentUser.following.map(id => id.toString()) : [];
     
-    // Filter out posts from private users
+    // Filter out posts from private users and handle secret posts
     posts = posts.filter(post => {
       const author = post.author;
+      
+      // Handle secret posts
+      if (post.isSecret) {
+        // Authors can always see their own secret posts
+        if (String(author._id) === String(req.user._id)) {
+          return true;
+        }
+        
+        // Check if user has verified this secret post
+        if (post.passwordVerifiedUsers && post.passwordVerifiedUsers.includes(req.user._id)) {
+          return true;
+        }
+        
+        // For secret posts, show only basic info (no content) to unverified users
+        post.content = '🔒 This is a secret post. Enter the password to view content.';
+        post.media = []; // Hide media for unverified users
+        return true; // Show the post but with hidden content
+      }
       
       // Check privacy settings for the author
       const authorPrivacy = privacyMap.get(author._id.toString());
@@ -203,6 +248,68 @@ router.get('/top-weekly', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get top weekly posts error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
+// Verify secret post password
+router.post('/:id/verify-password', auth, [
+  body('password').isLength({ min: 4, max: 4 }).withMessage('Password must be exactly 4 digits')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Оролтын алдаа', errors: errors.array() });
+    }
+    
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
+    if (!post.isSecret) {
+      return res.status(400).json({ success: false, message: 'This post is not a secret post' });
+    }
+    
+    // Check if user is the author (authors can always view their own secret posts)
+    if (String(post.author) === String(req.user._id)) {
+      return res.json({ 
+        success: true, 
+        message: 'Author access granted',
+        data: { post }
+      });
+    }
+    
+    // Check if user has already verified this post
+    if (post.passwordVerifiedUsers.includes(req.user._id)) {
+      return res.json({ 
+        success: true, 
+        message: 'Already verified',
+        data: { post }
+      });
+    }
+    
+    // Verify password
+    if (post.secretPassword !== req.body.password) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Incorrect password' 
+      });
+    }
+    
+    // Add user to verified users list
+    post.passwordVerifiedUsers.push(req.user._id);
+    await post.save();
+    
+    await post.populate('author', 'name avatar isVerified');
+    
+    res.json({ 
+      success: true, 
+      message: 'Password verified successfully',
+      data: { post }
+    });
+  } catch (error) {
+    console.error('Verify password error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
   }
 });

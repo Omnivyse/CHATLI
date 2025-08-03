@@ -9,6 +9,9 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
   const [currentMedia, setCurrentMedia] = useState(0);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [isSecretPost, setIsSecretPost] = useState(false);
+  const [secretPassword, setSecretPassword] = useState('');
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
   const textareaRef = useRef(null);
 
   const handleFileChange = async (e) => {
@@ -82,14 +85,36 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
       setError('Постын агуулга хоосон байж болохгүй');
       return;
     }
+
+    // Validate secret post password
+    if (isSecretPost && (!secretPassword || secretPassword.length !== 4)) {
+      setError('Secret posts require a 4-digit password.');
+      return;
+    }
+
+    if (isSecretPost && !/^\d{4}$/.test(secretPassword)) {
+      setError('Password must contain only digits.');
+      return;
+    }
+
     setCreating(true);
     setError('');
     try {
-      const res = await api.createPost({ content, media });
+      const postData = {
+        content,
+        media,
+        isSecret: isSecretPost,
+        secretPassword: isSecretPost ? secretPassword : undefined
+      };
+      
+      const res = await api.createPost(postData);
       if (res.success) {
         setContent('');
         setMedia([]);
         setCurrentMedia(0);
+        setIsSecretPost(false);
+        setSecretPassword('');
+        setShowPasswordInput(false);
         onPostCreated && onPostCreated();
         onClose();
       }
@@ -117,6 +142,61 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
             rows={3}
             autoFocus
           />
+          
+          {/* Secret Post Toggle */}
+          <div className="flex items-center justify-between p-3 bg-muted/50 dark:bg-muted-dark/50 rounded-xl">
+            <div className="flex items-center gap-2">
+              <svg className={`w-5 h-5 ${isSecretPost ? 'text-primary dark:text-primary-dark' : 'text-secondary dark:text-secondary-dark'}`} fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm font-medium text-foreground dark:text-foreground-dark">Secret Post</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSecretPost(!isSecretPost);
+                if (!isSecretPost) {
+                  setShowPasswordInput(true);
+                } else {
+                  setSecretPassword('');
+                  setShowPasswordInput(false);
+                }
+              }}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                isSecretPost ? 'bg-primary dark:bg-primary-dark' : 'bg-border dark:bg-border-dark'
+              }`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                isSecretPost ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+          
+          {isSecretPost && (
+            <p className="text-xs text-secondary dark:text-secondary-dark -mt-2">
+              Only users with the correct password can view this post
+            </p>
+          )}
+
+          {/* Secret Post Password Input */}
+          {showPasswordInput && isSecretPost && (
+            <div className="p-3 bg-muted/50 dark:bg-muted-dark/50 rounded-xl">
+              <label className="block text-sm font-medium text-foreground dark:text-foreground-dark mb-2">
+                Set 4-digit password:
+              </label>
+              <input
+                type="text"
+                value={secretPassword}
+                onChange={(e) => setSecretPassword(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full p-3 rounded-xl border border-border dark:border-border-dark bg-background dark:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition text-center text-lg tracking-widest"
+                placeholder="0000"
+                maxLength={4}
+              />
+              <p className="text-xs text-secondary dark:text-secondary-dark mt-2">
+                Password must be exactly 4 digits
+              </p>
+            </div>
+          )}
           
           {/* Error message */}
           {error && (

@@ -35,6 +35,9 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isSecretPost, setIsSecretPost] = useState(false);
+  const [secretPassword, setSecretPassword] = useState('');
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -175,49 +178,72 @@ const CreatePostScreen = ({ navigation, user }) => {
 
   const handleCreatePost = async () => {
     if (!content.trim() && selectedMedia.length === 0) {
-      Alert.alert('Warning', 'Please enter post text or add media file');
+      Alert.alert('Error', 'Please add some content or media to your post.');
+      return;
+    }
+
+    // Validate secret post password
+    if (isSecretPost && (!secretPassword || secretPassword.length !== 4)) {
+      Alert.alert('Error', 'Secret posts require a 4-digit password.');
+      return;
+    }
+
+    if (isSecretPost && !/^\d{4}$/.test(secretPassword)) {
+      Alert.alert('Error', 'Password must contain only digits.');
       return;
     }
 
     setLoading(true);
-    setUploadingMedia(true);
-
     try {
-      let mediaUrls = [];
-      
-      // Upload media files
+      // Upload media first
+      const uploadedMedia = [];
       if (selectedMedia.length > 0) {
+        setUploadingMedia(true);
         for (const media of selectedMedia) {
-          const uploadedMedia = await uploadMedia(media);
-          mediaUrls.push(uploadedMedia);
+          const uploadedItem = await uploadMedia(media);
+          if (uploadedItem) {
+            uploadedMedia.push(uploadedItem);
+          }
         }
+        setUploadingMedia(false);
       }
 
-      setUploadingMedia(false);
-
-      // Create post
+      // Create post data
       const postData = {
         content: content.trim(),
-        media: mediaUrls,
+        media: uploadedMedia,
+        isSecret: isSecretPost,
+        secretPassword: isSecretPost ? secretPassword : undefined
       };
 
-      console.log('Creating post with data:', postData);
-      console.log('API URL:', api.baseURL);
       const response = await api.createPost(postData);
-      console.log('Create post response:', response);
+      
       if (response.success) {
-        navigation.goBack();
+        Alert.alert(
+          'Success', 
+          isSecretPost ? 'Secret post created successfully!' : 'Post created successfully!',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setContent('');
+                setSelectedMedia([]);
+                setIsSecretPost(false);
+                setSecretPassword('');
+                setShowPasswordInput(false);
+                navigation.goBack();
+              }
+            }
+          ]
+        );
       } else {
-        console.error('Create post failed:', response);
-        Alert.alert('Error', 'Failed to create post');
+        Alert.alert('Error', response.message || 'Failed to create post');
       }
     } catch (error) {
-      console.error('Create post error details:', error);
       console.error('Create post error:', error);
-      Alert.alert('Алдаа', 'Пост үүсгэхэд алдаа гарлаа');
+      Alert.alert('Error', 'Failed to create post. Please try again.');
     } finally {
       setLoading(false);
-      setUploadingMedia(false);
     }
   };
 
@@ -344,6 +370,82 @@ const CreatePostScreen = ({ navigation, user }) => {
                 </Text>
               </View>
             </View>
+
+            {/* Secret Post Toggle */}
+            <View style={styles.secretPostSection}>
+              <TouchableOpacity
+                style={styles.secretPostToggle}
+                onPress={() => {
+                  setIsSecretPost(!isSecretPost);
+                  if (!isSecretPost) {
+                    setShowPasswordInput(true);
+                  } else {
+                    setSecretPassword('');
+                    setShowPasswordInput(false);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.secretPostToggleContent}>
+                  <Ionicons 
+                    name={isSecretPost ? "lock-closed" : "lock-open"} 
+                    size={20} 
+                    color={isSecretPost ? colors.primary : colors.textSecondary} 
+                  />
+                  <Text style={[styles.secretPostText, { color: colors.text }]}>
+                    Secret Post
+                  </Text>
+                </View>
+                <View style={[
+                  styles.toggleSwitch,
+                  { backgroundColor: isSecretPost ? colors.primary : colors.border }
+                ]}>
+                  <View style={[
+                    styles.toggleKnob,
+                    { 
+                      backgroundColor: colors.surface,
+                      transform: [{ translateX: isSecretPost ? 16 : 0 }]
+                    }
+                  ]} />
+                </View>
+              </TouchableOpacity>
+              
+              {isSecretPost && (
+                <Text style={[styles.secretPostDescription, { color: colors.textSecondary }]}>
+                  Only users with the correct password can view this post
+                </Text>
+              )}
+            </View>
+
+            {/* Secret Post Password Input */}
+            {showPasswordInput && isSecretPost && (
+              <View style={styles.passwordSection}>
+                <Text style={[styles.passwordLabel, { color: colors.text }]}>
+                  Set 4-digit password:
+                </Text>
+                <TextInput
+                  style={[
+                    styles.passwordInput,
+                    { 
+                      color: colors.text, 
+                      backgroundColor: colors.background,
+                      borderColor: colors.border
+                    }
+                  ]}
+                  value={secretPassword}
+                  onChangeText={setSecretPassword}
+                  placeholder="0000"
+                  placeholderTextColor={colors.placeholder}
+                  keyboardType="numeric"
+                  maxLength={4}
+                  secureTextEntry={false}
+                  editable={!loading}
+                />
+                <Text style={[styles.passwordHint, { color: colors.textTertiary }]}>
+                  Password must be exactly 4 digits
+                </Text>
+              </View>
+            )}
 
             {/* Media Preview */}
             {selectedMedia.length > 0 && (
@@ -607,6 +709,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontWeight: '600',
+  },
+  secretPostSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  secretPostToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  secretPostToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  secretPostText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  toggleSwitch: {
+    width: 32,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleKnob: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#fff',
+  },
+  secretPostDescription: {
+    fontSize: 12,
+    marginLeft: 10,
+  },
+  passwordSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  passwordLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  passwordInput: {
+    fontSize: 16,
+    color: '#000',
+    lineHeight: 22,
+    minHeight: 40,
+    textAlignVertical: 'center',
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    borderColor: '#ccc',
+  },
+  passwordHint: {
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 

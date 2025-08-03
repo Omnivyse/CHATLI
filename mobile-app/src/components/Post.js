@@ -20,6 +20,7 @@ import apiService from '../services/api';
 import CommentSection from './CommentSection';
 import ImageViewerModal from './ImageViewerModal';
 import TempClipsModal from './TempClipsModal';
+import SecretPostPasswordModal from './SecretPostPasswordModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -48,6 +49,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [tempClipsModalVisible, setTempClipsModalVisible] = useState(false);
   const [profileImageViewerVisible, setProfileImageViewerVisible] = useState(false);
+  const [secretPasswordModalVisible, setSecretPasswordModalVisible] = useState(false);
+  const [isSecretPostUnlocked, setIsSecretPostUnlocked] = useState(false);
   const videoRef = useRef(null);
   const likeTimeoutRef = useRef(null);
   
@@ -204,26 +207,57 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
 
   const handleDeletePost = () => {
     Alert.alert(
-      'Delete',
-      'Delete this post?',
+      getTranslation('deletePost', language),
+      getTranslation('deletePostConfirm', language),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: getTranslation('cancel', language), style: 'cancel' },
         {
-          text: 'Delete',
+          text: getTranslation('delete', language),
           style: 'destructive',
           onPress: async () => {
             try {
-              if (localPost._id) {
-                await apiService.deletePost(localPost._id);
-                onPostUpdate && onPostUpdate();
+              const response = await apiService.deletePost(post._id);
+              if (response.success) {
+                onPostUpdate();
               }
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete post');
+              console.error('Delete post error:', error);
             }
           },
         },
       ]
     );
+  };
+
+  const handleSecretPostPassword = async (password) => {
+    try {
+      const response = await apiService.verifySecretPostPassword(post._id, password);
+      if (response.success) {
+        setIsSecretPostUnlocked(true);
+        setSecretPasswordModalVisible(false);
+        // Update the post with the verified content
+        setLocalPost(response.data.post);
+      }
+    } catch (error) {
+      throw new Error(error.message || 'Failed to verify password');
+    }
+  };
+
+  const handleSecretPostPress = () => {
+    // Check if user is the author
+    if (String(post.author._id) === String(user?._id)) {
+      setIsSecretPostUnlocked(true);
+      return;
+    }
+    
+    // Check if user has already verified this post
+    if (post.passwordVerifiedUsers && post.passwordVerifiedUsers.includes(user?._id)) {
+      setIsSecretPostUnlocked(true);
+      return;
+    }
+    
+    // Show password modal
+    setSecretPasswordModalVisible(true);
   };
 
   const formatRelativeTime = (dateString) => {
@@ -499,13 +533,42 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
 
       {/* Post Content */}
       {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
-        <Text style={[styles.content, { color: colors.text }]}>
-          {localPost.content}
-        </Text>
+        <TouchableOpacity
+          onPress={localPost.isSecret && !isSecretPostUnlocked ? handleSecretPostPress : undefined}
+          activeOpacity={localPost.isSecret && !isSecretPostUnlocked ? 0.7 : 1}
+          style={localPost.isSecret && !isSecretPostUnlocked ? styles.secretContentContainer : null}
+        >
+          <Text style={[styles.content, { color: colors.text }]}>
+            {localPost.content}
+          </Text>
+          {localPost.isSecret && !isSecretPostUnlocked && (
+            <View style={styles.secretOverlay}>
+              <Ionicons name="lock-closed" size={20} color={colors.textSecondary} />
+              <Text style={[styles.secretText, { color: colors.textSecondary }]}>
+                Tap to enter password
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       )}
 
       {/* Post Media - Simple Multi-Image Recognition */}
-      {renderMedia()}
+      {localPost.isSecret && !isSecretPostUnlocked ? (
+        <TouchableOpacity
+          onPress={handleSecretPostPress}
+          activeOpacity={0.7}
+          style={styles.secretMediaContainer}
+        >
+          <View style={[styles.secretMediaPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+            <Ionicons name="lock-closed" size={48} color={colors.textSecondary} />
+            <Text style={[styles.secretMediaText, { color: colors.textSecondary }]}>
+              Media hidden - Enter password to view
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ) : (
+        renderMedia()
+      )}
 
       {/* Post Actions */}
       <View style={styles.actions}>
@@ -622,6 +685,14 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Secret Post Password Modal */}
+      <SecretPostPasswordModal
+        visible={secretPasswordModalVisible}
+        onClose={() => setSecretPasswordModalVisible(false)}
+        onPasswordSubmit={handleSecretPostPassword}
+        postAuthor={localPost.author?.name}
+      />
     </View>
   );
 };
@@ -856,6 +927,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 8,
+  },
+  secretContentContainer: {
+    position: 'relative',
+  },
+  secretOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 8,
+    zIndex: 1,
+  },
+  secretText: {
+    marginTop: 8,
+    fontSize: 14,
+  },
+  secretMediaContainer: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceVariant,
+  },
+  secretMediaPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  secretMediaText: {
+    marginTop: 10,
+    fontSize: 14,
   },
 });
 
