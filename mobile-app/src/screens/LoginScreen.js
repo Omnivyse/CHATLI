@@ -73,17 +73,54 @@ const LoginScreen = ({ onLogin }) => {
   }, []);
 
   const handleSubmit = async () => {
+    // Validate required fields
     if (!email || !password || (mode === 'register' && (!name || !username))) {
       setError('Бүх талбарыг бөглөнө үү');
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Имэйл хаяг буруу байна');
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      setError('Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой');
+      return;
+    }
+
+    // Validate username format (for registration)
+    if (mode === 'register') {
+      if (username.length < 3) {
+        setError('Хэрэглэгчийн нэр хамгийн багадаа 3 тэмдэгт байх ёстой');
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        setError('Хэрэглэгчийн нэр зөвхөн үсэг, тоо, _ тэмдэгт агуулж болно');
+        return;
+      }
+    }
+
     setLoading(true);
     setError(''); // Clear any previous errors
     
+    // Debug: Log the data being sent (only in development)
+    if (__DEV__) {
+      console.log('🔐 Login attempt:', {
+        mode,
+        email: email ? `${email.substring(0, 3)}***` : 'empty',
+        password: password ? '***' : 'empty',
+        name: mode === 'register' ? name : 'N/A',
+        username: mode === 'register' ? username : 'N/A'
+      });
+    }
+    
     try {
       if (mode === 'login') {
-        const res = await api.login({ email, password });
+        const res = await api.login(email, password);
         
         if (res.success) {
           onLogin(res.data.user, { isNewUser: false });
@@ -99,7 +136,7 @@ const LoginScreen = ({ onLogin }) => {
           setError(res.message || 'Нэвтрэхэд алдаа гарлаа');
         }
       } else {
-        const res = await api.register({ name, username, email, password });
+        const res = await api.register(name, username, email, password);
         
         if (res.success) {
           onLogin(res.data.user, { isNewUser: true });
@@ -119,6 +156,12 @@ const LoginScreen = ({ onLogin }) => {
         setError('Интернет холболтоо шалгана уу');
       } else if (error.message.includes('Хүсэлт хугацаа дууссан')) {
         setError('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.');
+      } else if (error.message.includes('Оролтын алдаа') || error.message.includes('Input Error')) {
+        setError('Имэйл эсвэл нууц үг буруу байна');
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        setError('Имэйл эсвэл нууц үг буруу байна');
+      } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+        setError('Хэрэглэгч олдсонгүй');
       } else {
         // Display the specific error message from the API
         setError(error.message || (mode === 'login' ? 'Нэвтрэхэд алдаа гарлаа' : 'Бүртгүүлэхэд алдаа гарлаа'));
