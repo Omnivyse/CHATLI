@@ -146,6 +146,7 @@ router.post('/:eventId/messages', auth, async (req, res) => {
         chat = new Chat({
           type: 'group',
           name: `${event.name} Chat`,
+          image: event.image, // Use event image as chat image
           participants: event.joinedUsers.map(user => user._id),
           admins: [event.author]
         });

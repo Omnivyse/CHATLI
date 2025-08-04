@@ -12,6 +12,10 @@ const chatSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Группийн нэр 100 тэмдэгтээс бага байх ёстой']
   },
+  image: {
+    type: String,
+    default: null
+  },
   participants: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

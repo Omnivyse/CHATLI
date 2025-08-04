@@ -180,7 +180,7 @@ const EventChat = ({ event, user, onClose }) => {
         ]}>
           <Text style={[
             styles.messageText,
-            { color: isOwnMessage ? '#ffffff' : colors.text }
+            { color: isOwnMessage ? '#000000' : colors.text }
           ]}>
             {item.content.text}
           </Text>

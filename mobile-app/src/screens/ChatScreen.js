@@ -40,9 +40,11 @@ const ChatScreen = ({ navigation, route, user }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [lastTap, setLastTap] = useState(null);
   const [reactionAnimations, setReactionAnimations] = useState({});
+  const [chatInfo, setChatInfo] = useState(null);
 
   useEffect(() => {
     loadMessages();
+    loadChatInfo();
     
     // Ensure socket is connected and authenticated before joining chat
     const setupSocket = async () => {
@@ -330,6 +332,17 @@ const ChatScreen = ({ navigation, route, user }) => {
     }
   };
 
+  const loadChatInfo = async () => {
+    try {
+      const response = await api.getChat(chatId);
+      if (response.success) {
+        setChatInfo(response.data.chat);
+      }
+    } catch (error) {
+      console.error('Load chat info error:', error);
+    }
+  };
+
   const loadMessages = async () => {
     try {
       setLoading(true);
@@ -612,6 +625,13 @@ const ChatScreen = ({ navigation, route, user }) => {
         </TouchableOpacity>
         
         <View style={styles.headerInfo}>
+          {/* Chat Image */}
+          {chatInfo?.image && (
+            <Image 
+              source={{ uri: chatInfo.image }} 
+              style={styles.chatImage}
+            />
+          )}
           <TouchableOpacity
             onPress={async () => {
               try {
@@ -792,6 +812,14 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chatImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
   },
   headerTitle: {
     fontSize: 18,

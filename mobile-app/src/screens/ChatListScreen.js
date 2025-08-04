@@ -123,7 +123,8 @@ const ChatListScreen = ({ navigation, user }) => {
 
   const getChatAvatar = (chat) => {
     if (chat.type === 'group') {
-      return 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&h=150&fit=crop&crop=face';
+      // Use chat image if available, otherwise use default group image
+      return chat.image || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&h=150&fit=crop&crop=face';
     } else {
       const otherParticipant = chat.participants.find(p => p._id !== user._id);
       return otherParticipant?.avatar || require('../../assets/logo.png');
