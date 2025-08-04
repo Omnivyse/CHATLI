@@ -95,7 +95,7 @@ chatSchema.virtual('getUnreadCount').get(function(userId) {
 });
 
 // Method to update unread count
-chatSchema.methods.updateUnreadCount = function(userId, increment = true) {
+chatSchema.methods.updateUnreadCount = async function(userId, increment = true) {
   const unreadIndex = this.unreadCounts.findIndex(item => 
     item.user.toString() === userId.toString()
   );
@@ -109,18 +109,18 @@ chatSchema.methods.updateUnreadCount = function(userId, increment = true) {
     this.unreadCounts.push({ user: userId, count: 1 });
   }
   
-  return this.save();
+  return await this.save();
 };
 
 // Method to mark messages as read
-chatSchema.methods.markAsRead = function(userId) {
+chatSchema.methods.markAsRead = async function(userId) {
   const unreadIndex = this.unreadCounts.findIndex(item => 
     item.user.toString() === userId.toString()
   );
   
   if (unreadIndex > -1) {
     this.unreadCounts[unreadIndex].count = 0;
-    return this.save();
+    return await this.save();
   }
   
   return this;

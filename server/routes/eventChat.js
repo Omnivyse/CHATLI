@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
@@ -86,6 +87,14 @@ router.post('/:eventId/messages', auth, async (req, res) => {
       });
     }
 
+    // Validate eventId format
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid event ID format'
+      });
+    }
+
     const event = await Event.findById(eventId)
       .populate('chat')
       .populate('joinedUsers', 'name username avatar');
@@ -98,6 +107,7 @@ router.post('/:eventId/messages', auth, async (req, res) => {
     } : 'Not found');
 
     if (!event) {
+      console.log('Event not found for ID:', eventId);
       return res.status(404).json({
         success: false,
         message: 'Event not found'
@@ -132,32 +142,50 @@ router.post('/:eventId/messages', auth, async (req, res) => {
     let chat = event.chat;
     if (!chat) {
       console.log('Creating new chat for event');
-      chat = new Chat({
-        type: 'group',
-        name: `${event.name} Chat`,
-        participants: event.joinedUsers.map(user => user._id),
-        admins: [event.author]
-      });
-      await chat.save();
+      try {
+        chat = new Chat({
+          type: 'group',
+          name: `${event.name} Chat`,
+          participants: event.joinedUsers.map(user => user._id),
+          admins: [event.author]
+        });
+        await chat.save();
+        console.log('Chat created successfully:', chat._id);
 
-      // Update event with chat reference
-      event.chat = chat._id;
-      await event.save();
-      console.log('Chat created and linked to event');
+        // Update event with chat reference
+        event.chat = chat._id;
+        await event.save();
+        console.log('Chat linked to event successfully');
+      } catch (chatError) {
+        console.error('Error creating chat:', chatError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create event chat'
+        });
+      }
     }
 
     // Create message
-    const message = new Message({
-      chat: chat._id,
-      sender: req.user._id,
-      type,
-      content: {
-        text: content.trim()
-      }
-    });
+    let message;
+    try {
+      message = new Message({
+        chat: chat._id,
+        sender: req.user._id,
+        type,
+        content: {
+          text: content.trim()
+        }
+      });
 
-    await message.save();
-    console.log('Message saved:', message._id);
+      await message.save();
+      console.log('Message saved:', message._id);
+    } catch (messageError) {
+      console.error('Error creating message:', messageError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create message'
+      });
+    }
 
     // Update chat's last message
     chat.lastMessage = {
@@ -169,16 +197,37 @@ router.post('/:eventId/messages', auth, async (req, res) => {
     };
 
     // Update unread counts for all participants except sender
-    chat.participants.forEach(participantId => {
-      if (participantId.toString() !== req.user._id.toString()) {
-        chat.updateUnreadCount(participantId, true);
-      }
-    });
+    try {
+      const updatePromises = chat.participants.map(participantId => {
+        if (participantId.toString() !== req.user._id.toString()) {
+          return chat.updateUnreadCount(participantId, true);
+        }
+        return Promise.resolve();
+      });
 
-    await chat.save();
+      await Promise.all(updatePromises);
+      console.log('Unread counts updated successfully');
+    } catch (unreadError) {
+      console.error('Error updating unread counts:', unreadError);
+      // Don't fail the entire request for unread count errors
+    }
+
+    // Save chat updates
+    try {
+      await chat.save();
+      console.log('Chat updated successfully');
+    } catch (chatSaveError) {
+      console.error('Error saving chat:', chatSaveError);
+      // Don't fail the entire request for chat save errors
+    }
 
     // Populate message for response
-    await message.populate('sender', 'name username avatar');
+    try {
+      await message.populate('sender', 'name username avatar');
+    } catch (populateError) {
+      console.error('Error populating message:', populateError);
+      // Don't fail the entire request for populate errors
+    }
 
     console.log('Message sent successfully');
     res.status(201).json({
@@ -237,8 +286,7 @@ router.put('/:eventId/messages/read', auth, async (req, res) => {
     );
 
     // Reset unread count for this user
-    event.chat.updateUnreadCount(req.user._id, false);
-    await event.chat.save();
+    await event.chat.updateUnreadCount(req.user._id, false);
 
     res.json({
       success: true,
