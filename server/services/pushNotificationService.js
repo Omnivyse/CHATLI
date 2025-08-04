@@ -107,7 +107,7 @@ class PushNotificationService {
   // Send like notification
   async sendLikeNotification(recipientToken, likerName, postId, postContent) {
     const title = `❤️ ${likerName}`;
-    const body = 'Таны постыг лайк дарлаа';
+    const body = 'liked your post';
     const data = {
       type: 'like',
       postId,

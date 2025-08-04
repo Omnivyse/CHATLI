@@ -486,7 +486,7 @@ router.post('/:id/like', auth, async (req, res) => {
         type: 'like',
         post: post._id,
         from: req.user._id,
-        message: `${req.user.name} таны пост дээр лайк хийлээ.`
+        message: `${req.user.name} liked your post.`
       });
 
       // Send push notification
