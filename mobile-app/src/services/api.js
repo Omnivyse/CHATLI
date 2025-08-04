@@ -728,6 +728,14 @@ class ApiService {
       method: 'PUT',
     });
   }
+
+  // Report functionality
+  async submitReport(category, description) {
+    return this.request('/reports/submit', {
+      method: 'POST',
+      body: { category, description }
+    });
+  }
 }
 
 const apiService = new ApiService();

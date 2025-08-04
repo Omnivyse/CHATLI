@@ -21,6 +21,7 @@ import { getThemeColors } from '../utils/themeUtils';
 import ThemeToggle from '../components/ThemeToggle';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import PrivacySettingsModal from '../components/PrivacySettingsModal';
+import ReportModal from '../components/ReportModal';
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +35,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Recreate settings data when language changes
   useEffect(() => {
@@ -169,6 +171,16 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           },
         },
         {
+          icon: 'warning-outline',
+          title: getTranslation('report', language),
+          subtitle: getTranslation('reportIssue', language),
+          type: 'arrow',
+          onPress: () => {
+            setShowReportModal(true);
+          },
+          isDestructive: true,
+        },
+        {
           icon: 'log-out-outline',
           title: getTranslation('logout', language),
           subtitle: getTranslation('logout', language),
@@ -189,6 +201,12 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
   ];
 
   const renderSettingItem = (item, index) => {
+    const isDestructive = item.isDestructive;
+    const iconColor = isDestructive ? '#FF3B30' : colors.primary;
+    const iconBgColor = isDestructive ? '#FF3B3015' : colors.primary + '15';
+    const titleColor = isDestructive ? '#FF3B30' : colors.text;
+    const subtitleColor = isDestructive ? '#FF3B3080' : colors.textSecondary;
+    
     return (
       <TouchableOpacity
         key={index}
@@ -204,14 +222,14 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
         activeOpacity={0.7}
       >
         <View style={styles.settingItemLeft}>
-          <View style={[styles.settingIcon, { backgroundColor: colors.primary + '15' }]}>
-            <Ionicons name={item.icon} size={22} color={colors.primary} />
+          <View style={[styles.settingIcon, { backgroundColor: iconBgColor }]}>
+            <Ionicons name={item.icon} size={22} color={iconColor} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: colors.text }]}>
+            <Text style={[styles.settingTitle, { color: titleColor }]}>
               {item.title}
             </Text>
-            <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
+            <Text style={[styles.settingSubtitle, { color: subtitleColor }]}>
               {item.subtitle}
             </Text>
           </View>
@@ -227,7 +245,7 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
               ios_backgroundColor={colors.surfaceVariant}
             />
           ) : item.type === 'arrow' ? (
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={20} color={subtitleColor} />
           ) : null}
         </View>
       </TouchableOpacity>
@@ -316,6 +334,11 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           });
           setShowPrivacySettings(false);
         }}
+      />
+
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
       />
 
       {/* Language Selection Modal */}

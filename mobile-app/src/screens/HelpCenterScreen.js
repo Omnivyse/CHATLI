@@ -207,7 +207,7 @@ const HelpCenterScreen = ({ navigation }) => {
             onPress={() => {
               Alert.alert(
                 'Холбогдох',
-                'Санал хүсэлт, асуудлаа доорх хаягаар илгээнэ үү:\n\nsupport@chatli.mn',
+                'Санал хүсэлт, асуудлаа доорх хаягаар илгээнэ үү:\n\nomnivyse@gmail.com',
                 [{ text: 'OK' }]
               );
             }}
