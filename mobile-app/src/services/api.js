@@ -11,35 +11,29 @@ const getApiUrl = () => {
 
 const API_URL = getApiUrl();
 
-// Debug: Log the API URL being used
-console.log('🔗 Mobile App API URL:', API_URL);
-console.log('🔗 Environment:', __DEV__ ? 'Development' : 'Production');
+// Debug: Log the API URL being used (only in development)
+if (__DEV__) {
+  console.log('🔗 Mobile App API URL:', API_URL);
+  console.log('🔗 Environment:', __DEV__ ? 'Development' : 'Production');
+}
 
 class ApiService {
   constructor() {
-    this._baseURL = API_URL;
+    this.baseURL = API_URL;
     this.token = null;
     this.initializeToken();
-  }
-
-  get baseURL() {
-    return this._baseURL || API_URL;
-  }
-
-  set baseURL(url) {
-    this._baseURL = url;
   }
 
   async initializeToken() {
     try {
       this.token = await AsyncStorage.getItem('token');
       if (this.token) {
-        console.log('🔍 Token found in storage');
+        if (__DEV__) console.log('🔍 Token found in storage');
       } else {
-        console.log('ℹ️ No token found in storage');
+        if (__DEV__) console.log('ℹ️ No token found in storage');
       }
     } catch (error) {
-      console.error('Error initializing token:', error);
+      if (__DEV__) console.error('Error initializing token:', error);
     }
   }
 
@@ -61,152 +55,81 @@ class ApiService {
     const headers = {
       'Content-Type': 'application/json',
     };
-
+    
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
-
+    
     return headers;
   }
 
-  async request(endpoint, options = {}) {
-    const url = `${this._baseURL}${endpoint}`;
+  async request(endpoint, options = {}, retryCount = 3) {
+    const url = `${this.baseURL}${endpoint}`;
     const config = {
+      method: 'GET',
       headers: this.getHeaders(),
-      timeout: 30000, // 30 second timeout
       ...options,
     };
 
-    // Retry logic for failed requests
-    const maxRetries = 2;
-    let lastError;
+    if (options.body) {
+      config.body = JSON.stringify(options.body);
+    }
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
-        console.log(`Making request to: ${url} (attempt ${attempt + 1})`);
-        
-        // Create a timeout promise
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.')), 30000)
-        );
-
-        // Make the request with timeout
-        const response = await Promise.race([
-          fetch(url, config),
-          timeoutPromise
-        ]);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorMessage;
-          
-          try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.message || 'Серверийн алдаа';
-          } catch {
-            errorMessage = response.status === 404 ? 'Хуудас олдсонгүй' : 'Серверийн алдаа';
-          }
-
-          // Handle auth errors gracefully
-          if (response.status === 401) {
-            await this.setToken(null);
-            if (endpoint === '/notifications') {
-              return { success: true, data: { notifications: [] } };
-            }
-            // For auth check, don't throw error, just return failure
-            if (endpoint === '/auth/me') {
-              return { success: false, message: 'Authentication failed' };
-            }
-            // For login/register, return the error message instead of throwing
-            if (endpoint === '/auth/login' || endpoint === '/auth/register') {
-              return { success: false, message: errorMessage };
-            }
-            throw new Error('Нэвтрэх эрх дууссан. Дахин нэвтэрнэ үү.');
-          }
-          
-          // Don't log 403 errors for privacy-related endpoints (they're expected)
-          if (response.status === 403 && (
-            endpoint.includes('/posts/user/') || 
-            endpoint.includes('/posts/') && !endpoint.includes('/comment') && !endpoint.includes('/like')
-          )) {
-            throw new Error(errorMessage);
-          }
-          
-          throw new Error(errorMessage);
+        if (__DEV__) {
+          console.log(`Making request to: ${url} (attempt ${attempt + 1})`);
         }
 
+        const response = await fetch(url, config);
         const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || `HTTP ${response.status}`);
+        }
+
         return data;
       } catch (error) {
-        lastError = error;
-        
-        // Don't log 403 errors for privacy-related endpoints (they're expected)
-        if (error.message.includes('дагах шаардлагатай') || 
-            (error.message.includes('403') && endpoint.includes('/posts/user/'))) {
-          // Skip logging for privacy errors
-        } else {
+        if (__DEV__) {
           console.error(`API Error (attempt ${attempt + 1}):`, {
             url,
             error: error.message,
-            endpoint
+            status: error.status
           });
         }
 
-        // If this is the last attempt, throw the error
-        if (attempt === maxRetries) {
-          break;
+        if (attempt === retryCount - 1) {
+          throw error;
         }
 
-        // If it's a network error or timeout, retry after a delay
-        if (error.message.includes('Network request failed') || 
-            error.message.includes('fetch') || 
-            error.message.includes('timeout') || 
-            error.message.includes('Application failed to respond')) {
-          
-          // Wait before retrying (exponential backoff)
-          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        // Exponential backoff
+        const delay = Math.pow(2, attempt) * 1000;
+        if (__DEV__) {
           console.log(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
         }
-
-        // For other errors, don't retry
-        break;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-
-    // Provide user-friendly error messages
-    if (lastError.message.includes('Network request failed') || lastError.message.includes('fetch')) {
-      throw new Error('Интернет холболтоо шалгаад дахин оролдоно уу.');
-    }
-    
-    if (lastError.message.includes('timeout') || lastError.message.includes('Хүсэлт хугацаа')) {
-      throw new Error('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.');
-    }
-
-    if (lastError.message.includes('Application failed to respond')) {
-      throw new Error('Сервер хариулахад асуудал гарлаа. Дахин оролдоно уу.');
-    }
-
-    throw lastError;
   }
 
-  // Auth endpoints
-  async register(userData) {
-    const response = await this.request('/auth/register', {
+  // Auth methods
+  async login(email, password) {
+    const response = await this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(userData),
+      body: { email, password }
     });
+
     if (response.success && response.data.token) {
       await this.setToken(response.data.token);
     }
+
     return response;
   }
 
-  async login(credentials) {
-    const response = await this.request('/auth/login', {
+  async register(name, username, email, password) {
+    const response = await this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      body: { name, username, email, password }
     });
 
     if (response.success && response.data.token) {
@@ -218,56 +141,51 @@ class ApiService {
 
   async logout() {
     try {
-      const response = await this.request('/auth/logout', {
-        method: 'POST'
-      });
-      await this.clearToken();
-      return response;
+      await this.request('/auth/logout', { method: 'POST' });
     } catch (error) {
-      // Don't log this as an error since it's expected behavior
       // when token is already invalidated (e.g., after password change)
-      console.log('Logout API call failed (expected if token invalidated):', error.message);
+      if (__DEV__) console.log('Logout API call failed (expected if token invalidated):', error.message);
       // Always clear token even if logout fails
+    } finally {
       await this.clearToken();
-      return { success: true, message: 'Амжилттай гарлаа' };
     }
   }
 
-  // Email verification methods
-  async verifyEmail(code, email) {
-    try {
+  // Email verification
+  async verifyEmail(email, code) {
+    if (__DEV__) {
       console.log('🔐 Verifying email with code:', code, 'for email:', email);
-      const response = await this.request('/auth/verify-email', {
-        method: 'POST',
-        body: JSON.stringify({ code, email })
-      });
-      
-      console.log('📧 Email verification response:', response);
-      
-      // If verification successful, set the token for automatic login
-      if (response.success && response.data.token) {
-        console.log('✅ Setting token after successful verification');
-        await this.setToken(response.data.token);
-      } else {
-        console.log('❌ No token in verification response');
-      }
-      
-      return response;
-    } catch (error) {
-      console.error('❌ Email verification error:', error);
-      throw error;
     }
+
+    const response = await this.request('/auth/verify-email', {
+      method: 'POST',
+      body: { email, code }
+    });
+
+    if (__DEV__) {
+      console.log('📧 Email verification response:', response);
+    }
+
+    // If verification successful, set the token for automatic login
+    if (response.success && response.data.token) {
+      if (__DEV__) console.log('✅ Setting token after successful verification');
+      await this.setToken(response.data.token);
+    } else {
+      if (__DEV__) console.log('❌ No token in verification response');
+    }
+
+    return response;
   }
 
-  async resendVerificationEmail(email) {
+  async resendVerificationCode(email) {
     try {
       const response = await this.request('/auth/resend-verification', {
         method: 'POST',
-        body: JSON.stringify({ email })
+        body: { email }
       });
       return response;
     } catch (error) {
-      console.error('Resend verification error:', error);
+      if (__DEV__) console.error('Resend verification error:', error);
       throw error;
     }
   }
@@ -277,11 +195,11 @@ class ApiService {
     try {
       const response = await this.request('/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email })
+        body: { email }
       });
       return response;
     } catch (error) {
-      console.error('Forgot password error:', error);
+      if (__DEV__) console.error('Forgot password error:', error);
       throw error;
     }
   }
@@ -290,46 +208,56 @@ class ApiService {
     try {
       const response = await this.request('/auth/verify-reset-code', {
         method: 'POST',
-        body: JSON.stringify({ email, code })
+        body: { email, code }
       });
       return response;
     } catch (error) {
-      console.error('Verify reset code error:', error);
+      if (__DEV__) console.error('Verify reset code error:', error);
       throw error;
     }
   }
 
-  async resetPassword(resetToken, newPassword) {
-    try {
+  async resetPassword(email, resetToken, newPassword) {
+    if (__DEV__) {
       console.log('🔄 API: Resetting password with token:', resetToken);
+    }
+
+    try {
       const response = await this.request('/auth/reset-password', {
         method: 'POST',
-        body: JSON.stringify({ resetToken, newPassword })
+        body: { email, resetToken, newPassword }
       });
-      console.log('🔄 API: Reset password response:', response);
+
+      if (__DEV__) {
+        console.log('🔄 API: Reset password response:', response);
+      }
+
       return response;
     } catch (error) {
-      console.error('❌ API: Reset password error:', error);
+      if (__DEV__) console.error('❌ API: Reset password error:', error);
       throw error;
     }
   }
 
   async changePassword(currentPassword, newPassword) {
-    try {
+    if (__DEV__) {
       console.log('🔄 API: Changing password...');
+    }
+
+    try {
       const response = await this.request('/auth/change-password', {
         method: 'POST',
-        body: JSON.stringify({ currentPassword, newPassword })
+        body: { currentPassword, newPassword }
       });
-      console.log('🔄 API: Change password response:', response);
+
+      if (__DEV__) {
+        console.log('🔄 API: Change password response:', response);
+      }
+
       return response;
     } catch (error) {
-      console.error('❌ API: Change password error:', error);
-      // Don't throw the error, return it as a response object
-      return { 
-        success: false, 
-        message: error.message || 'Нууц үг солиход алдаа гарлаа' 
-      };
+      if (__DEV__) console.error('❌ API: Change password error:', error);
+      throw error;
     }
   }
 
@@ -340,7 +268,7 @@ class ApiService {
       });
       return response;
     } catch (error) {
-      console.error('Get privacy settings error:', error);
+      if (__DEV__) console.error('Get privacy settings error:', error);
       throw error;
     }
   }
@@ -353,7 +281,7 @@ class ApiService {
       });
       return response;
     } catch (error) {
-      console.error('Update privacy settings error:', error);
+      if (__DEV__) console.error('Update privacy settings error:', error);
       throw error;
     }
   }
@@ -362,7 +290,7 @@ class ApiService {
     try {
       return await this.request('/auth/me');
     } catch (error) {
-      console.log('getCurrentUser error:', error.message);
+      if (__DEV__) console.log('getCurrentUser error:', error.message);
       // Clear token on any error
       await this.clearToken();
       return { success: false, message: 'Authentication failed' };
@@ -377,7 +305,7 @@ class ApiService {
       });
       return response;
     } catch (error) {
-      console.error('Update push token error:', error);
+      if (__DEV__) console.error('Update push token error:', error);
       throw error;
     }
   }
@@ -511,7 +439,7 @@ class ApiService {
   async markNotificationRead(notificationId) {
     // Validate notification ID
     if (!notificationId || notificationId === 'undefined' || notificationId === undefined) {
-      console.error('Invalid notification ID provided:', notificationId);
+      if (__DEV__) console.error('Invalid notification ID provided:', notificationId);
       throw new Error('Invalid notification ID');
     }
     
@@ -677,10 +605,10 @@ class ApiService {
   async healthCheck() {
     try {
       const response = await this.request('/health');
-      console.log('✅ Health check successful:', response);
+      if (__DEV__) console.log('✅ Health check successful:', response);
       return response;
     } catch (error) {
-      console.error('❌ Health check failed:', error);
+      if (__DEV__) console.error('❌ Health check failed:', error);
       return { success: false, message: error.message };
     }
   }
