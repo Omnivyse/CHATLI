@@ -93,6 +93,7 @@ export const translations = {
     bio: 'Тайлбар',
     avatar: 'Профайл зураг',
     changeAvatar: 'Профайл зураг солих',
+    coverImage: 'Ковер зураг',
     followers: 'Дагагчид',
     following: 'Дагасан',
     follow: 'Дагах',
@@ -104,6 +105,13 @@ export const translations = {
     waiting: 'Хүлээж байна',
     privateAccount: 'Хувийн данс',
     publicAccount: 'Нийтэд нээлттэй данс',
+    saving: 'Хадгалж байна...',
+    uploading: 'Түр хүлээнэ үү...',
+    permissionRequired: 'Зөвшөөрөл хэрэгтэй',
+    permissionMessage: 'Зураг сонгохын тулд галерейд хандах зөвшөөрөл хэрэгтэй.',
+    imageSelectionError: 'Зураг сонгоход алдаа гарлаа.',
+    profileUpdateSuccess: 'Профайл амжилттай шинэчлэгдлээ!',
+    aboutMe: 'Таны тухай...',
 
     // Settings
     settings: 'Тохиргоо',
@@ -305,6 +313,7 @@ export const translations = {
     bio: 'Bio',
     avatar: 'Avatar',
     changeAvatar: 'Change Avatar',
+    coverImage: 'Cover Image',
     followers: 'Followers',
     following: 'Following',
     follow: 'Follow',
@@ -316,6 +325,13 @@ export const translations = {
     waiting: 'Waiting',
     privateAccount: 'Private Account',
     publicAccount: 'Public Account',
+    saving: 'Saving...',
+    uploading: 'Please wait...',
+    permissionRequired: 'Permission Required',
+    permissionMessage: 'Permission to access gallery is required to select images.',
+    imageSelectionError: 'Error selecting image.',
+    profileUpdateSuccess: 'Profile updated successfully!',
+    aboutMe: 'About me...',
 
     // Settings
     settings: 'Settings',

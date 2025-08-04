@@ -374,6 +374,8 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 4,
     textAlign: 'center',
+    flexShrink: 1,
+    maxWidth: '80%',
   },
   userNameContainer: {
     flexDirection: 'row',
@@ -381,13 +383,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap',
+    maxWidth: '100%',
   },
   verificationContainer: {
     alignItems: 'center',
     marginBottom: 8,
   },
   verifiedIcon: {
-    marginLeft: 8,
+    // No margin needed since gap handles spacing
   },
   userHandle: {
     fontSize: 16,

@@ -4,10 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { getThemeColors } from '../utils/themeUtils';
+import { getTranslation } from '../utils/translations';
 
 const EditProfileScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [name, setName] = useState(user?.name || '');
   const [username, setUsername] = useState(user?.username || '');
@@ -30,7 +33,10 @@ const EditProfileScreen = ({ navigation, user }) => {
       // Ask for permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Зөвшөөрөл хэрэгтэй', 'Зураг сонгохын тулд галерейд хандах зөвшөөрөл хэрэгтэй.');
+        Alert.alert(
+          getTranslation('permissionRequired', language),
+          getTranslation('permissionMessage', language)
+        );
         return;
       }
       // Pick image
@@ -53,7 +59,10 @@ const EditProfileScreen = ({ navigation, user }) => {
       }
     } catch (err) {
       setUploading(false);
-      Alert.alert('Алдаа', 'Зураг сонгоход алдаа гарлаа.');
+      Alert.alert(
+        getTranslation('error', language),
+        getTranslation('imageSelectionError', language)
+      );
     }
   };
 
@@ -62,7 +71,7 @@ const EditProfileScreen = ({ navigation, user }) => {
     // TODO: Implement save logic (API call)
     setTimeout(() => {
       setSaving(false);
-      Alert.alert('Success', 'Profile updated successfully!');
+      Alert.alert('Success', getTranslation('profileUpdateSuccess', language));
       navigation.goBack();
     }, 1200);
   };
@@ -77,7 +86,7 @@ const EditProfileScreen = ({ navigation, user }) => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{getTranslation('editProfile', language)}</Text>
         <View style={{ width: 40 }} />
       </View>
       <ScrollView contentContainerStyle={[styles.content]} showsVerticalScrollIndicator={false}>
@@ -88,10 +97,10 @@ const EditProfileScreen = ({ navigation, user }) => {
           ) : (
             <View style={styles.coverPlaceholder}>
               <Ionicons name="image-outline" size={40} color={colors.textTertiary} />
-              <Text style={[styles.coverPlaceholderText, { color: colors.textTertiary }]}>Ковер зураг</Text>
+              <Text style={[styles.coverPlaceholderText, { color: colors.textTertiary }]}>{getTranslation('coverImage', language)}</Text>
             </View>
           )}
-          {uploading && <View style={styles.uploadingOverlay}><Text style={styles.uploadingText}>Түр хүлээнэ үү...</Text></View>}
+          {uploading && <View style={styles.uploadingOverlay}><Text style={styles.uploadingText}>{getTranslation('uploading', language)}</Text></View>}
         </TouchableOpacity>
         {/* Avatar */}
         <TouchableOpacity style={styles.avatarContainer} onPress={() => pickImage('avatar')} disabled={uploading}>
@@ -105,20 +114,20 @@ const EditProfileScreen = ({ navigation, user }) => {
           <View style={[styles.avatarEditIcon, { backgroundColor: colors.primary, borderColor: colors.background }] }>
             <Ionicons name="camera" size={18} color={colors.textInverse} />
           </View>
-          {uploading && <View style={styles.uploadingOverlay}><Text style={styles.uploadingText}>Түр хүлээнэ үү...</Text></View>}
+          {uploading && <View style={styles.uploadingOverlay}><Text style={styles.uploadingText}>{getTranslation('uploading', language)}</Text></View>}
         </TouchableOpacity>
         {/* Form Fields */}
         <View style={styles.formSection}>
-          <Text style={[styles.label, { color: colors.text }]}>Нэр</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{getTranslation('name', language)}</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
             value={name}
             onChangeText={setName}
-            placeholder="Нэр"
+            placeholder={getTranslation('name', language)}
             autoCapitalize="words"
             placeholderTextColor={colors.placeholder}
           />
-          <Text style={[styles.label, { color: colors.text }]}>Хэрэглэгчийн нэр</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{getTranslation('username', language)}</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
             value={username}
@@ -127,12 +136,12 @@ const EditProfileScreen = ({ navigation, user }) => {
             autoCapitalize="none"
             placeholderTextColor={colors.placeholder}
           />
-          <Text style={[styles.label, { color: colors.text }]}>Био</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{getTranslation('bio', language)}</Text>
           <TextInput
             style={[styles.input, styles.bioInput, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
             value={bio}
             onChangeText={setBio}
-            placeholder="Таны тухай..."
+            placeholder={getTranslation('aboutMe', language)}
             multiline
             numberOfLines={4}
             maxLength={500}
@@ -141,7 +150,7 @@ const EditProfileScreen = ({ navigation, user }) => {
         </View>
         {/* Save Button */}
         <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving || uploading}>
-          <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>{saving ? 'Хадгалж байна...' : 'Хадгалах'}</Text>
+          <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>{saving ? getTranslation('saving', language) : getTranslation('save', language)}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
