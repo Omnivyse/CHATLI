@@ -11,6 +11,9 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
   const [commenting, setCommenting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, commentId: null });
   const [currentMedia, setCurrentMedia] = useState(0);
+  const [secretPasswordModalOpen, setSecretPasswordModalOpen] = useState(false);
+  const [isSecretPostUnlocked, setIsSecretPostUnlocked] = useState(false);
+  const [secretPassword, setSecretPassword] = useState('');
 
   useEffect(() => {
     fetchPost();
@@ -21,9 +24,41 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
     setLoading(true);
     try {
       const res = await api.getPost(postId);
-      if (res.success) setPost(res.data.post);
+      if (res.success) {
+        const fetchedPost = res.data.post;
+        setPost(fetchedPost);
+        
+        // Check if this is a secret post and user needs to verify
+        if (fetchedPost.isSecret && fetchedPost.author._id !== user._id) {
+          // Check if user has already verified this post
+          const hasVerified = fetchedPost.passwordVerifiedUsers && 
+            fetchedPost.passwordVerifiedUsers.includes(user._id);
+          
+          if (!hasVerified) {
+            setSecretPasswordModalOpen(true);
+            return;
+          } else {
+            setIsSecretPostUnlocked(true);
+          }
+        }
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSecretPostPassword = async (password) => {
+    try {
+      const response = await api.verifySecretPostPassword(postId, password);
+      if (response.success) {
+        setIsSecretPostUnlocked(true);
+        setSecretPasswordModalOpen(false);
+        setSecretPassword('');
+        // Refresh the post to get updated data
+        fetchPost();
+      }
+    } catch (error) {
+      alert(error.message || 'Failed to verify password');
     }
   };
 
@@ -124,9 +159,20 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
                 <div className="text-xs text-secondary dark:text-secondary-dark">{new Date(post.createdAt).toLocaleString()}</div>
               </div>
             </div>
-            <div className="mb-2 whitespace-pre-line text-foreground dark:text-foreground-dark">{post.content}</div>
+            <div className="mb-2 whitespace-pre-line text-foreground dark:text-foreground-dark">
+              {post.isSecret && !isSecretPostUnlocked && post.author._id !== user._id ? (
+                <div className="text-center py-8">
+                  <svg className="w-12 h-12 mx-auto mb-4 text-secondary dark:text-secondary-dark" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-secondary dark:text-secondary-dark">Content is protected</p>
+                </div>
+              ) : (
+                post.content
+              )}
+            </div>
             {/* Media carousel for new posts */}
-            {Array.isArray(post.media) && post.media.length > 0 && !settingsModalOpen && (
+            {Array.isArray(post.media) && post.media.length > 0 && !settingsModalOpen && !(post.isSecret && !isSecretPostUnlocked && post.author._id !== user._id) && (
               <div className="relative w-full flex flex-col items-center mb-2">
                 <div className="relative w-full flex items-center justify-center">
                   {post.media.length > 1 && (
@@ -192,10 +238,10 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
               </div>
             )}
             {/* Fallback for legacy posts with image/video fields */}
-            {(!post.media || post.media.length === 0) && post.image && !settingsModalOpen && (
+            {(!post.media || post.media.length === 0) && post.image && !settingsModalOpen && !(post.isSecret && !isSecretPostUnlocked && post.author._id !== user._id) && (
               <img src={post.image} alt="post" className="max-h-96 w-auto mx-auto rounded mb-2 object-contain" style={{ maxWidth: '100%' }} />
             )}
-            {(!post.media || post.media.length === 0) && post.video && !settingsModalOpen && (
+            {(!post.media || post.media.length === 0) && post.video && !settingsModalOpen && !(post.isSecret && !isSecretPostUnlocked && post.author._id !== user._id) && (
               <CustomVideoPlayer
                 src={post.video}
                 autoPlay={true}
@@ -214,7 +260,8 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
               </span>
             </div>
             {/* Comments */}
-            <div className="space-y-3 max-h-60 overflow-y-auto mb-2">
+            {!(post.isSecret && !isSecretPostUnlocked && post.author._id !== user._id) && (
+              <div className="space-y-3 max-h-60 overflow-y-auto mb-2">
               {post.comments.map(c => {
                 const canDelete = user._id === c.author._id || user._id === post.author._id;
                 return (
@@ -245,9 +292,11 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
                   </div>
                 );
               })}
-            </div>
+              </div>
+            )}
             {/* Add Comment */}
-            <form onSubmit={handleComment} className="flex items-center gap-2 mt-2">
+            {!(post.isSecret && !isSecretPostUnlocked && post.author._id !== user._id) && (
+              <form onSubmit={handleComment} className="flex items-center gap-2 mt-2">
               <input
                 type="text"
                 className="flex-1 px-3 py-2 rounded border border-border dark:border-border-dark bg-muted dark:bg-muted-dark text-foreground dark:text-foreground-dark"
@@ -258,8 +307,9 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
               />
               <button type="submit" className="bg-primary dark:bg-primary-dark text-primary-dark dark:text-primary px-3 py-2 rounded hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition" disabled={commenting || !comment.trim()}>
                 Илгээх
-              </button>
-            </form>
+                              </button>
+              </form>
+            )}
             {/* Custom Delete Confirmation Modal */}
             {deleteConfirm.show && (
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[10000]">
@@ -280,6 +330,73 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
             )}
           </motion.div>
         </motion.div>
+      )}
+      
+      {/* Secret Post Password Modal */}
+      {secretPasswordModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10001]">
+          <div className="bg-background dark:bg-background-dark rounded-lg shadow-xl max-w-md w-full p-6 relative border border-border dark:border-border-dark" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground dark:text-foreground-dark">Secret Post</h2>
+              <button
+                onClick={() => {
+                  setSecretPasswordModalOpen(false);
+                  onClose();
+                }}
+                className="text-secondary dark:text-secondary-dark hover:text-foreground dark:hover:text-foreground-dark"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="text-center mb-6">
+              <svg className="w-12 h-12 mx-auto mb-4 text-primary dark:text-primary-dark" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+              </svg>
+              <p className="text-secondary dark:text-secondary-dark mb-2">This post is protected with a password</p>
+              {post?.author?.name && (
+                <p className="text-sm text-secondary dark:text-secondary-dark italic">Posted by {post.author.name}</p>
+              )}
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground dark:text-foreground-dark mb-2">
+                Enter 4-digit password:
+              </label>
+              <input
+                type="text"
+                value={secretPassword}
+                onChange={(e) => setSecretPassword(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full p-3 rounded-xl border border-border dark:border-border-dark bg-muted dark:bg-muted-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition text-center text-lg tracking-widest"
+                placeholder="0000"
+                maxLength={4}
+                autoFocus
+              />
+              <p className="text-xs text-secondary dark:text-secondary-dark mt-2">Password must be exactly 4 digits</p>
+            </div>
+            
+            <div className="flex gap-2 justify-end">
+              <button
+                className="px-4 py-2 bg-muted dark:bg-muted-dark rounded hover:bg-muted/80 dark:hover:bg-muted-dark/80 text-foreground dark:text-foreground-dark"
+                onClick={() => {
+                  setSecretPasswordModalOpen(false);
+                  onClose();
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-primary dark:bg-primary-dark text-primary-dark dark:text-primary rounded font-semibold hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition disabled:opacity-50"
+                onClick={() => handleSecretPostPassword(secretPassword)}
+                disabled={secretPassword.length !== 4}
+              >
+                View Post
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AnimatePresence>
   );

@@ -154,7 +154,14 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         className={`mb-2 whitespace-pre-line cursor-pointer hover:bg-muted/50 dark:hover:bg-muted-dark/50 rounded transition text-foreground dark:text-foreground-dark ${
           localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id ? 'relative' : ''
         }`}
-        onClick={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id ? handleSecretPostPress : () => setShowModal(true)}
+        onClick={() => {
+          // Check if post is secret and user hasn't unlocked it
+          if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+            handleSecretPostPress();
+          } else {
+            setShowModal(true);
+          }
+        }}
       >
         <div className="flex items-start gap-2">
           {localPost.isSecret && localPost.author._id !== user._id && (
@@ -219,7 +226,14 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                   src={localPost.media[currentMedia].url}
                   alt="post"
                   className="max-h-80 w-auto mx-auto rounded object-contain border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
-                  onClick={() => setShowModal(true)}
+                  onClick={() => {
+                    // Check if post is secret and user hasn't unlocked it
+                    if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+                      handleSecretPostPress();
+                    } else {
+                      setShowModal(true);
+                    }
+                  }}
                   style={{ maxWidth: '100%' }}
                 />
               ) : (
@@ -227,7 +241,14 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                   ref={videoRef}
                   src={localPost.media[currentMedia].url}
                   className="rounded border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
-                  onClick={handleOpenModal}
+                  onClick={() => {
+                    // Check if post is secret and user hasn't unlocked it
+                    if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+                      handleSecretPostPress();
+                    } else {
+                      handleOpenModal();
+                    }
+                  }}
                   muted={true}
                   hideControls={true}
                   autoPlayOnView={true}
@@ -273,7 +294,14 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           src={localPost.image}
           alt="post"
           className="max-h-80 w-auto mx-auto rounded mb-2 object-contain cursor-pointer hover:opacity-80 transition"
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            // Check if post is secret and user hasn't unlocked it
+            if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+              handleSecretPostPress();
+            } else {
+              setShowModal(true);
+            }
+          }}
           style={{ maxWidth: '100%' }}
         />
       )}
@@ -282,7 +310,14 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           ref={videoRef}
           src={localPost.video}
           className="rounded mb-2 cursor-pointer hover:opacity-80 transition"
-          onClick={handleOpenModal}
+          onClick={() => {
+            // Check if post is secret and user hasn't unlocked it
+            if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+              handleSecretPostPress();
+            } else {
+              handleOpenModal();
+            }
+          }}
           muted={true}
           hideControls={true}
           autoPlayOnView={true}
@@ -296,7 +331,14 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         </button>
         <span
           className="flex items-center gap-1 text-secondary dark:text-secondary-dark cursor-pointer hover:text-primary dark:hover:text-primary-dark"
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            // Check if post is secret and user hasn't unlocked it
+            if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+              handleSecretPostPress();
+            } else {
+              setShowModal(true);
+            }
+          }}
         >
           <MessageCircle className="w-5 h-5" />
           <span>{localPost.comments.length}</span>
