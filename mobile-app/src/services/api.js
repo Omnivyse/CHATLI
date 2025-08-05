@@ -733,7 +733,11 @@ class ApiService {
   async submitReport(category, description) {
     return this.request('/reports/submit', {
       method: 'POST',
-      body: { category, description }
+      body: { 
+        category, 
+        description,
+        userEmail: this.userEmail || null // Will be set from user data on server
+      }
     });
   }
 }

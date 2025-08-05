@@ -6,12 +6,28 @@ const Report = require('../models/Report');
 // Submit a report
 router.post('/submit', auth, async (req, res) => {
   try {
+    console.log('Report submission request:', {
+      body: req.body,
+      user: req.user ? { id: req.user.id, email: req.user.email } : 'No user'
+    });
+
     const { category, description, userEmail } = req.body;
     
     if (!category || !description || description.trim().length < 10) {
+      console.log('Validation failed:', { category, descriptionLength: description?.length });
       return res.status(400).json({
         success: false,
         message: 'Ангилал болон дэлгэрэнгүй тайлбар шаардлагатай'
+      });
+    }
+
+    // Validate category against allowed values
+    const allowedCategories = ['bug', 'inappropriate_content', 'spam', 'harassment', 'fake_account', 'other'];
+    if (!allowedCategories.includes(category)) {
+      console.log('Invalid category:', category);
+      return res.status(400).json({
+        success: false,
+        message: 'Буруу ангилал'
       });
     }
 
@@ -24,9 +40,15 @@ router.post('/submit', auth, async (req, res) => {
       priority: category === 'inappropriate_content' ? 'high' : 'normal'
     });
 
+    console.log('Saving report:', {
+      reporterId: report.reporterId,
+      category: report.category,
+      descriptionLength: report.description.length
+    });
+
     await report.save();
 
-    console.log('New report received:', {
+    console.log('New report saved successfully:', {
       id: report._id,
       category: report.category,
       user: report.userName
@@ -42,6 +64,22 @@ router.post('/submit', auth, async (req, res) => {
 
   } catch (error) {
     console.error('Report submission error:', error);
+    
+    // More specific error messages
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Мэдээллийн формат буруу байна'
+      });
+    }
+    
+    if (error.name === 'MongoError' && error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ижил мэдээлэл давхардсан байна'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Серверийн алдаа гарлаа'

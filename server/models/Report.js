@@ -18,12 +18,11 @@ const reportSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
+      'bug',
       'inappropriate_content',
-      'harassment', 
       'spam',
-      'fake_profile',
-      'copyright',
-      'technical_issue',
+      'harassment',
+      'fake_account',
       'other'
     ]
   },

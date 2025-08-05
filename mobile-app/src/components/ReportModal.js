@@ -16,12 +16,24 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
-import api from '../services/api';
+import apiService from '../services/api';
 
 const ReportModal = ({ visible, onClose }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const colors = getThemeColors(theme);
+  
+  // Fallback colors in case theme colors are undefined
+  const safeColors = {
+    background: colors.background || '#FFFFFF',
+    text: colors.text || '#000000',
+    textSecondary: colors.textSecondary || '#666666',
+    textTertiary: colors.textTertiary || '#999999',
+    surface: colors.surface || '#F5F5F5',
+    surfaceVariant: colors.surfaceVariant || '#EEEEEE',
+    border: colors.border || '#E0E0E0',
+    primary: colors.primary || '#007AFF',
+  };
   
   // Get screen dimensions for responsive design
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -90,7 +102,7 @@ const ReportModal = ({ visible, onClose }) => {
 
     setLoading(true);
     try {
-      const response = await api.submitReport(category, description.trim());
+      const response = await apiService.submitReport(category, description.trim());
       
       if (response.success) {
         Alert.alert(
@@ -133,24 +145,25 @@ const ReportModal = ({ visible, onClose }) => {
         <View style={[
           styles.modalContainer, 
           { 
-            backgroundColor: colors.background,
-            width: isSmallScreen ? '92%' : isLargeScreen ? '65%' : '85%',
-            maxWidth: isLargeScreen ? 550 : 450,
-            maxHeight: isSmallScreen ? '85%' : '80%',
+            backgroundColor: safeColors.background,
+            width: isSmallScreen ? '95%' : isLargeScreen ? '70%' : '90%',
+            maxWidth: isLargeScreen ? 600 : 500,
+            height: isSmallScreen ? '85%' : '80%',
+            maxHeight: '85%',
           }
         ]}>
           
           {/* Modern Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View style={[styles.header, { borderBottomColor: safeColors.border }]}>
             <View style={styles.headerLeft}>
               <View style={[styles.headerIconContainer, { backgroundColor: '#FF3B30' }]}>
                 <Ionicons name="warning" size={20} color="white" />
               </View>
               <View style={styles.headerTextContainer}>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>
+                <Text style={[styles.headerTitle, { color: safeColors.text }]}>
                   {getTranslation('reportIssue', language)}
                 </Text>
-                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                <Text style={[styles.headerSubtitle, { color: safeColors.textSecondary }]}>
                   {getTranslation('reportDescription', language)}
                 </Text>
               </View>
@@ -158,84 +171,81 @@ const ReportModal = ({ visible, onClose }) => {
             <TouchableOpacity 
               onPress={handleClose} 
               disabled={loading}
-              style={[styles.closeButton, { backgroundColor: colors.surfaceVariant }]}
+              style={[styles.closeButton, { backgroundColor: safeColors.surfaceVariant }]}
             >
-              <Ionicons name="close" size={18} color={colors.text} />
+              <Ionicons name="close" size={18} color={safeColors.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView 
             style={styles.content}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
             contentContainerStyle={styles.contentContainer}
           >
             {/* Category Selection */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              <Text style={[styles.sectionTitle, { color: safeColors.text }]}>
                 {getTranslation('reportCategory', language)}
               </Text>
-              <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+              <Text style={[styles.sectionDescription, { color: safeColors.textSecondary }]}>
                 Select the most appropriate category for your report
               </Text>
               
               <View style={styles.categoryGrid}>
-                {reportCategories.map((cat, index) => {
-                  console.log(`Rendering category ${index + 1}: ${cat.key} - ${cat.label}`);
-                  return (
-                    <TouchableOpacity
-                      key={cat.key}
-                      style={[
-                        styles.categoryButton,
-                        { 
-                          backgroundColor: category === cat.key ? cat.color : colors.surfaceVariant,
-                          borderColor: category === cat.key ? cat.color : colors.border,
-                        }
-                      ]}
-                      onPress={() => setCategory(cat.key)}
-                      disabled={loading}
-                      activeOpacity={0.8}
-                    >
-                      <View style={[
-                        styles.categoryIconContainer,
-                        { backgroundColor: category === cat.key ? 'rgba(255, 255, 255, 0.2)' : colors.surface }
-                      ]}>
-                        <Ionicons 
-                          name={cat.icon} 
-                          size={18} 
-                          color={category === cat.key ? 'white' : cat.color} 
-                        />
-                      </View>
-                      <Text style={[
-                        styles.categoryText,
-                        { color: category === cat.key ? 'white' : colors.text }
-                      ]}>
-                        {cat.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {reportCategories.map((cat, index) => (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[
+                      styles.categoryButton,
+                      { 
+                        backgroundColor: category === cat.key ? cat.color : safeColors.surfaceVariant,
+                        borderColor: category === cat.key ? cat.color : safeColors.border,
+                      }
+                    ]}
+                    onPress={() => setCategory(cat.key)}
+                    disabled={loading}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[
+                      styles.categoryIconContainer,
+                      { backgroundColor: category === cat.key ? 'rgba(255, 255, 255, 0.2)' : safeColors.surface }
+                    ]}>
+                      <Ionicons 
+                        name={cat.icon} 
+                        size={20} 
+                        color={category === cat.key ? 'white' : cat.color} 
+                      />
+                    </View>
+                    <Text style={[
+                      styles.categoryText,
+                      { color: category === cat.key ? 'white' : safeColors.text }
+                    ]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
             {/* Description */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              <Text style={[styles.sectionTitle, { color: safeColors.text }]}>
                 {getTranslation('reportDescription', language)}
               </Text>
-              <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+              <Text style={[styles.sectionDescription, { color: safeColors.textSecondary }]}>
                 Please provide detailed information about the issue
               </Text>
               
-              <View style={[styles.inputContainer, { backgroundColor: colors.surfaceVariant }]}>
+              <View style={[styles.inputContainer, { backgroundColor: safeColors.surfaceVariant }]}>
                 <TextInput
                   style={[
                     styles.descriptionInput,
-                    { color: colors.text }
+                    { color: safeColors.text }
                   ]}
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Describe the issue in detail..."
-                  placeholderTextColor={colors.placeholder}
+                  placeholderTextColor={safeColors.textSecondary}
                   multiline
                   numberOfLines={5}
                   textAlignVertical="top"
@@ -243,7 +253,7 @@ const ReportModal = ({ visible, onClose }) => {
                   maxLength={500}
                 />
                 <View style={styles.inputFooter}>
-                  <Text style={[styles.characterCount, { color: colors.textTertiary }]}>
+                  <Text style={[styles.characterCount, { color: safeColors.textTertiary }]}>
                     {description.length}/500 characters
                   </Text>
                 </View>
@@ -252,12 +262,12 @@ const ReportModal = ({ visible, onClose }) => {
           </ScrollView>
 
           {/* Modern Submit Button */}
-          <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+          <View style={[styles.footer, { borderTopColor: safeColors.border, backgroundColor: safeColors.background }]}>
             <TouchableOpacity
               style={[
                 styles.submitButton,
                 { 
-                  backgroundColor: loading ? colors.surfaceVariant : '#FF3B30',
+                  backgroundColor: loading ? safeColors.surfaceVariant : '#FF3B30',
                   opacity: loading ? 0.6 : 1
                 }
               ]}
@@ -298,6 +308,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
     shadowRadius: 20,
+    flexDirection: 'column',
   },
 
   header: {
@@ -349,15 +360,17 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
+    minHeight: 0,
   },
 
   contentContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
+    paddingBottom: 40,
   },
 
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
 
   sectionTitle: {
@@ -377,34 +390,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    minHeight: 200,
   },
 
   categoryButton: {
     width: '48%',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 70,
+    minHeight: 80,
   },
 
   categoryIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
 
   categoryText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 16,
   },
 
   inputContainer: {
@@ -417,7 +429,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     fontSize: 15,
     lineHeight: 20,
-    minHeight: 100,
+    minHeight: 120,
   },
 
   inputFooter: {
