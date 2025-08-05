@@ -301,7 +301,7 @@ class ApiService {
     try {
       const response = await this.request('/auth/push-token', {
         method: 'POST',
-        body: JSON.stringify({ pushToken })
+        body: { pushToken }
       });
       return response;
     } catch (error) {

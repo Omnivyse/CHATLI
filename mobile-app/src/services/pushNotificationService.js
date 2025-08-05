@@ -88,9 +88,17 @@ class PushNotificationService {
       
       // Update push token on server if available
       if (this.expoPushToken?.data) {
+        console.log('🔔 Push token available, will update on server after delay');
         setTimeout(async () => {
-          await this.updatePushTokenOnServer();
-        }, 2000); // Delay to ensure user is logged in
+          const success = await this.updatePushTokenOnServer();
+          if (success) {
+            console.log('✅ Push token successfully updated on server');
+          } else {
+            console.log('⚠️ Failed to update push token on server');
+          }
+        }, 3000); // Increased delay to ensure user is logged in
+      } else {
+        console.log('⚠️ No push token available for server update');
       }
       
       return true;
@@ -189,6 +197,20 @@ class PushNotificationService {
     try {
       const { title, body, data } = notification.request.content;
       console.log('🔔 Handling notification:', { title, body, data });
+      
+      // Handle different notification types
+      if (data) {
+        console.log('🔔 Notification data:', data);
+        
+        // Log specific notification types for debugging
+        if (data.type === 'message' || data.type === 'chat') {
+          console.log('💬 Message notification received:', {
+            chatId: data.chatId,
+            senderName: data.senderName,
+            messageContent: data.messageContent
+          });
+        }
+      }
       
       // You can add custom logic here for handling notifications in foreground
       // For example, updating UI, playing sounds, etc.
