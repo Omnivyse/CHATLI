@@ -25,10 +25,12 @@
         "NSPhotoLibraryUsageDescription": "This app accesses your photos to let you share them with your friends.",
         "NSMicrophoneUsageDescription": "This app uses the microphone for video recording.",
         "NSLocationWhenInUseUsageDescription": "This app uses location for better user experience.",
-        "CFBundleDisplayName": "CHATLI"
+        "CFBundleDisplayName": "CHATLI",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.developer.associated-domains": [
+          "applinks:chatli-production.up.railway.app",
           "applinks:chatli-production.up.railway.app"
         ]
       }
@@ -41,12 +43,12 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "RECORD_AUDIO",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -83,8 +85,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "228cdfa0-b203-439c-bfe6-c6b682a56be3"
       }
-    }
+    },
+    "owner": "andii363"
   }
 }
