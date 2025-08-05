@@ -13,7 +13,6 @@ import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import PrivacySettingsModal from './components/PrivacySettingsModal';
 import CopyrightModal from './components/CopyrightModal';
 import ReportModal from './components/ReportModal';
-import PWAInstallPrompt from './components/PWAInstallPrompt';
 import EmailVerificationBanner from './components/EmailVerificationBanner';
 import EmailVerificationModal from './components/EmailVerificationModal';
 
@@ -779,9 +778,6 @@ function App() {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
       />
-
-      {/* PWA Install Prompt */}
-      <PWAInstallPrompt />
 
     </div>
   );
