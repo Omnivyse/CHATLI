@@ -1,0 +1,96 @@
+const { Expo } = require('expo');
+
+module.exports = {
+  expo: {
+    name: "CHATLI",
+    slug: "chatli-mobile",
+    version: "1.0.3",
+    orientation: "portrait",
+    userInterfaceStyle: "automatic",
+    splash: {
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
+    icon: {
+      image: "./assets/appicon.png",
+      resizeMode: "contain"
+    },
+    assetBundlePatterns: [
+      "**/*"
+    ],
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.chatli.mobile",
+      buildNumber: "4",
+      icon: "./assets/appicon.png",
+      infoPlist: {
+        NSCameraUsageDescription: "This app uses the camera to take photos for posts and profile pictures.",
+        NSPhotoLibraryUsageDescription: "This app accesses your photos to let you share them with your friends.",
+        NSMicrophoneUsageDescription: "This app uses the microphone for video recording.",
+        NSLocationWhenInUseUsageDescription: "This app uses location for better user experience.",
+        CFBundleDisplayName: "CHATLI",
+        ITSAppUsesNonExemptEncryption: false
+      },
+      entitlements: {
+        "com.apple.developer.associated-domains": [
+          "applinks:chatli-production.up.railway.app",
+          "applinks:chatli-production.up.railway.app"
+        ]
+      }
+    },
+    android: {
+      package: "com.chatli.mobile",
+      versionCode: 1,
+      adaptiveIcon: {
+        foregroundImage: "./assets/appicon.png",
+        backgroundColor: "#ffffff"
+      },
+      permissions: [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+    web: {
+      favicon: "./assets/appicon.png"
+    },
+    sdkVersion: "53.0.0",
+    platforms: [
+      "ios",
+      "android",
+      "web"
+    ],
+    plugins: [
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "This app accesses your photos to let you share them with your friends.",
+          cameraPermission: "This app uses the camera to take photos for posts and profile pictures."
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          iCloudContainerEnvironment: "Production"
+        }
+      ],
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/appicon.png",
+          color: "#ffffff"
+        }
+      ]
+    ],
+    extra: {
+      eas: {
+        projectId: "228cdfa0-b203-439c-bfe6-c6b682a56be3"
+      }
+    },
+    owner: "andii363"
+  }
+}; 

@@ -3,23 +3,33 @@ const axios = require('axios');
 class PushNotificationService {
   constructor() {
     this.expoPushUrl = 'https://exp.host/--/api/v2/push/send';
+    this.soundSettings = {
+      message: 'message_notification',
+      like: 'like_notification',
+      comment: 'comment_notification',
+      follow: 'follow_notification',
+      general: 'general_notification'
+    };
   }
 
-  // Send push notification to a single user
-  async sendPushNotification(pushToken, title, body, data = {}) {
+  // Send push notification to a single user with custom sound
+  async sendPushNotification(pushToken, title, body, data = {}, soundType = 'general') {
     try {
       if (!pushToken) {
         console.log('⚠️ No push token provided, skipping notification');
         return false;
       }
 
+      const sound = this.getSoundForType(soundType);
+
       const message = {
         to: pushToken,
-        sound: 'default',
+        sound: sound,
         title,
         body,
         data,
         priority: 'high',
+        channelId: this.getChannelId(soundType),
       };
 
       const response = await axios.post(this.expoPushUrl, message, {
@@ -31,7 +41,7 @@ class PushNotificationService {
       });
 
       if (response.data && response.data.data && response.data.data.status === 'ok') {
-        console.log('✅ Push notification sent successfully:', { title, body, data });
+        console.log('✅ Push notification sent successfully:', { title, body, data, sound });
         return true;
       } else {
         console.log('❌ Push notification failed:', response.data);
@@ -44,20 +54,24 @@ class PushNotificationService {
   }
 
   // Send push notification to multiple users
-  async sendPushNotificationToMultiple(pushTokens, title, body, data = {}) {
+  async sendPushNotificationToMultiple(pushTokens, title, body, data = {}, soundType = 'general') {
     try {
       if (!pushTokens || pushTokens.length === 0) {
         console.log('⚠️ No push tokens provided, skipping notifications');
-        return [];
+        return false;
       }
 
-      const messages = pushTokens.map(pushToken => ({
-        to: pushToken,
-        sound: 'default',
+      const sound = this.getSoundForType(soundType);
+      const channelId = this.getChannelId(soundType);
+
+      const messages = pushTokens.map(token => ({
+        to: token,
+        sound: sound,
         title,
         body,
         data,
         priority: 'high',
+        channelId: channelId,
       }));
 
       const response = await axios.post(this.expoPushUrl, messages, {
@@ -68,113 +82,150 @@ class PushNotificationService {
         },
       });
 
-      if (response.data && Array.isArray(response.data.data)) {
-        const results = response.data.data.map((result, index) => ({
-          token: pushTokens[index],
-          success: result.status === 'ok',
-          error: result.status !== 'ok' ? result.message : null,
-        }));
-
-        const successCount = results.filter(r => r.success).length;
-        const failureCount = results.filter(r => !r.success).length;
-
-        console.log(`📱 Push notifications sent: ${successCount} success, ${failureCount} failed`);
-        return results;
+      if (response.data && response.data.data) {
+        const results = response.data.data;
+        const successCount = results.filter(result => result.status === 'ok').length;
+        console.log(`✅ Push notifications sent: ${successCount}/${pushTokens.length} successful`);
+        return successCount > 0;
       } else {
         console.log('❌ Push notifications failed:', response.data);
-        return [];
+        return false;
       }
     } catch (error) {
       console.error('❌ Error sending push notifications:', error.message);
-      return [];
+      return false;
     }
   }
 
-  // Send chat notification
-  async sendChatNotification(recipientToken, senderName, message, chatId) {
-    const title = `💬 ${senderName}`;
-    const body = message.length > 50 ? `${message.substring(0, 50)}...` : message;
-    const data = {
-      type: 'chat',
-      chatId,
-      senderName,
-      message,
-    };
+  // Get sound file for notification type
+  getSoundForType(type) {
+    // Use the uploaded nottif.mp3 for all notification types
+    return 'nottif';
+  }
 
-    return await this.sendPushNotification(recipientToken, title, body, data);
+  // Get Android channel ID for notification type
+  getChannelId(type) {
+    switch (type) {
+      case 'message':
+        return 'messages';
+      case 'like':
+        return 'likes';
+      case 'comment':
+        return 'comments';
+      case 'follow':
+        return 'follows';
+      case 'general':
+      default:
+        return 'general';
+    }
+  }
+
+  // Send message notification
+  async sendMessageNotification(pushToken, senderName, messageContent, chatId) {
+    return this.sendPushNotification(
+      pushToken,
+      `New message from ${senderName}`,
+      messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent,
+      {
+        type: 'message',
+        chatId: chatId,
+        senderName: senderName,
+        messageContent: messageContent
+      },
+      'message'
+    );
   }
 
   // Send like notification
-  async sendLikeNotification(recipientToken, likerName, postId, postContent) {
-    const title = `❤️ ${likerName}`;
-    const body = 'liked your post';
-    const data = {
-      type: 'like',
-      postId,
-      likerName,
-      postContent: postContent ? (postContent.length > 50 ? `${postContent.substring(0, 50)}...` : postContent) : '',
-    };
-
-    return await this.sendPushNotification(recipientToken, title, body, data);
+  async sendLikeNotification(pushToken, likerName, postId, postContent) {
+    return this.sendPushNotification(
+      pushToken,
+      `${likerName} liked your post`,
+      postContent.length > 50 ? postContent.substring(0, 50) + '...' : postContent,
+      {
+        type: 'like',
+        postId: postId,
+        likerName: likerName,
+        postContent: postContent
+      },
+      'like'
+    );
   }
 
   // Send comment notification
-  async sendCommentNotification(recipientToken, commenterName, postId, comment, postContent) {
-    const title = `💭 ${commenterName}`;
-    const body = comment.length > 50 ? `${comment.substring(0, 50)}...` : comment;
-    const data = {
-      type: 'comment',
-      postId,
-      commenterName,
-      comment,
-      postContent: postContent ? (postContent.length > 50 ? `${postContent.substring(0, 50)}...` : postContent) : '',
-    };
-
-    return await this.sendPushNotification(recipientToken, title, body, data);
+  async sendCommentNotification(pushToken, commenterName, postId, commentContent, postContent) {
+    return this.sendPushNotification(
+      pushToken,
+      `${commenterName} commented on your post`,
+      commentContent.length > 50 ? commentContent.substring(0, 50) + '...' : commentContent,
+      {
+        type: 'comment',
+        postId: postId,
+        commenterName: commenterName,
+        commentContent: commentContent,
+        postContent: postContent
+      },
+      'comment'
+    );
   }
 
   // Send follow notification
-  async sendFollowNotification(recipientToken, followerName, followerId) {
-    const title = `👤 ${followerName}`;
-    const body = 'Таныг дагаж эхэллээ';
-    const data = {
-      type: 'follow',
-      userId: followerId,
-      followerName,
-    };
-
-    return await this.sendPushNotification(recipientToken, title, body, data);
+  async sendFollowNotification(pushToken, followerName, followerId) {
+    return this.sendPushNotification(
+      pushToken,
+      `${followerName} started following you`,
+      'Tap to view their profile',
+      {
+        type: 'follow',
+        followerId: followerId,
+        followerName: followerName
+      },
+      'follow'
+    );
   }
 
-  // Send custom notification
-  async sendCustomNotification(recipientToken, title, body, data = {}) {
-    return await this.sendPushNotification(recipientToken, title, body, data);
+  // Send general notification
+  async sendGeneralNotification(pushToken, title, body, data = {}) {
+    return this.sendPushNotification(
+      pushToken,
+      title,
+      body,
+      {
+        type: 'general',
+        ...data
+      },
+      'general'
+    );
   }
 
-  // Validate push token format
-  validatePushToken(pushToken) {
-    if (!pushToken || typeof pushToken !== 'string') {
-      return false;
-    }
-    
-    // Expo push tokens start with ExponentPushToken[ or ExpoPushToken[
-    return pushToken.startsWith('ExponentPushToken[') || pushToken.startsWith('ExpoPushToken[');
+  // Send event notification
+  async sendEventNotification(pushToken, eventTitle, eventDescription, eventId) {
+    return this.sendPushNotification(
+      pushToken,
+      `New event: ${eventTitle}`,
+      eventDescription.length > 50 ? eventDescription.substring(0, 50) + '...' : eventDescription,
+      {
+        type: 'event',
+        eventId: eventId,
+        eventTitle: eventTitle,
+        eventDescription: eventDescription
+      },
+      'general'
+    );
   }
 
-  // Clean up invalid push tokens (optional - can be called periodically)
-  async cleanupInvalidTokens(pushTokens) {
-    const validTokens = pushTokens.filter(token => this.validatePushToken(token));
-    const invalidTokens = pushTokens.filter(token => !this.validatePushToken(token));
-    
-    if (invalidTokens.length > 0) {
-      console.log(`🧹 Cleaned up ${invalidTokens.length} invalid push tokens`);
-    }
-    
-    return validTokens;
+  // Send verification notification
+  async sendVerificationNotification(pushToken, title, body) {
+    return this.sendPushNotification(
+      pushToken,
+      title,
+      body,
+      {
+        type: 'verification'
+      },
+      'general'
+    );
   }
 }
 
-// Create singleton instance
-const pushNotificationService = new PushNotificationService();
-
-module.exports = pushNotificationService; 
+module.exports = new PushNotificationService(); 

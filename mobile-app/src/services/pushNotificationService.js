@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Configure notification behavior
+// Configure notification behavior with custom sounds
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -17,6 +17,13 @@ class PushNotificationService {
     this.expoPushToken = null;
     this.notificationListener = null;
     this.responseListener = null;
+    this.soundSettings = {
+      message: 'message_notification',
+      like: 'like_notification',
+      comment: 'comment_notification',
+      follow: 'follow_notification',
+      general: 'general_notification'
+    };
   }
 
   // Initialize push notifications
@@ -39,6 +46,11 @@ class PushNotificationService {
       }
       
       console.log('✅ Push notification permissions granted');
+      
+      // Set up Android notification channels with custom sounds
+      if (Platform.OS === 'android') {
+        await this.setupAndroidChannels();
+      }
       
       // Get the token
       if (Device.isDevice) {
@@ -79,6 +91,70 @@ class PushNotificationService {
       console.error('❌ Error initializing push notifications:', error);
       // Don't throw the error, just return false
       return false;
+    }
+  }
+
+  // Set up Android notification channels with custom sounds
+  async setupAndroidChannels() {
+    try {
+      // Message notifications
+      await Notifications.setNotificationChannelAsync('messages', {
+        name: 'Messages',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'nottif.mp3',
+        enableVibrate: true,
+        showBadge: true,
+      });
+
+      // Like notifications
+      await Notifications.setNotificationChannelAsync('likes', {
+        name: 'Likes',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'nottif.mp3',
+        enableVibrate: true,
+        showBadge: true,
+      });
+
+      // Comment notifications
+      await Notifications.setNotificationChannelAsync('comments', {
+        name: 'Comments',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'nottif.mp3',
+        enableVibrate: true,
+        showBadge: true,
+      });
+
+      // Follow notifications
+      await Notifications.setNotificationChannelAsync('follows', {
+        name: 'Follows',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'nottif.mp3',
+        enableVibrate: true,
+        showBadge: true,
+      });
+
+      // General notifications
+      await Notifications.setNotificationChannelAsync('general', {
+        name: 'General',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'nottif.mp3',
+        enableVibrate: true,
+        showBadge: true,
+      });
+
+      console.log('✅ Android notification channels configured');
+    } catch (error) {
+      console.log('⚠️ Error setting up Android channels:', error.message);
     }
   }
 
@@ -153,35 +229,47 @@ class PushNotificationService {
     return this.expoPushToken?.data || null;
   }
 
-  // Send local notification
-  async sendLocalNotification(title, body, data = {}) {
+  // Send local notification with custom sound
+  async sendLocalNotification(title, body, data = {}, soundType = 'general') {
     try {
+      const sound = this.getSoundForType(soundType);
+      
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           data,
+          sound: sound,
         },
         trigger: null, // Send immediately
       });
-      console.log('🔔 Local notification sent:', { title, body });
+      console.log('🔔 Local notification sent:', { title, body, sound });
     } catch (error) {
       console.log('⚠️ Error sending local notification:', error.message);
     }
   }
 
-  // Schedule notification
-  async scheduleNotification(title, body, data = {}, trigger) {
+  // Get sound file for notification type
+  getSoundForType(type) {
+    // Use the uploaded nottif.mp3 for all notification types
+    return Platform.OS === 'ios' ? 'nottif.aiff' : 'nottif.mp3';
+  }
+
+  // Schedule notification with custom sound
+  async scheduleNotification(title, body, data = {}, trigger, soundType = 'general') {
     try {
+      const sound = this.getSoundForType(soundType);
+      
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           data,
+          sound: sound,
         },
         trigger,
       });
-      console.log('🔔 Notification scheduled:', { title, body, trigger });
+      console.log('🔔 Notification scheduled:', { title, body, trigger, sound });
     } catch (error) {
       console.log('⚠️ Error scheduling notification:', error.message);
     }
