@@ -2,7 +2,7 @@
   "expo": {
     "name": "CHATLI",
     "slug": "chatli-mobile",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.chatli.mobile",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to take photos for posts and profile pictures.",
         "NSPhotoLibraryUsageDescription": "This app accesses your photos to let you share them with your friends.",
