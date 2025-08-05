@@ -509,6 +509,10 @@ export default function App() {
           if (token) {
             await apiService.updatePushToken(token);
             console.log('Push token sent to server successfully');
+            
+            // Also update through push notification service
+            const pushNotificationService = require('./src/services/pushNotificationService').default;
+            await pushNotificationService.updatePushTokenForUser();
           } else {
             console.log('No push token available (this is normal in development)');
           }

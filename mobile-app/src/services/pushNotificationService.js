@@ -86,6 +86,13 @@ class PushNotificationService {
       // Set up notification listeners
       this.setupNotificationListeners();
       
+      // Update push token on server if available
+      if (this.expoPushToken?.data) {
+        setTimeout(async () => {
+          await this.updatePushTokenOnServer();
+        }, 2000); // Delay to ensure user is logged in
+      }
+      
       return true;
     } catch (error) {
       console.error('❌ Error initializing push notifications:', error);
@@ -209,15 +216,25 @@ class PushNotificationService {
       if (!data) return;
       
       // Example navigation logic
-      if (data.type === 'chat') {
+      if (data.type === 'message' || data.type === 'chat') {
         // Navigate to chat screen
         console.log('🔔 Navigating to chat:', data.chatId);
+        // You can add navigation logic here when navigation is available
       } else if (data.type === 'post') {
         // Navigate to post screen
         console.log('🔔 Navigating to post:', data.postId);
       } else if (data.type === 'profile') {
         // Navigate to profile screen
         console.log('🔔 Navigating to profile:', data.userId);
+      } else if (data.type === 'like') {
+        // Navigate to post screen
+        console.log('🔔 Navigating to liked post:', data.postId);
+      } else if (data.type === 'comment') {
+        // Navigate to post screen
+        console.log('🔔 Navigating to commented post:', data.postId);
+      } else if (data.type === 'follow') {
+        // Navigate to profile screen
+        console.log('🔔 Navigating to follower profile:', data.followerId);
       }
     } catch (error) {
       console.log('⚠️ Error handling notification navigation:', error.message);
@@ -227,6 +244,44 @@ class PushNotificationService {
   // Get the push token
   getPushToken() {
     return this.expoPushToken?.data || null;
+  }
+
+  // Update push token on server
+  async updatePushTokenOnServer() {
+    try {
+      const token = this.getPushToken();
+      if (token) {
+        const api = require('./api').default;
+        await api.updatePushToken(token);
+        console.log('✅ Push token updated on server:', token);
+        return true;
+      } else {
+        console.log('⚠️ No push token available to update');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error updating push token on server:', error);
+      return false;
+    }
+  }
+
+  // Update push token when user logs in
+  async updatePushTokenForUser() {
+    try {
+      const token = this.getPushToken();
+      if (token) {
+        const api = require('./api').default;
+        await api.updatePushToken(token);
+        console.log('✅ Push token updated for logged in user:', token);
+        return true;
+      } else {
+        console.log('⚠️ No push token available for user update');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error updating push token for user:', error);
+      return false;
+    }
   }
 
   // Send local notification with custom sound

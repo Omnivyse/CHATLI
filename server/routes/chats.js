@@ -375,7 +375,7 @@ router.post('/:id/messages', auth, [
         const participant = await User.findById(participantId);
         if (participant && participant.pushToken) {
           const messageText = content.text || 'Зураг илгээлээ';
-          await pushNotificationService.sendChatNotification(
+          await pushNotificationService.sendMessageNotification(
             participant.pushToken,
             req.user.name,
             messageText,
