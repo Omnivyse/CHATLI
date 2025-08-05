@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "5c791847-27a9-436f-adb6-eb0c62062380"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.andii363.mongolianthreadschat",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
