@@ -41,6 +41,7 @@ const ChatScreen = ({ navigation, route, user }) => {
   const [lastTap, setLastTap] = useState(null);
   const [reactionAnimations, setReactionAnimations] = useState({});
   const [chatInfo, setChatInfo] = useState(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
 
   useEffect(() => {
     loadMessages();
@@ -367,10 +368,23 @@ const ChatScreen = ({ navigation, route, user }) => {
     if (data.chatId === chatId) {
       setMessages(prev => [...prev, data.message]);
       
-      // Scroll to bottom
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      // Only scroll to bottom if user is near bottom
+      if (isNearBottom) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    }
+  };
+
+  const handleScroll = (event) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const paddingToBottom = 50; // Consider "near bottom" if within 50px
+    const isNearBottomNow = contentOffset.y + layoutMeasurement.height >= contentSize.height - paddingToBottom;
+    
+    if (isNearBottomNow !== isNearBottom) {
+      setIsNearBottom(isNearBottomNow);
+      console.log('Scroll position changed - Near bottom:', isNearBottomNow);
     }
   };
 
@@ -415,7 +429,8 @@ const ChatScreen = ({ navigation, route, user }) => {
         // Emit message to other users
         socketService.sendMessage(chatId, message);
         
-        // Scroll to bottom
+        // Always scroll to bottom when user sends a message
+        setIsNearBottom(true);
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
@@ -689,6 +704,7 @@ const ChatScreen = ({ navigation, route, user }) => {
               contentContainerStyle={[styles.messagesContainer]}
               showsVerticalScrollIndicator={false}
               inverted={true}
+              onScroll={handleScroll}
             />
             {renderTypingIndicator()}
           </>

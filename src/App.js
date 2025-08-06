@@ -3,6 +3,7 @@ import { initializeTheme } from './utils/themeUtils';
 import api from './services/api';
 import socketService from './services/socket';
 import Login from './components/Login';
+import Introduction from './components/Introduction';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import ProfileSettings from './components/ProfileSettings';
@@ -39,6 +40,7 @@ function App() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showVerificationBanner, setShowVerificationBanner] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
 
@@ -386,8 +388,14 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
+  // Show introduction page if user is not logged in and login is not requested
+  if (!user && !showLogin) {
+    return <Introduction onShowLogin={() => setShowLogin(true)} />;
+  }
+
+  // Show login page if user is not logged in and login is requested
+  if (!user && showLogin) {
+    return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
   }
 
   return (

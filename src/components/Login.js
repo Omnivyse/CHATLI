@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import logo from '../assets/logo.png';
 import ForgotPasswordModal from './ForgotPasswordModal';
 
-const Login = ({ onLogin }) => {
+const Login = ({ onLogin, onBack }) => {
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,6 +50,22 @@ const Login = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-white">
+      {/* Back button */}
+      {onBack && (
+        <motion.button
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          onClick={onBack}
+          className="absolute top-8 left-8 z-20 text-white hover:text-gray-300 transition-colors flex items-center space-x-2"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-lg font-medium">Буцах</span>
+        </motion.button>
+      )}
+      
       {/* Animated grayscale blobs */}
       <div className="absolute -top-32 -left-32 w-96 h-96 bg-gray-800 opacity-30 rounded-full filter blur-3xl animate-pulse z-0" />
       <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-gray-300 opacity-30 rounded-full filter blur-3xl animate-pulse z-0" />
