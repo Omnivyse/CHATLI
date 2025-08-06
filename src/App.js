@@ -42,7 +42,23 @@ function App() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
+  // Reset showLogin state when user changes to ensure proper flow
+  useEffect(() => {
+    if (!user) {
+      setShowLogin(false);
+    }
+  }, [user]);
+
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
+
+  // Check for URL parameters that might affect the flow
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const loginParam = urlParams.get('login');
+    if (loginParam === 'true' && !user) {
+      setShowLogin(true);
+    }
+  }, [user]);
 
   useEffect(() => {
     // Initialize theme
@@ -51,6 +67,11 @@ function App() {
 
     // Initialize analytics
     analyticsService.init();
+
+    // Clear any cached state that might interfere with the flow
+    if (!localStorage.getItem('token')) {
+      setShowLogin(false);
+    }
 
     // Check if mobile
     const checkMobile = () => {
@@ -390,12 +411,20 @@ function App() {
 
   // Show introduction page if user is not logged in and login is not requested
   if (!user && !showLogin) {
+    console.log('Showing Introduction page - user:', user, 'showLogin:', showLogin);
     return <Introduction onShowLogin={() => setShowLogin(true)} />;
   }
 
   // Show login page if user is not logged in and login is requested
   if (!user && showLogin) {
+    console.log('Showing Login page - user:', user, 'showLogin:', showLogin);
     return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
+  }
+
+  // Fallback: if no user and no explicit login request, show introduction
+  if (!user) {
+    console.log('Fallback: Showing Introduction page - user:', user, 'showLogin:', showLogin);
+    return <Introduction onShowLogin={() => setShowLogin(true)} />;
   }
 
   return (
