@@ -346,10 +346,36 @@ class ApiService {
   }
 
   async sendMessage(chatId, messageData) {
-    return this.request(`/chats/${chatId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify(messageData),
-    });
+    if (__DEV__) {
+      console.log('📤 Sending message:', {
+        chatId,
+        messageData,
+        token: this.token ? 'Present' : 'Missing'
+      });
+    }
+    
+    try {
+      const response = await this.request(`/chats/${chatId}/messages`, {
+        method: 'POST',
+        body: messageData, // The request method will handle JSON.stringify
+      });
+      
+      if (__DEV__) {
+        console.log('✅ Message sent successfully:', response);
+      }
+      
+      return response;
+    } catch (error) {
+      if (__DEV__) {
+        console.error('❌ Send message error details:', {
+          chatId,
+          messageData,
+          error: error.message,
+          stack: error.stack
+        });
+      }
+      throw error;
+    }
   }
 
   async editMessage(chatId, messageId, newText) {

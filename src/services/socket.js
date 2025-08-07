@@ -12,13 +12,17 @@ class SocketService {
       return;
     }
 
-    this.socket = io(process.env.REACT_APP_SOCKET_URL || (process.env.NODE_ENV === 'production' ? 'https://chatli-production.up.railway.app' : 'http://localhost:5000'), {
+    // Use production URL to match mobile app
+    const socketURL = 'https://chatli-production.up.railway.app';
+    console.log('🔌 WEB: Connecting to socket:', socketURL);
+
+    this.socket = io(socketURL, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
     });
 
     this.socket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('✅ WEB: Socket connected successfully');
       this.isConnected = true;
       
       // Authenticate with token
@@ -28,13 +32,22 @@ class SocketService {
     });
 
     this.socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('❌ WEB: Socket disconnected');
       this.isConnected = false;
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      console.error('❌ WEB: Socket connection error:', error);
       this.isConnected = false;
+    });
+
+    // Add authentication listeners
+    this.socket.on('authenticated', (data) => {
+      console.log('✅ WEB: Socket authenticated successfully');
+    });
+
+    this.socket.on('authentication_failed', (error) => {
+      console.error('❌ WEB: Socket authentication failed:', error);
     });
   }
 
@@ -49,13 +62,22 @@ class SocketService {
   // Join chat room
   joinChat(chatId) {
     if (this.socket && this.isConnected) {
+      console.log('🎯 WEB: Joining chat room:', chatId);
       this.socket.emit('join_chat', chatId);
+    } else {
+      console.warn('⚠️ WEB: Cannot join chat - socket not connected');
+      console.log('🔍 WEB: Socket status:', {
+        socket: !!this.socket,
+        connected: this.isConnected,
+        socketId: this.socket?.id
+      });
     }
   }
 
   // Leave chat room
   leaveChat(chatId) {
     if (this.socket && this.isConnected) {
+      console.log('🎯 WEB: Leaving chat room:', chatId);
       this.socket.emit('leave_chat', chatId);
     }
   }
@@ -80,6 +102,28 @@ class SocketService {
     }
   }
 
+  // Add reaction
+  addReaction(chatId, messageId, userId, emoji, userName) {
+    if (this.socket && this.isConnected) {
+      const data = { chatId, messageId, userId, emoji, userName };
+      console.log('😀 WEB: Adding reaction:', data);
+      this.socket.emit('add_reaction', data);
+    } else {
+      console.warn('⚠️ WEB: Cannot add reaction - socket not connected');
+    }
+  }
+
+  // Remove reaction
+  removeReaction(chatId, messageId, userId, emoji) {
+    if (this.socket && this.isConnected) {
+      const data = { chatId, messageId, userId, emoji };
+      console.log('🗑️ WEB: Removing reaction:', data);
+      this.socket.emit('remove_reaction', data);
+    } else {
+      console.warn('⚠️ WEB: Cannot remove reaction - socket not connected');
+    }
+  }
+
   // Event listeners
   on(event, callback) {
     if (!this.listeners.has(event)) {
@@ -88,6 +132,7 @@ class SocketService {
     this.listeners.get(event).push(callback);
 
     if (this.socket) {
+      console.log('🎧 WEB: Adding listener for event:', event);
       this.socket.on(event, callback);
     }
   }
@@ -100,6 +145,7 @@ class SocketService {
     }
 
     if (this.socket) {
+      console.log('🎧 WEB: Removing listener for event:', event);
       this.socket.off(event, callback);
     }
   }
@@ -115,6 +161,31 @@ class SocketService {
   // Get connection status
   getConnectionStatus() {
     return this.isConnected;
+  }
+
+  // Get socket ID for debugging
+  getSocketId() {
+    return this.socket?.id;
+  }
+
+  // Check if socket is ready
+  isReady() {
+    return this.socket && this.isConnected;
+  }
+
+  // Emit custom events
+  emit(event, data) {
+    if (this.socket && this.isConnected) {
+      console.log('📡 WEB: Emitting event:', event, 'with data:', data);
+      this.socket.emit(event, data);
+    } else {
+      console.warn(`⚠️ WEB: Cannot emit ${event} - socket not connected`);
+      console.log('🔍 WEB: Socket status:', {
+        socket: !!this.socket,
+        connected: this.isConnected,
+        socketId: this.socket?.id
+      });
+    }
   }
 }
 

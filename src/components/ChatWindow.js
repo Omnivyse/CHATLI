@@ -85,6 +85,63 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
     }
   }, [chatId]);
 
+  const handleReactionAdded = useCallback((data) => {
+    console.log('🔥 WEB: Received reaction_added event:', data);
+    
+    if (data.chatId === chatId) {
+      console.log('✅ WEB: Updating message with reaction:', data.messageId);
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          if (msg._id === data.messageId) {
+            const reactions = msg.reactions || [];
+            const existingReaction = reactions.find(r => r.userId === data.userId);
+            
+            if (existingReaction) {
+              // Replace existing reaction
+              const newReactions = reactions.map(r => 
+                r.userId === data.userId 
+                  ? { ...r, emoji: data.emoji, userName: data.userName }
+                  : r
+              );
+              return { ...msg, reactions: newReactions };
+            } else {
+              // Add new reaction
+              const newReactions = [...reactions, { 
+                userId: data.userId, 
+                emoji: data.emoji, 
+                userName: data.userName 
+              }];
+              return { ...msg, reactions: newReactions };
+            }
+          }
+          return msg;
+        })
+      );
+    } else {
+      console.log('WEB: Reaction event for different chat:', data.chatId, 'current chat:', chatId);
+    }
+  }, [chatId]);
+
+  const handleReactionRemoved = useCallback((data) => {
+    console.log('🗑️ WEB: Received reaction_removed event:', data);
+    
+    if (data.chatId === chatId) {
+      console.log('✅ WEB: Removing reaction from message:', data.messageId);
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          if (msg._id === data.messageId) {
+            const reactions = msg.reactions || [];
+            const newReactions = reactions.filter(r => r.userId !== data.userId);
+            return { ...msg, reactions: newReactions };
+          }
+          return msg;
+        })
+      );
+    } else {
+      console.log('WEB: Reaction removal event for different chat:', data.chatId, 'current chat:', chatId);
+    }
+  }, [chatId]);
+
   const handleTypingStart = () => {
     if (!isTyping) {
       setIsTyping(true);
@@ -116,13 +173,53 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
 
   const handleReact = async (messageId, emoji) => {
     try {
+      console.log('🔥 WEB: Adding reaction:', emoji, 'to message:', messageId);
+      
+      // Check existing reaction first
+      const currentMessage = messages.find(msg => String(msg._id) === String(messageId));
+      const existingReaction = currentMessage?.reactions?.find(r => r.userId === user._id);
+      
+      // Update message locally first for immediate feedback
+      setMessages(prevMsgs => prevMsgs.map(msg => {
+        if (String(msg._id) === String(messageId)) {
+          const reactions = msg.reactions || [];
+          
+          if (existingReaction) {
+            if (existingReaction.emoji === emoji) {
+              // Remove reaction if same emoji is tapped
+              const newReactions = reactions.filter(r => r.userId !== user._id);
+              return { ...msg, reactions: newReactions };
+            } else {
+              // Replace existing reaction with new emoji
+              const newReactions = reactions.map(r => 
+                r.userId === user._id 
+                  ? { ...r, emoji, userName: user.name }
+                  : r
+              );
+              return { ...msg, reactions: newReactions };
+            }
+          } else {
+            // Add new reaction
+            const newReactions = [...reactions, { userId: user._id, emoji, userName: user.name }];
+            return { ...msg, reactions: newReactions };
+          }
+        }
+        return msg;
+      }));
+      
+      // Emit socket event for real-time sync
+      if (existingReaction && existingReaction.emoji === emoji) {
+        // Remove reaction
+        socketService.removeReaction(chatId, messageId, user._id, emoji);
+      } else {
+        // Add/replace reaction
+        socketService.addReaction(chatId, messageId, user._id, emoji, user.name);
+      }
+      
+      // Also call API for persistence
       const response = await api.reactToMessage(chatId, messageId, emoji);
-      if (response.success) {
-        setMessages(prevMsgs => prevMsgs.map(msg =>
-          String(msg._id) === String(messageId)
-            ? { ...msg, reactions: response.data.reactions }
-            : msg
-        ));
+      if (!response.success) {
+        console.error('API reaction failed:', response);
       }
     } catch (error) {
       console.error('React to message error:', error);
@@ -163,6 +260,26 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
       // Listen for new messages and typing indicators
       socketService.on('new_message', handleNewMessage);
       socketService.on('user_typing', handleUserTyping);
+      socketService.on('reaction_added', handleReactionAdded);
+      socketService.on('reaction_removed', handleReactionRemoved);
+      
+      // Add test reaction listener
+      socketService.on('test_reaction_received', (data) => {
+        console.log('🧪 WEB: Test reaction received:', data);
+      });
+      
+      // Add debug listeners to verify socket connection
+      socketService.on('connect', () => {
+        console.log('🔌 WEB: Socket connected successfully');
+      });
+      
+      socketService.on('disconnect', () => {
+        console.log('🔌 WEB: Socket disconnected');
+      });
+      
+      socketService.on('chat_joined', (data) => {
+        console.log('✅ WEB: Chat room joined successfully:', data);
+      });
       
       return () => {
         // Leave chat room and stop typing
@@ -170,9 +287,12 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
         socketService.stopTyping(chatId);
         socketService.off('new_message', handleNewMessage);
         socketService.off('user_typing', handleUserTyping);
+        socketService.off('reaction_added', handleReactionAdded);
+        socketService.off('reaction_removed', handleReactionRemoved);
+        socketService.off('test_reaction_received');
       };
     }
-  }, [chatId, handleNewMessage, handleUserTyping, loadChat, loadMessages]);
+  }, [chatId, handleNewMessage, handleUserTyping, handleReactionAdded, handleReactionRemoved, loadChat, loadMessages]);
 
   const handleSendMessage = async (text) => {
     try {

@@ -47,6 +47,15 @@ const ChatScreen = ({ navigation, route, user }) => {
     loadMessages();
     loadChatInfo();
     
+    // Ensure proper scroll position after messages load
+    const ensureScrollPosition = () => {
+      if (flatListRef.current && messages.length > 0) {
+        setTimeout(() => {
+          flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+        }, 200);
+      }
+    };
+    
     // Ensure socket is connected and authenticated before joining chat
     const setupSocket = async () => {
       console.log('🔌 Setting up socket for chat:', chatId);
@@ -169,6 +178,31 @@ const ChatScreen = ({ navigation, route, user }) => {
     };
   }, [chatId]);
 
+  // Handle scroll position when messages change
+  useEffect(() => {
+    if (messages.length > 0 && !loading) {
+      console.log('🔄 Messages updated:', {
+        count: messages.length,
+        firstMessage: messages[0]?.content?.text?.substring(0, 20),
+        lastMessage: messages[messages.length - 1]?.content?.text?.substring(0, 20)
+      });
+      
+      // Remove any duplicates that might have been added
+      setMessages(prev => {
+        const uniqueMessages = prev.filter((message, index, self) => 
+          index === self.findIndex(m => m._id === message._id)
+        );
+        return uniqueMessages;
+      });
+      
+      setTimeout(() => {
+        if (flatListRef.current) {
+          flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+        }
+      }, 100);
+    }
+  }, [messages.length, loading]);
+
   const animateReaction = (messageId, emoji) => {
     const animationKey = `${messageId}-${emoji}`;
     const animatedValue = new Animated.Value(0);
@@ -194,10 +228,32 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   const handleAddReaction = async (message, emoji) => {
     try {
-      console.log('🔥 CLIENT: Adding reaction:', emoji, 'to message:', message._id);
-      console.log('🔥 CLIENT: Current chat ID:', chatId);
-      console.log('🔥 CLIENT: Current user ID:', user._id);
-      console.log('🔥 CLIENT: Socket ready:', socketService.isReady());
+      // Validate inputs
+      if (!message || !message._id) {
+        console.error('❌ Invalid message for reaction:', message);
+        Alert.alert('Алдаа', 'Мессеж олдсонгүй');
+        return;
+      }
+      
+      if (!emoji) {
+        console.error('❌ No emoji provided for reaction');
+        Alert.alert('Алдаа', 'Эмоци сонгоно уу');
+        return;
+      }
+      
+      if (!user || !user._id) {
+        console.error('❌ User not authenticated for reaction');
+        Alert.alert('Алдаа', 'Нэвтрэх эрх дууссан');
+        return;
+      }
+      
+      if (!chatId) {
+        console.error('❌ No chat ID for reaction');
+        Alert.alert('Алдаа', 'Чат ID олдсонгүй');
+        return;
+      }
+      
+      console.log('🔥 MOBILE: Adding reaction:', emoji, 'to message:', message._id);
       
       // Trigger animation
       animateReaction(message._id, emoji);
@@ -215,7 +271,6 @@ const ChatScreen = ({ navigation, route, user }) => {
                 // Remove reaction if same emoji is tapped
                 const newReactions = reactions.filter(r => r.userId !== user._id);
                 
-                console.log('🔥 CLIENT: Removing reaction, calling socketService.removeReaction');
                 // Emit reaction removed event using socket service method
                 socketService.removeReaction(chatId, message._id, user._id, existingReaction.emoji);
                 
@@ -231,7 +286,6 @@ const ChatScreen = ({ navigation, route, user }) => {
                     : r
                 );
                 
-                console.log('🔥 CLIENT: Replacing reaction, calling socketService.addReaction');
                 // Emit reaction updated event using socket service method
                 socketService.addReaction(chatId, message._id, user._id, emoji, user.name);
                 
@@ -244,7 +298,6 @@ const ChatScreen = ({ navigation, route, user }) => {
               // Add new reaction (user has no existing reaction)
               const newReactions = [...reactions, { userId: user._id, emoji, userName: user.name }];
               
-              console.log('🔥 CLIENT: Adding new reaction, calling socketService.addReaction');
               // Emit reaction added event using socket service method
               socketService.addReaction(chatId, message._id, user._id, emoji, user.name);
               
@@ -261,18 +314,19 @@ const ChatScreen = ({ navigation, route, user }) => {
       // Close the modal after adding reaction
       setShowMessageModal(false);
       
-      // Here you would typically send the reaction to your API
-      // const response = await api.addMessageReaction(chatId, message._id, emoji);
+      console.log('✅ MOBILE: Reaction added successfully');
       
     } catch (error) {
-      console.error('❌ CLIENT: Add reaction error:', error);
+      console.error('❌ MOBILE: Add reaction error:', error);
+      Alert.alert('Алдаа', 'Реакци нэмэхэд алдаа гарлаа - Дахин оролдоно уу');
     }
   };
 
   const handleReactionAdded = (data) => {
-    console.log('Received reaction_added event:', data);
+    console.log('🔥 MOBILE: Received reaction_added event:', data);
+    
     if (data.chatId === chatId) {
-      console.log('Updating message with reaction:', data.messageId);
+      console.log('✅ MOBILE: Updating message with reaction:', data.messageId);
       setMessages(prevMessages => 
         prevMessages.map(msg => {
           if (msg._id === data.messageId) {
@@ -286,7 +340,6 @@ const ChatScreen = ({ navigation, route, user }) => {
                   ? { ...r, emoji: data.emoji, userName: data.userName }
                   : r
               );
-              console.log('Replaced reaction, new reactions:', newReactions);
               return { ...msg, reactions: newReactions };
             } else {
               // Add new reaction
@@ -295,7 +348,6 @@ const ChatScreen = ({ navigation, route, user }) => {
                 emoji: data.emoji, 
                 userName: data.userName 
               }];
-              console.log('Added new reaction, new reactions:', newReactions);
               return { ...msg, reactions: newReactions };
             }
           }
@@ -305,31 +357,30 @@ const ChatScreen = ({ navigation, route, user }) => {
       
       // Animate the reaction if it's not from the current user
       if (data.userId !== user._id) {
-        console.log('Animating reaction from other user');
         animateReaction(data.messageId, data.emoji);
       }
     } else {
-      console.log('Reaction event for different chat:', data.chatId, 'current chat:', chatId);
+      console.log('MOBILE: Reaction event for different chat:', data.chatId, 'current chat:', chatId);
     }
   };
 
   const handleReactionRemoved = (data) => {
-    console.log('Received reaction_removed event:', data);
+    console.log('🗑️ MOBILE: Received reaction_removed event:', data);
+    
     if (data.chatId === chatId) {
-      console.log('Removing reaction from message:', data.messageId);
+      console.log('✅ MOBILE: Removing reaction from message:', data.messageId);
       setMessages(prevMessages => 
         prevMessages.map(msg => {
           if (msg._id === data.messageId) {
             const reactions = msg.reactions || [];
             const newReactions = reactions.filter(r => r.userId !== data.userId);
-            console.log('Removed reaction, new reactions:', newReactions);
             return { ...msg, reactions: newReactions };
           }
           return msg;
         })
       );
     } else {
-      console.log('Reaction removal event for different chat:', data.chatId, 'current chat:', chatId);
+      console.log('MOBILE: Reaction removal event for different chat:', data.chatId, 'current chat:', chatId);
     }
   };
 
@@ -349,10 +400,44 @@ const ChatScreen = ({ navigation, route, user }) => {
       setLoading(true);
       const response = await api.getMessages(chatId);
       if (response.success) {
-        setMessages(response.data.messages); // Show messages in correct order (latest at bottom)
+        // For inverted FlatList, we need messages in reverse order (newest first)
+        const messages = response.data.messages || [];
+        
+        // Remove any potential duplicates based on _id
+        const uniqueMessages = messages.filter((message, index, self) => 
+          index === self.findIndex(m => m._id === message._id)
+        );
+        
+        // Reverse the messages so newest appear at the beginning (top of inverted list)
+        const reversedMessages = [...uniqueMessages].reverse();
+        
+        console.log('📥 Loading messages:', {
+          total: uniqueMessages.length,
+          firstMessage: reversedMessages[0]?.content?.text?.substring(0, 20),
+          lastMessage: reversedMessages[reversedMessages.length - 1]?.content?.text?.substring(0, 20)
+        });
+        
+        // Log message order for debugging
+        if (reversedMessages.length > 0) {
+          console.log('📋 Message order check:');
+          reversedMessages.slice(0, 3).forEach((msg, index) => {
+            console.log(`  ${index + 1}. ${msg.content?.text?.substring(0, 30)}... (${new Date(msg.createdAt).toLocaleTimeString()})`);
+          });
+        }
+        
+        setMessages(reversedMessages);
         
         // Mark messages as read
         await api.markChatAsRead(chatId);
+        
+        // Set initial scroll position to bottom (top of inverted list)
+        setTimeout(() => {
+          if (flatListRef.current && reversedMessages.length > 0) {
+            flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+            setIsNearBottom(true); // Ensure we start at the bottom
+            console.log('📱 Initial scroll position set to bottom');
+          }
+        }, 100);
       } else {
         Alert.alert('Алдаа', 'Мессежүүдийг ачаалахад алдаа гарлаа');
       }
@@ -366,12 +451,22 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   const handleNewMessage = (data) => {
     if (data.chatId === chatId) {
-      setMessages(prev => [...prev, data.message]);
+      setMessages(prev => {
+        // Check if message already exists to prevent duplicates
+        const messageExists = prev.some(msg => msg._id === data.message._id);
+        if (messageExists) {
+          return prev;
+        }
+        return [data.message, ...prev]; // Add new message at the beginning for inverted list
+      });
       
-      // Only scroll to bottom if user is near bottom
-      if (isNearBottom) {
+      // Always scroll to bottom for new messages from other users
+      // Only skip auto-scroll if user is actively scrolling up to read older messages
+      if (isNearBottom || data.message.sender._id !== user._id) {
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          if (flatListRef.current) {
+            flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+          }
         }, 100);
       }
     }
@@ -379,12 +474,12 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   const handleScroll = (event) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const paddingToBottom = 50; // Consider "near bottom" if within 50px
-    const isNearBottomNow = contentOffset.y + layoutMeasurement.height >= contentSize.height - paddingToBottom;
+    const paddingToTop = 50; // Consider "near top" (bottom of chat) if within 50px
+    const isNearTopNow = contentOffset.y <= paddingToTop;
     
-    if (isNearBottomNow !== isNearBottom) {
-      setIsNearBottom(isNearBottomNow);
-      console.log('Scroll position changed - Near bottom:', isNearBottomNow);
+    if (isNearTopNow !== isNearBottom) {
+      setIsNearBottom(isNearTopNow);
+      console.log('Scroll position changed - Near bottom (top of inverted list):', isNearTopNow);
     }
   };
 
@@ -416,7 +511,43 @@ const ChatScreen = ({ navigation, route, user }) => {
       setTyping(false);
     }
 
+    // Check server health before sending
     try {
+      const healthCheck = await api.healthCheck();
+      if (!healthCheck.success) {
+        console.warn('⚠️ Server health check failed, but attempting to send message anyway');
+      }
+    } catch (healthError) {
+      console.warn('⚠️ Health check failed:', healthError.message);
+    }
+
+    // Verify user authentication
+    if (!user || !user._id) {
+      console.error('❌ User not authenticated');
+      Alert.alert('Алдаа', 'Нэвтрэх эрх дууссан - Дахин нэвтэрнэ үү');
+      setNewMessage(messageText);
+      setSending(false);
+      return;
+    }
+
+    // Verify chatId is valid
+    if (!chatId || typeof chatId !== 'string') {
+      console.error('❌ Invalid chatId:', chatId);
+      Alert.alert('Алдаа', 'Чат ID буруу байна');
+      setNewMessage(messageText);
+      setSending(false);
+      return;
+    }
+
+    try {
+      if (__DEV__) {
+        console.log('📤 Attempting to send message:', {
+          chatId,
+          messageText,
+          user: user._id
+        });
+      }
+
       const response = await api.sendMessage(chatId, {
         type: 'text',
         content: { text: messageText }
@@ -424,7 +555,18 @@ const ChatScreen = ({ navigation, route, user }) => {
 
       if (response.success) {
         const message = response.data.message;
-        setMessages(prev => [...prev, message]);
+        if (__DEV__) {
+          console.log('✅ Message sent successfully:', message);
+        }
+        
+        setMessages(prev => {
+          // Check if message already exists to prevent duplicates
+          const messageExists = prev.some(msg => msg._id === message._id);
+          if (messageExists) {
+            return prev;
+          }
+          return [message, ...prev]; // Add new message at the beginning for inverted list
+        });
         
         // Emit message to other users
         socketService.sendMessage(chatId, message);
@@ -432,16 +574,70 @@ const ChatScreen = ({ navigation, route, user }) => {
         // Always scroll to bottom when user sends a message
         setIsNearBottom(true);
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          if (flatListRef.current) {
+            flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+          }
         }, 100);
       } else {
-        Alert.alert('Алдаа', 'Мессеж илгээхэд алдаа гарлаа');
+        console.error('❌ Send message failed:', response);
+        
+        // Create a temporary local message for better UX
+        const tempMessage = {
+          _id: `temp_${Date.now()}`,
+          chat: chatId,
+          sender: user,
+          type: 'text',
+          content: { text: messageText },
+          createdAt: new Date().toISOString(),
+          isPending: true
+        };
+        
+        setMessages(prev => [tempMessage, ...prev]);
+        
+        Alert.alert('Алдаа', response.message || 'Мессеж илгээхэд алдаа гарлаа');
         setNewMessage(messageText); // Restore message
       }
     } catch (error) {
-      console.error('Send message error:', error);
-      Alert.alert('Алдаа', 'Мессеж илгээхэд алдаа гарлаа');
-      setNewMessage(messageText); // Restore message
+      console.error('❌ Send message error:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Мессеж илгээхэд алдаа гарлаа';
+      if (error.message) {
+        if (error.message.includes('Серверийн алдаа')) {
+          errorMessage = 'Серверийн алдаа - Дахин оролдоно уу';
+        } else if (error.message.includes('Network request failed')) {
+          errorMessage = 'Сүлжээний алдаа - Интернэт холболтоо шалгана уу';
+        } else if (error.message.includes('Unauthorized')) {
+          errorMessage = 'Нэвтрэх эрх дууссан - Дахин нэвтэрнэ үү';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      // Show retry option for server errors
+      if (error.message && error.message.includes('Серверийн алдаа')) {
+        Alert.alert(
+          'Алдаа', 
+          errorMessage,
+          [
+            {
+              text: 'Цуцлах',
+              style: 'cancel',
+              onPress: () => setNewMessage(messageText)
+            },
+            {
+              text: 'Дахин оролдох',
+              onPress: () => {
+                setNewMessage(messageText);
+                setTimeout(() => sendMessage(), 1000);
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Алдаа', errorMessage);
+        setNewMessage(messageText); // Restore message
+      }
     } finally {
       setSending(false);
     }
@@ -674,10 +870,6 @@ const ChatScreen = ({ navigation, route, user }) => {
           </TouchableOpacity>
           <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Online</Text>
         </View>
-        
-        <TouchableOpacity style={[styles.headerAction, { backgroundColor: colors.surfaceVariant }] }>
-          <Ionicons name="call" size={24} color={colors.primary} />
-        </TouchableOpacity>
       </View>
 
       {/* Messages */}
@@ -695,17 +887,28 @@ const ChatScreen = ({ navigation, route, user }) => {
           </View>
         ) : (
           <>
-            <FlatList
-              ref={flatListRef}
-              data={[...messages].reverse()}
-              renderItem={renderMessage}
-              keyExtractor={(item) => item._id}
-              style={styles.messagesList}
-              contentContainerStyle={[styles.messagesContainer]}
-              showsVerticalScrollIndicator={false}
-              inverted={true}
-              onScroll={handleScroll}
-            />
+                         <FlatList
+               ref={flatListRef}
+               data={messages}
+               renderItem={renderMessage}
+               keyExtractor={(item, index) => `${item._id}-${index}`}
+               style={styles.messagesList}
+               contentContainerStyle={[styles.messagesContainer]}
+               showsVerticalScrollIndicator={false}
+               inverted={true}
+               onScroll={handleScroll}
+               scrollEventThrottle={16}
+               maintainVisibleContentPosition={{
+                 minIndexForVisible: 0,
+                 autoscrollToTopThreshold: 10
+               }}
+               removeClippedSubviews={false}
+               getItemLayout={(data, index) => ({
+                 length: 80, // Approximate height of each message
+                 offset: 80 * index,
+                 index,
+               })}
+             />
             {renderTypingIndicator()}
           </>
         )}
@@ -746,7 +949,7 @@ const ChatScreen = ({ navigation, route, user }) => {
               {sending ? (
                 <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Ionicons name="send" size={20} color={colors.textInverse} />
+                <Ionicons name="send" size={24} color={colors.textInverse} />
               )}
             </TouchableOpacity>
           </View>
@@ -764,7 +967,19 @@ const ChatScreen = ({ navigation, route, user }) => {
             {/* Emoji Row */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16 }}>
               {['❤️','😂','🔥','👀','🫠','👍'].map((emoji, idx) => (
-                <TouchableOpacity key={emoji} style={{ marginHorizontal: 8 }} onPress={() => handleAddReaction(selectedMessage, emoji)}>
+                <TouchableOpacity 
+                  key={emoji} 
+                  style={{ marginHorizontal: 8 }} 
+                  onPress={() => {
+                    if (selectedMessage && selectedMessage._id) {
+                      console.log('🎯 Reaction button pressed:', emoji, 'for message:', selectedMessage._id);
+                      handleAddReaction(selectedMessage, emoji);
+                    } else {
+                      console.error('❌ No selected message for reaction');
+                      Alert.alert('Алдаа', 'Мессеж сонгоно уу');
+                    }
+                  }}
+                >
                   <Text style={{ fontSize: 28 }}>{emoji}</Text>
                 </TouchableOpacity>
               ))}
@@ -971,12 +1186,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     maxHeight: 80, // Reduced from 100 to 80
     marginRight: 8,
-    paddingVertical: 4, // Increased from 2 to 4
+    paddingVertical: 8, // Increased for better vertical centering
+    textAlignVertical: 'center', // Center text vertically
+    minHeight: 40, // Ensure minimum height for proper centering
   },
   sendButton: {
-    width: 32, // Reduced from 36 to 32
-    height: 20, // Reduced from 36 to 20
-    borderRadius: 16, // Reduced from 18 to 16
+    width: 35, // Increased from 32 to 44
+    height: 35, // Increased from 20 to 44
+    borderRadius: 22, // Increased from 16 to 22
     justifyContent: 'center',
     alignItems: 'center',
   },
