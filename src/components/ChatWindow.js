@@ -298,7 +298,7 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
     try {
       let response;
       if (replyingTo) {
-        response = await api.replyToMessage(chatId, replyingTo._id, { text });
+        response = await api.replyToMessage(chatId, replyingTo._id, { content: { text } });
       } else {
         response = await api.sendMessage(chatId, {
           type: 'text',

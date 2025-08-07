@@ -42,6 +42,7 @@ const ChatScreen = ({ navigation, route, user }) => {
   const [reactionAnimations, setReactionAnimations] = useState({});
   const [chatInfo, setChatInfo] = useState(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const [replyingTo, setReplyingTo] = useState(null);
 
   useEffect(() => {
     loadMessages();
@@ -504,6 +505,9 @@ const ChatScreen = ({ navigation, route, user }) => {
     const messageText = newMessage.trim();
     setNewMessage('');
     setSending(true);
+    
+    // Clear reply state after sending
+    setReplyingTo(null);
 
     // Stop typing indicator
     if (typing) {
@@ -548,10 +552,19 @@ const ChatScreen = ({ navigation, route, user }) => {
         });
       }
 
-      const response = await api.sendMessage(chatId, {
-        type: 'text',
-        content: { text: messageText }
-      });
+      let response;
+      if (replyingTo) {
+        // Use the reply endpoint
+        response = await api.replyToMessage(chatId, replyingTo._id, {
+          content: { text: messageText }
+        });
+      } else {
+        // Use the regular send message endpoint
+        response = await api.sendMessage(chatId, {
+          type: 'text',
+          content: { text: messageText }
+        });
+      }
 
       if (response.success) {
         const message = response.data.message;
@@ -678,8 +691,18 @@ const ChatScreen = ({ navigation, route, user }) => {
   };
 
   const handleReply = () => {
-    // Implement reply logic here
-    setShowMessageModal(false);
+    if (selectedMessage) {
+      setReplyingTo(selectedMessage);
+      setShowMessageModal(false);
+      // Focus on the text input
+      setTimeout(() => {
+        // The text input will be focused automatically when replyingTo is set
+      }, 100);
+    }
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
   };
 
   const handleReport = () => {
@@ -766,6 +789,16 @@ const ChatScreen = ({ navigation, route, user }) => {
             ? { backgroundColor: colors.primary }
             : { backgroundColor: colors.surfaceVariant }
         ]}>
+          {/* Reply Context */}
+          {message.replyTo && (
+            <View style={[styles.replyContext, { borderLeftColor: colors.primary }]}>
+              <Text style={[styles.replyContextText, { color: colors.textSecondary }]} numberOfLines={1}>
+                {message.replyTo.sender._id === user._id ? 'You' : message.replyTo.sender.name}: {message.replyTo.content?.text || 'Message'}
+              </Text>
+            </View>
+          )}
+
+          
           {!isMyMessage && (
             <Text style={[styles.senderName, { color: colors.textSecondary }]}>
               {message.sender?.name && typeof message.sender.name === 'string' ? message.sender.name : 'Unknown User'}
@@ -911,6 +944,26 @@ const ChatScreen = ({ navigation, route, user }) => {
              />
             {renderTypingIndicator()}
           </>
+        )}
+
+        {/* Reply Preview */}
+        {replyingTo && (
+          <View style={[styles.replyPreview, { backgroundColor: colors.surfaceVariant, borderTopColor: colors.border }]}>
+            <View style={styles.replyPreviewContent}>
+              <View style={styles.replyPreviewHeader}>
+                <Ionicons name="arrow-undo" size={16} color={colors.primary} />
+                <Text style={[styles.replyPreviewTitle, { color: colors.primary }]}>
+                  Replying to {replyingTo.sender._id === user._id ? 'yourself' : replyingTo.sender.name}
+                </Text>
+              </View>
+              <Text style={[styles.replyPreviewText, { color: colors.textSecondary }]} numberOfLines={1}>
+                {replyingTo.content?.text || 'Message'}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={cancelReply} style={styles.replyCancelButton}>
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Input */}
@@ -1238,6 +1291,43 @@ const styles = StyleSheet.create({
   avatarLogo: {
     width: '100%',
     height: '100%',
+  },
+  replyPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+  },
+  replyPreviewContent: {
+    flex: 1,
+  },
+  replyPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  replyPreviewTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  replyPreviewText: {
+    fontSize: 14,
+    marginLeft: 20,
+  },
+  replyCancelButton: {
+    padding: 8,
+  },
+  replyContext: {
+    borderLeftWidth: 3,
+    paddingLeft: 8,
+    marginBottom: 4,
+    opacity: 0.7,
+  },
+  replyContextText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
 });
 
