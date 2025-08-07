@@ -19,12 +19,14 @@ import socketService from '../services/socket';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useNavigationState } from '../contexts/NavigationContext';
 import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 
 const ChatListScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
+  const { updateNavigationState } = useNavigationState();
   const colors = getThemeColors(theme);
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,9 @@ const ChatListScreen = ({ navigation, user }) => {
 
   useEffect(() => {
     loadChats();
-  }, [loadChats]);
+    // Update navigation state when chat list screen is focused
+    updateNavigationState('ChatList', null);
+  }, [loadChats, updateNavigationState]);
 
   useFocusEffect(
     useCallback(() => {

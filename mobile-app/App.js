@@ -12,6 +12,7 @@ import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './src/contexts/LanguageContext';
+import { NavigationProvider, useNavigationState } from './src/contexts/NavigationContext';
 import { getTranslation } from './src/utils/translations';
 import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors, getThemeColors } from './src/utils/themeUtils';
 
@@ -19,7 +20,7 @@ import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNav
 import apiService from './src/services/api';
 import socketService from './src/services/socket';
 import analyticsService from './src/services/analyticsService';
-import pushNotificationService from './src/services/pushNotificationService';
+import pushNotificationService, { setNavigationStateRef } from './src/services/pushNotificationService';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -368,6 +369,7 @@ export default function App() {
 
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification received:', notification);
+      // The actual notification suppression will be handled in the pushNotificationService
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
@@ -601,23 +603,25 @@ export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <SafeAreaProvider>
-          <AppContent 
-            user={user} 
-            onLogout={handleLogout} 
-            onLogin={handleLogin}
-            showSplash={showSplash}
-            onSplashComplete={handleSplashComplete}
-            showVerificationBanner={showVerificationBanner}
-            showVerificationModal={showVerificationModal}
-            setShowVerificationModal={setShowVerificationModal}
-            onVerificationSuccess={handleVerificationSuccess}
-            onGoToVerification={handleGoToVerification}
-            onCancelVerification={handleCancelVerification}
-            // showWelcomeModal={showWelcomeModal} // This line is removed
-            // setShowWelcomeModal={setShowWelcomeModal} // This line is removed
-          />
-        </SafeAreaProvider>
+        <NavigationProvider>
+          <SafeAreaProvider>
+            <AppContent 
+              user={user} 
+              onLogout={handleLogout} 
+              onLogin={handleLogin}
+              showSplash={showSplash}
+              onSplashComplete={handleSplashComplete}
+              showVerificationBanner={showVerificationBanner}
+              showVerificationModal={showVerificationModal}
+              setShowVerificationModal={setShowVerificationModal}
+              onVerificationSuccess={handleVerificationSuccess}
+              onGoToVerification={handleGoToVerification}
+              onCancelVerification={handleCancelVerification}
+              // showWelcomeModal={showWelcomeModal} // This line is removed
+              // setShowWelcomeModal={setShowWelcomeModal} // This line is removed
+            />
+          </SafeAreaProvider>
+        </NavigationProvider>
       </LanguageProvider>
     </ThemeProvider>
   );
@@ -638,8 +642,14 @@ function AppContent({
 }) {
   const { theme, isLoading } = useTheme();
   const { language, isLoading: languageLoading } = useLanguage();
+  const navigationState = useNavigationState();
   const statusBarStyle = getStatusBarStyle(theme);
   const statusBarBackgroundColor = getStatusBarBackgroundColor(theme);
+
+  // Set navigation state reference for push notification service
+  useEffect(() => {
+    setNavigationStateRef(navigationState);
+  }, [navigationState]);
 
   if (isLoading || languageLoading) {
     return <LoadingScreen />;

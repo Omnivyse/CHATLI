@@ -23,11 +23,13 @@ import api from '../services/api';
 import socketService from '../services/socket';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
+import { useNavigationState } from '../contexts/NavigationContext';
 
 const ChatScreen = ({ navigation, route, user }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const { chatId, chatTitle } = route.params;
+  const { updateNavigationState } = useNavigationState();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,9 @@ const ChatScreen = ({ navigation, route, user }) => {
         }, 200);
       }
     };
+    
+    // Update navigation state when chat screen is focused
+    updateNavigationState('Chat', chatId);
     
     // Ensure socket is connected and authenticated before joining chat
     const setupSocket = async () => {
@@ -180,8 +185,11 @@ const ChatScreen = ({ navigation, route, user }) => {
       if (typing) {
         socketService.stopTyping(chatId);
       }
+      
+      // Update navigation state when leaving
+      updateNavigationState(null, null);
     };
-  }, [chatId]);
+  }, [chatId, updateNavigationState]);
 
   // Handle scroll position when messages change
   useEffect(() => {

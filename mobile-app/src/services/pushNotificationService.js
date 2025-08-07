@@ -3,6 +3,13 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+// Navigation state tracking
+let navigationStateRef = null;
+
+export const setNavigationStateRef = (ref) => {
+  navigationStateRef = ref;
+};
+
 // Configure notification behavior with custom sounds
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -197,6 +204,15 @@ class PushNotificationService {
     try {
       const { title, body, data } = notification.request.content;
       console.log('🔔 Handling notification:', { title, body, data });
+      
+      // Check if we should suppress this notification based on navigation state
+      if (navigationStateRef && navigationStateRef.shouldShowNotification) {
+        const shouldShow = navigationStateRef.shouldShowNotification(data);
+        if (!shouldShow) {
+          console.log('🔔 Notification suppressed - user already in relevant screen');
+          return;
+        }
+      }
       
       // Handle different notification types
       if (data) {

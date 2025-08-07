@@ -18,6 +18,7 @@ import EventCreationModal from '../components/EventCreationModal';
 import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useNavigationState } from '../contexts/NavigationContext';
 import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 import Toast from 'react-native-toast-message';
@@ -27,6 +28,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
+  const { updateNavigationState } = useNavigationState();
   const colors = getThemeColors(theme);
   const [posts, setPosts] = useState([]);
   const [topWeeklyPosts, setTopWeeklyPosts] = useState([]);
@@ -155,7 +157,9 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
 
   useEffect(() => {
     fetchPosts();
-  }, [user, user?.emailVerified]);
+    // Update navigation state when post feed screen is focused
+    updateNavigationState('PostFeed', null);
+  }, [user, user?.emailVerified, updateNavigationState]);
 
   useEffect(() => {
     fetchEvents();
