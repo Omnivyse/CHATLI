@@ -106,6 +106,7 @@ router.get('/', auth, async (req, res) => {
         }
         
         // For secret posts, show only basic info (no content) to unverified users
+        // But keep the passwordVerifiedUsers array so frontend can check verification status
         post.content = '🔒 This is a secret post. Enter the password to view content.';
         post.media = []; // Hide media for unverified users
         return true; // Show the post but with hidden content

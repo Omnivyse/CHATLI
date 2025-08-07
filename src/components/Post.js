@@ -23,9 +23,29 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
   const [isSecretPostUnlocked, setIsSecretPostUnlocked] = useState(false);
   const [secretPassword, setSecretPassword] = useState('');
 
+  // Check if user has already verified this secret post
+  const isUserVerified = localPost.passwordVerifiedUsers && localPost.passwordVerifiedUsers.includes(user._id);
+  const isPostAuthor = localPost.author._id === user._id;
+  const shouldShowSecretContent = isPostAuthor || isUserVerified || isSecretPostUnlocked;
+  
+  // Debug logging for secret posts
+  if (localPost.isSecret) {
+    console.log('🔒 Secret post debug:', {
+      postId: localPost._id,
+      isPostAuthor,
+      isUserVerified,
+      isSecretPostUnlocked,
+      shouldShowSecretContent,
+      passwordVerifiedUsers: localPost.passwordVerifiedUsers,
+      userId: user._id
+    });
+  }
+
   // Update local post when prop changes
   useEffect(() => {
     setLocalPost(post);
+    // Reset secret post unlock state when post changes
+    setIsSecretPostUnlocked(false);
   }, [post]);
 
   const handleLike = async () => {
@@ -69,10 +89,11 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
     try {
       const response = await api.verifySecretPostPassword(localPost._id, password);
       if (response.success) {
+        // Update local post with server response to include the user in passwordVerifiedUsers
+        setLocalPost(response.data.post);
         setIsSecretPostUnlocked(true);
         setSecretPasswordModalOpen(false);
         setSecretPassword('');
-        // Don't update the post with server data - keep local state only
       }
     } catch (error) {
       alert(error.message || 'Failed to verify password');
@@ -80,13 +101,13 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
   };
 
   const handleSecretPostPress = () => {
-    // Check if user is the author
-    if (localPost.author._id === user._id) {
+    // Check if user is the author or already verified
+    if (isPostAuthor || isUserVerified) {
       setIsSecretPostUnlocked(true);
       return;
     }
     
-    // Show password modal - no persistent verification
+    // Show password modal for verification
     setSecretPasswordModalOpen(true);
   };
 
@@ -152,11 +173,11 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       </div>
       <div
         className={`mb-2 whitespace-pre-line cursor-pointer hover:bg-muted/50 dark:hover:bg-muted-dark/50 rounded transition text-foreground dark:text-foreground-dark ${
-          localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id ? 'relative' : ''
+          localPost.isSecret && !shouldShowSecretContent ? 'relative' : ''
         }`}
         onClick={() => {
           // Check if post is secret and user hasn't unlocked it
-          if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+          if (localPost.isSecret && !shouldShowSecretContent) {
             handleSecretPostPress();
           } else {
             setShowModal(true);
@@ -164,10 +185,10 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         }}
       >
         <div className="flex items-start gap-2">
-          {localPost.isSecret && localPost.author._id !== user._id && (
+          {localPost.isSecret && !isPostAuthor && (
             <div className="flex-shrink-0 mt-1">
               <svg className={`w-4 h-4 ${
-                isSecretPostUnlocked ? 'text-primary dark:text-primary-dark' : 'text-secondary dark:text-secondary-dark'
+                shouldShowSecretContent ? 'text-primary dark:text-primary-dark' : 'text-secondary dark:text-secondary-dark'
               }`} fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
               </svg>
@@ -177,7 +198,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
             {localPost.content}
           </div>
         </div>
-        {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id && (
+        {localPost.isSecret && !shouldShowSecretContent && (
           <div className="absolute inset-0 bg-black/60 rounded flex items-center justify-center backdrop-blur-sm">
             <div className="text-center text-white bg-black/40 rounded-lg p-4 backdrop-blur-sm">
               <svg className="w-8 h-8 mx-auto mb-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -190,7 +211,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       </div>
       {/* Media carousel for new posts */}
       {Array.isArray(localPost.media) && localPost.media.length > 0 && !settingsModalOpen && (
-        localPost.isSecret && !isSecretPostUnlocked ? (
+        localPost.isSecret && !shouldShowSecretContent ? (
           <div 
             className="relative w-full h-48 bg-muted dark:bg-muted-dark rounded-lg border-2 border-dashed border-border dark:border-border-dark flex items-center justify-center cursor-pointer hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-all duration-200"
             onClick={handleSecretPostPress}
@@ -228,7 +249,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                   className="max-h-80 w-auto mx-auto rounded object-contain border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
                   onClick={() => {
                     // Check if post is secret and user hasn't unlocked it
-                    if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+                    if (localPost.isSecret && !shouldShowSecretContent) {
                       handleSecretPostPress();
                     } else {
                       setShowModal(true);
@@ -243,7 +264,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                   className="rounded border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
                   onClick={() => {
                     // Check if post is secret and user hasn't unlocked it
-                    if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+                    if (localPost.isSecret && !shouldShowSecretContent) {
                       handleSecretPostPress();
                     } else {
                       handleOpenModal();
@@ -296,7 +317,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           className="max-h-80 w-auto mx-auto rounded mb-2 object-contain cursor-pointer hover:opacity-80 transition"
           onClick={() => {
             // Check if post is secret and user hasn't unlocked it
-            if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+            if (localPost.isSecret && !shouldShowSecretContent) {
               handleSecretPostPress();
             } else {
               setShowModal(true);
@@ -312,7 +333,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           className="rounded mb-2 cursor-pointer hover:opacity-80 transition"
           onClick={() => {
             // Check if post is secret and user hasn't unlocked it
-            if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+            if (localPost.isSecret && !shouldShowSecretContent) {
               handleSecretPostPress();
             } else {
               handleOpenModal();
@@ -333,7 +354,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           className="flex items-center gap-1 text-secondary dark:text-secondary-dark cursor-pointer hover:text-primary dark:hover:text-primary-dark"
           onClick={() => {
             // Check if post is secret and user hasn't unlocked it
-            if (localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user._id) {
+            if (localPost.isSecret && !shouldShowSecretContent) {
               handleSecretPostPress();
             } else {
               setShowModal(true);

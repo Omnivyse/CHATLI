@@ -68,12 +68,12 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
         <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-muted dark:hover:bg-muted-dark z-50">
           <XIcon className="w-5 h-5 text-foreground dark:text-foreground-dark" />
         </button>
-        <h2 className="text-center text-lg font-semibold mb-4 text-foreground dark:text-foreground-dark">Шинэ пост</h2>
+        <h2 className="text-center text-lg font-semibold mb-4 text-foreground dark:text-foreground-dark">New Post</h2>
         <form onSubmit={handleCreatePost} className="flex flex-col gap-4">
           <textarea
             ref={textareaRef}
             className="w-full p-3 rounded-xl border border-border dark:border-border-dark bg-muted dark:bg-muted-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition placeholder:text-secondary dark:placeholder:text-secondary-dark text-base resize-none min-h-[60px] text-foreground dark:text-foreground-dark"
-            placeholder="Юу бодож байна?"
+            placeholder="What's on your mind?"
             value={content}
             onChange={e => setContent(e.target.value)}
             rows={3}

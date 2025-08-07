@@ -59,20 +59,20 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
       const res = await api.getPosts();
       if (res.success) {
         setPosts(res.data.posts);
-      } else {
-        setError(res.message || 'Пост уншихад алдаа гарлаа');
-      }
+             } else {
+         setError(res.message || 'Error loading posts');
+       }
     } catch (e) {
       console.error('Fetch posts error:', e);
-      if (e.message.includes('401')) {
-        setError('Нэвтрэх шаардлагатай');
-      } else if (e.message.includes('500')) {
-        setError('Серверийн алдаа - дахин оролдоно уу');
-      } else if (e.message.includes('Network')) {
-        setError('Сүлжээний алдаа - холболтоо шалгана уу');
-      } else {
-        setError('Пост уншихад алдаа гарлаа');
-      }
+             if (e.message.includes('401')) {
+         setError('Login required');
+       } else if (e.message.includes('500')) {
+         setError('Server error - please try again');
+       } else if (e.message.includes('Network')) {
+         setError('Network error - check your connection');
+       } else {
+         setError('Error loading posts');
+       }
     } finally {
       setLoading(false);
     }
@@ -86,22 +86,22 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
           {/* Desktop Layout - Horizontal */}
           <div className="flex items-center gap-3">
             <input
-              className="flex-1 bg-muted dark:bg-muted-dark rounded-full px-4 py-2 border border-border dark:border-border-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition placeholder:text-secondary dark:placeholder:text-secondary-dark text-base cursor-pointer"
-              placeholder="Юу бодож байна?"
+              className="flex-1 bg-muted dark:bg-muted-dark rounded-full px-4 py-2 border border-border dark:border-border-dark focus:bg-white dark:focus:bg-background-dark focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 transition placeholder:text-secondary dark:placeholder:text-secondary-dark text-base cursor-pointer text-black dark:text-white"
+              placeholder="What's on your mind?"
               onFocus={() => setShowModal(true)}
               readOnly
             />
-            <button
-              className="px-6 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-full font-semibold hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition"
-              onClick={() => setShowModal(true)}
-            >
-              Постлох
-            </button>
-            <button
-              className="p-2 bg-muted dark:bg-muted-dark text-primary dark:text-primary-dark rounded-full hover:bg-primary/10 dark:hover:bg-primary-dark/10 transition flex items-center justify-center"
-              title="Хэрэглэгч хайх"
-              onClick={() => setShowUserSearchModal(true)}
-            >
+                         <button
+               className="px-6 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-full font-semibold hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition"
+               onClick={() => setShowModal(true)}
+             >
+               Post
+             </button>
+                         <button
+               className="p-2 bg-muted dark:bg-muted-dark text-primary dark:text-primary-dark rounded-full hover:bg-primary/10 dark:hover:bg-primary-dark/10 transition flex items-center justify-center"
+               title="Search Users"
+               onClick={() => setShowUserSearchModal(true)}
+             >
               <SearchIcon className="w-5 h-5" />
             </button>
           </div>
@@ -127,20 +127,20 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
       ) : error ? (
         <div className="text-center py-8">
           <div className="text-red-500 mb-4">{error}</div>
-          <button
-            onClick={fetchPosts}
-            className="px-4 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors"
-          >
-            Дахин оролдох
-          </button>
+                     <button
+             onClick={fetchPosts}
+             className="px-4 py-2 bg-primary dark:bg-primary-dark text-white dark:text-black rounded-lg hover:bg-primary/90 dark:hover:bg-primary-dark/90 transition-colors"
+           >
+             Try Again
+           </button>
         </div>
-      ) : user && !user.emailVerified ? (
-        <div className="text-center py-8">
-          <div className="text-secondary dark:text-secondary-dark mb-2">Имэйл хаягаа баталгаажуулна уу</div>
-          <div className="text-sm text-secondary dark:text-secondary-dark">Постуудыг харахын тулд имэйл хаягаа баталгаажуулна уу</div>
-        </div>
-      ) : posts.length === 0 ? (
-        <div className="text-center text-secondary dark:text-secondary-dark">Пост байхгүй байна</div>
+             ) : user && !user.emailVerified ? (
+         <div className="text-center py-8">
+           <div className="text-secondary dark:text-secondary-dark mb-2">Please verify your email</div>
+           <div className="text-sm text-secondary dark:text-secondary-dark">Verify your email to view posts</div>
+         </div>
+       ) : posts.length === 0 ? (
+         <div className="text-center text-secondary dark:text-secondary-dark">No posts available</div>
       ) : (
         <div className="space-y-6">
           {posts.map(post => (
