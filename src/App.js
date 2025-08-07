@@ -43,6 +43,7 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
 
   // Reset showLogin state when user changes to ensure proper flow
+  // This ensures the introduction page is always the default home page
   useEffect(() => {
     if (!user) {
       setShowLogin(false);
@@ -409,21 +410,17 @@ function App() {
     );
   }
 
-  // Show introduction page if user is not logged in and login is not requested
-  if (!user && !showLogin) {
-    console.log('Showing Introduction page - user:', user, 'showLogin:', showLogin);
-    return <Introduction onShowLogin={() => setShowLogin(true)} />;
-  }
-
-  // Show login page if user is not logged in and login is requested
-  if (!user && showLogin) {
-    console.log('Showing Login page - user:', user, 'showLogin:', showLogin);
-    return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
-  }
-
-  // Fallback: if no user and no explicit login request, show introduction
+  // Show introduction page as default home page for non-authenticated users
+  // This is the landing page that users see when they first visit the site
   if (!user) {
-    console.log('Fallback: Showing Introduction page - user:', user, 'showLogin:', showLogin);
+    // Only show login if explicitly requested via URL parameter or button click
+    if (showLogin) {
+      console.log('Showing Login page - user:', user, 'showLogin:', showLogin);
+      return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
+    }
+    
+    // Default: Show introduction page (this is the home page)
+    console.log('Showing Introduction page (default home) - user:', user, 'showLogin:', showLogin);
     return <Introduction onShowLogin={() => setShowLogin(true)} />;
   }
 
