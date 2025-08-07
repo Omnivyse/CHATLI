@@ -101,7 +101,9 @@ router.get('/', auth, async (req, res) => {
         }
         
         // Check if user has verified this secret post
+        console.log(`🔒 Secret post ${post._id} - passwordVerifiedUsers:`, post.passwordVerifiedUsers, 'user:', req.user._id);
         if (post.passwordVerifiedUsers && post.passwordVerifiedUsers.includes(req.user._id)) {
+          console.log(`✅ User ${req.user._id} already verified for post ${post._id}`);
           return true;
         }
         
@@ -109,6 +111,10 @@ router.get('/', auth, async (req, res) => {
         // But keep the passwordVerifiedUsers array so frontend can check verification status
         post.content = '🔒 This is a secret post. Enter the password to view content.';
         post.media = []; // Hide media for unverified users
+        // Ensure passwordVerifiedUsers array is preserved for frontend verification checks
+        if (!post.passwordVerifiedUsers) {
+          post.passwordVerifiedUsers = [];
+        }
         return true; // Show the post but with hidden content
       }
       
@@ -299,8 +305,10 @@ router.post('/:id/verify-password', auth, [
     }
     
     // Add user to verified users list
+    console.log(`🔐 Adding user ${req.user._id} to passwordVerifiedUsers for post ${post._id}`);
     post.passwordVerifiedUsers.push(req.user._id);
     await post.save();
+    console.log(`✅ Post ${post._id} passwordVerifiedUsers after save:`, post.passwordVerifiedUsers);
     
     await post.populate('author', 'name avatar isVerified');
     

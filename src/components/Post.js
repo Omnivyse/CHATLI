@@ -43,6 +43,12 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
 
   // Update local post when prop changes
   useEffect(() => {
+    console.log('🔄 Post prop changed:', {
+      postId: post._id,
+      isSecret: post.isSecret,
+      passwordVerifiedUsers: post.passwordVerifiedUsers,
+      content: post.content
+    });
     setLocalPost(post);
     // Reset secret post unlock state when post changes
     setIsSecretPostUnlocked(false);
@@ -87,15 +93,19 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
 
   const handleSecretPostPassword = async (password) => {
     try {
+      console.log('🔐 Verifying password for post:', localPost._id);
       const response = await api.verifySecretPostPassword(localPost._id, password);
+      console.log('🔐 Server response:', response);
       if (response.success) {
         // Update local post with server response to include the user in passwordVerifiedUsers
+        console.log('✅ Password verified, updating local post with:', response.data.post);
         setLocalPost(response.data.post);
         setIsSecretPostUnlocked(true);
         setSecretPasswordModalOpen(false);
         setSecretPassword('');
       }
     } catch (error) {
+      console.error('❌ Password verification failed:', error);
       alert(error.message || 'Failed to verify password');
     }
   };
