@@ -229,6 +229,22 @@ class SocketService {
     }
   }
 
+  // Delete message
+  deleteMessage(chatId, messageId, userId) {
+    if (this.socket && this.isConnected) {
+      const data = { chatId, messageId, userId };
+      console.log('🗑️ Deleting message:', data);
+      this.socket.emit('delete_message', data);
+    } else {
+      console.warn('⚠️ Cannot delete message - socket not connected');
+      console.log('🔍 Socket status:', {
+        socket: !!this.socket,
+        connected: this.isConnected,
+        socketId: this.socket?.id
+      });
+    }
+  }
+
   // Typing indicators
   startTyping(chatId) {
     if (this.socket && this.isConnected) {

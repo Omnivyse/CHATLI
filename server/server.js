@@ -456,7 +456,45 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Test event for debugging
+  // Delete message
+  socket.on('delete_message', (data) => {
+    try {
+      const { chatId, messageId, userId } = data;
+      console.log(`🗑️ MESSAGE DELETED: message ${messageId} in chat ${chatId} by user ${userId}`);
+      console.log(`📡 Broadcasting to chat room: chat_${chatId}`);
+      
+      // Get the number of users in the chat room
+      const chatRoom = io.sockets.adapter.rooms.get(`chat_${chatId}`);
+      const userCount = chatRoom ? chatRoom.size : 0;
+      console.log(`👥 Users in chat room: ${userCount}`);
+      
+      // Broadcast message deletion to ALL users in the chat room
+      io.to(`chat_${chatId}`).emit('message_deleted', {
+        chatId,
+        messageId,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      
+      console.log(`✅ Message deletion broadcasted successfully to ${userCount} users`);
+      
+      // Send acknowledgment to sender
+      socket.emit('message_deleted_ack', {
+        success: true,
+        messageId,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Delete message error:', error);
+      socket.emit('message_deleted_ack', {
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Test reaction event
   socket.on('test_reaction', (data) => {
     console.log(`🧪 TEST REACTION EVENT RECEIVED:`, data);
     socket.to(`chat_${data.chatId}`).emit('test_reaction_received', {

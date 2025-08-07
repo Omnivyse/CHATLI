@@ -124,6 +124,17 @@ class SocketService {
     }
   }
 
+  // Delete message
+  deleteMessage(chatId, messageId, userId) {
+    if (this.socket && this.isConnected) {
+      const data = { chatId, messageId, userId };
+      console.log('🗑️ WEB: Deleting message:', data);
+      this.socket.emit('delete_message', data);
+    } else {
+      console.warn('⚠️ WEB: Cannot delete message - socket not connected');
+    }
+  }
+
   // Event listeners
   on(event, callback) {
     if (!this.listeners.has(event)) {

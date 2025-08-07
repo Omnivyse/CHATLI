@@ -142,6 +142,19 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
     }
   }, [chatId]);
 
+  const handleMessageDeleted = useCallback((data) => {
+    console.log('🗑️ WEB: Received message_deleted event:', data);
+    
+    if (data.chatId === chatId) {
+      console.log('✅ WEB: Removing message from chat:', data.messageId);
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg._id !== data.messageId)
+      );
+    } else {
+      console.log('WEB: Message deletion event for different chat:', data.chatId, 'current chat:', chatId);
+    }
+  }, [chatId]);
+
   const handleTypingStart = () => {
     if (!isTyping) {
       setIsTyping(true);
@@ -226,9 +239,25 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
     }
   };
 
-  const handleMessageDelete = (messageId) => {
-    // Remove the deleted message from state
-    setMessages(prevMsgs => prevMsgs.filter(msg => msg._id !== messageId));
+  const handleMessageDelete = async (messageId) => {
+    try {
+      // Call API to delete the message
+      const response = await api.deleteMessage(chatId, messageId);
+      
+      if (response.success) {
+        // Remove the deleted message from state
+        setMessages(prevMsgs => prevMsgs.filter(msg => msg._id !== messageId));
+        
+        // Emit socket event to notify other users in real-time
+        socketService.deleteMessage(chatId, messageId, user._id);
+        
+        console.log('✅ WEB: Message deleted successfully:', messageId);
+      } else {
+        console.error('❌ WEB: Failed to delete message:', response);
+      }
+    } catch (error) {
+      console.error('❌ WEB: Delete message error:', error);
+    }
   };
 
   const handleDeleteChat = async () => {
@@ -262,6 +291,7 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
       socketService.on('user_typing', handleUserTyping);
       socketService.on('reaction_added', handleReactionAdded);
       socketService.on('reaction_removed', handleReactionRemoved);
+      socketService.on('message_deleted', handleMessageDeleted);
       
       // Add test reaction listener
       socketService.on('test_reaction_received', (data) => {
@@ -289,10 +319,11 @@ const ChatWindow = ({ chatId, user, onBack, isMobile, onChatDeleted, updateChatL
         socketService.off('user_typing', handleUserTyping);
         socketService.off('reaction_added', handleReactionAdded);
         socketService.off('reaction_removed', handleReactionRemoved);
+        socketService.off('message_deleted', handleMessageDeleted);
         socketService.off('test_reaction_received');
       };
     }
-  }, [chatId, handleNewMessage, handleUserTyping, handleReactionAdded, handleReactionRemoved, loadChat, loadMessages]);
+  }, [chatId, handleNewMessage, handleUserTyping, handleReactionAdded, handleReactionRemoved, handleMessageDeleted, loadChat, loadMessages]);
 
   const handleSendMessage = async (text) => {
     try {

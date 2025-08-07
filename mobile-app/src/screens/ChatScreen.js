@@ -42,7 +42,7 @@ const ChatScreen = ({ navigation, route, user }) => {
   const [reactionAnimations, setReactionAnimations] = useState({});
   const [chatInfo, setChatInfo] = useState(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
-  const [replyingTo, setReplyingTo] = useState(null);
+  // Removed replyingTo state temporarily
 
   useEffect(() => {
     loadMessages();
@@ -145,6 +145,9 @@ const ChatScreen = ({ navigation, route, user }) => {
       console.log('👤 User joined chat:', data);
     });
     
+    // Listen for message deletion events
+    socketService.on('message_deleted', handleMessageDeleted);
+
     // Test socket connection
     setTimeout(() => {
       console.log('Socket status after 2 seconds:', socketService.getConnectionStatus());
@@ -171,6 +174,7 @@ const ChatScreen = ({ navigation, route, user }) => {
       socketService.off('reaction_removed_ack');
       socketService.off('test_chat_join_response');
       socketService.off('user_joined_chat');
+      socketService.off('message_deleted', handleMessageDeleted);
       
       // Stop typing when leaving
       if (typing) {
@@ -385,6 +389,25 @@ const ChatScreen = ({ navigation, route, user }) => {
     }
   };
 
+  const handleMessageDeleted = (data) => {
+    console.log('🗑️ MOBILE: Received message_deleted event:', data);
+    
+    if (data.chatId === chatId) {
+      console.log('✅ MOBILE: Removing message from chat:', data.messageId);
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg._id !== data.messageId)
+      );
+      
+      // Close modal if the deleted message was selected
+      if (selectedMessage && selectedMessage._id === data.messageId) {
+        setShowMessageModal(false);
+        setSelectedMessage(null);
+      }
+    } else {
+      console.log('MOBILE: Message deletion event for different chat:', data.chatId, 'current chat:', chatId);
+    }
+  };
+
   const loadChatInfo = async () => {
     try {
       const response = await api.getChat(chatId);
@@ -507,7 +530,7 @@ const ChatScreen = ({ navigation, route, user }) => {
     setSending(true);
     
     // Clear reply state after sending
-    setReplyingTo(null);
+    // Removed replyingTo(null);
 
     // Stop typing indicator
     if (typing) {
@@ -553,18 +576,11 @@ const ChatScreen = ({ navigation, route, user }) => {
       }
 
       let response;
-      if (replyingTo) {
-        // Use the reply endpoint
-        response = await api.replyToMessage(chatId, replyingTo._id, {
-          content: { text: messageText }
-        });
-      } else {
-        // Use the regular send message endpoint
-        response = await api.sendMessage(chatId, {
-          type: 'text',
-          content: { text: messageText }
-        });
-      }
+      // Removed replyingTo logic
+      response = await api.sendMessage(chatId, {
+        type: 'text',
+        content: { text: messageText }
+      });
 
       if (response.success) {
         const message = response.data.message;
@@ -691,18 +707,11 @@ const ChatScreen = ({ navigation, route, user }) => {
   };
 
   const handleReply = () => {
-    if (selectedMessage) {
-      setReplyingTo(selectedMessage);
-      setShowMessageModal(false);
-      // Focus on the text input
-      setTimeout(() => {
-        // The text input will be focused automatically when replyingTo is set
-      }, 100);
-    }
+    // Removed replyingTo(null);
   };
 
   const cancelReply = () => {
-    setReplyingTo(null);
+    // Removed replyingTo(null);
   };
 
   const handleReport = () => {
@@ -710,9 +719,67 @@ const ChatScreen = ({ navigation, route, user }) => {
     setShowMessageModal(false);
   };
 
+  const handleUnsend = async () => {
+    if (!selectedMessage) {
+      Alert.alert('Алдаа', 'Мессеж сонгоно уу');
+      return;
+    }
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Мессеж устгах',
+      'Энэ мессежийг устгахдаа итгэлтэй байна уу?',
+      [
+        {
+          text: 'Цуцлах',
+          style: 'cancel',
+          onPress: () => setShowMessageModal(false)
+        },
+        {
+          text: 'Устгах',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await api.deleteMessage(chatId, selectedMessage._id);
+              
+              if (response.success) {
+                // Remove the message from local state
+                setMessages(prev => prev.filter(msg => msg._id !== selectedMessage._id));
+                setShowMessageModal(false);
+                
+                // Emit socket event to notify other users in real-time
+                socketService.deleteMessage(chatId, selectedMessage._id, user._id);
+                
+                Alert.alert('Амжилттай', 'Мессеж амжилттай устгагдлаа');
+              } else {
+                Alert.alert('Алдаа', response.message || 'Мессеж устгахад алдаа гарлаа');
+              }
+            } catch (error) {
+              console.error('❌ Unsend message error:', error);
+              Alert.alert('Алдаа', 'Мессеж устгахад алдаа гарлаа');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderMessage = ({ item: message }) => {
     const isMyMessage = message.sender._id === user._id;
     const messageTime = formatMessageTime(message.createdAt);
+    
+    // Handle deleted messages
+    if (message.isDeleted) {
+      return (
+        <View style={[styles.messageContainer, isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer]}>
+          <View style={[styles.deletedMessageBubble, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.deletedMessageText, { color: colors.textSecondary }]}>
+              Message deleted
+            </Text>
+          </View>
+        </View>
+      );
+    }
     
     const handleMessagePress = (event) => {
       // Handle double tap for heart reaction (for all messages)
@@ -790,13 +857,7 @@ const ChatScreen = ({ navigation, route, user }) => {
             : { backgroundColor: colors.surfaceVariant }
         ]}>
           {/* Reply Context */}
-          {message.replyTo && (
-            <View style={[styles.replyContext, { borderLeftColor: colors.primary }]}>
-              <Text style={[styles.replyContextText, { color: colors.textSecondary }]} numberOfLines={1}>
-                {message.replyTo.sender._id === user._id ? 'You' : message.replyTo.sender.name}: {message.replyTo.content?.text || 'Message'}
-              </Text>
-            </View>
-          )}
+          {/* Removed reply context UI */}
 
           
           {!isMyMessage && (
@@ -947,24 +1008,7 @@ const ChatScreen = ({ navigation, route, user }) => {
         )}
 
         {/* Reply Preview */}
-        {replyingTo && (
-          <View style={[styles.replyPreview, { backgroundColor: colors.surfaceVariant, borderTopColor: colors.border }]}>
-            <View style={styles.replyPreviewContent}>
-              <View style={styles.replyPreviewHeader}>
-                <Ionicons name="arrow-undo" size={16} color={colors.primary} />
-                <Text style={[styles.replyPreviewTitle, { color: colors.primary }]}>
-                  Replying to {replyingTo.sender._id === user._id ? 'yourself' : replyingTo.sender.name}
-                </Text>
-              </View>
-              <Text style={[styles.replyPreviewText, { color: colors.textSecondary }]} numberOfLines={1}>
-                {replyingTo.content?.text || 'Message'}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={cancelReply} style={styles.replyCancelButton}>
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Removed reply preview UI */}
 
         {/* Input */}
         <View style={[
@@ -1048,16 +1092,13 @@ const ChatScreen = ({ navigation, route, user }) => {
             )}
             {/* Actions */}
             <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={handleReply}>
-                <Feather name="corner-up-left" size={20} color={colors.text} style={{ marginRight: 12 }} />
-                <Text style={{ color: colors.text, fontSize: 16 }}>Reply</Text>
-              </TouchableOpacity>
+              {/* Removed Reply action */}
               <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={handleCopy}>
                 <Feather name="copy" size={20} color={colors.text} style={{ marginRight: 12 }} />
                 <Text style={{ color: colors.text, fontSize: 16 }}>Copy</Text>
               </TouchableOpacity>
-              {selectedMessage && selectedMessage.sender._id === user._id ? (
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={() => {/* Unsend logic here */ setShowMessageModal(false); }}>
+              {selectedMessage && selectedMessage.sender._id === user._id && !selectedMessage.isDeleted ? (
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 }} onPress={handleUnsend}>
                   <MaterialIcons name="undo" size={20} color="#ff3b30" style={{ marginRight: 12 }} />
                   <Text style={{ color: '#ff3b30', fontSize: 16 }}>Unsend</Text>
                 </TouchableOpacity>
@@ -1328,6 +1369,17 @@ const styles = StyleSheet.create({
   replyContextText: {
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  deletedMessageBubble: {
+    maxWidth: '75%',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'center',
+  },
+  deletedMessageText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 
