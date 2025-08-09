@@ -40,13 +40,52 @@ const ChatListScreen = ({ navigation, user }) => {
       setError('');
       const response = await api.getChats();
       if (response.success) {
-        // Sort chats by most recent message (standard chat app behavior)
-        const sortedChats = response.data.chats.slice().sort((a, b) => {
+        // Filter out chats with deleted users and validate chat data
+        const validChats = response.data.chats.filter(chat => {
+          if (!chat || !chat._id) {
+            console.warn('⚠️ Filtering out invalid chat:', chat);
+            return false;
+          }
+          
+          if (chat.type === 'group') {
+            // For group chats, check if the group still exists and has valid participants
+            if (!chat.participants || !Array.isArray(chat.participants) || chat.participants.length === 0) {
+              console.warn('⚠️ Filtering out group chat with invalid participants:', chat._id);
+              return false;
+            }
+            return true;
+          } else {
+            // For direct chats, check if the other participant still exists
+            if (!chat.participants || !Array.isArray(chat.participants)) {
+              console.warn('⚠️ Filtering out direct chat with invalid participants:', chat._id);
+              return false;
+            }
+            
+            const otherParticipant = chat.participants.find(p => p && p._id && p._id !== user._id);
+            if (!otherParticipant) {
+              console.warn('⚠️ Filtering out chat with deleted user:', chat._id);
+              return false;
+            }
+            
+            // Check if the other participant has valid data (not deleted)
+            if (!otherParticipant.name || otherParticipant.name === 'Unknown User') {
+              console.warn('⚠️ Filtering out chat with deleted user (no name):', chat._id, otherParticipant);
+              return false;
+            }
+            
+            return true;
+          }
+        });
+        
+        // Sort valid chats by most recent message
+        const sortedChats = validChats.sort((a, b) => {
           const aTime = new Date(a.lastMessage?.timestamp || a.createdAt);
           const bTime = new Date(b.lastMessage?.timestamp || b.createdAt);
           return bTime - aTime;
         });
+        
         setChats(sortedChats);
+        console.log(`✅ Loaded ${sortedChats.length} valid chats (filtered out ${response.data.chats.length - sortedChats.length} invalid chats)`);
       } else {
         setError(getTranslation('chatsLoadError', language));
       }
@@ -57,7 +96,7 @@ const ChatListScreen = ({ navigation, user }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [language]);
+  }, [language, user._id]);
 
   useEffect(() => {
     loadChats();
@@ -68,8 +107,19 @@ const ChatListScreen = ({ navigation, user }) => {
   useFocusEffect(
     useCallback(() => {
       loadChats();
+      // Run cleanup when screen is focused
+      cleanupDeletedUserChats();
     }, [])
   );
+
+  // Run cleanup periodically (every 5 minutes)
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      cleanupDeletedUserChats();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(cleanupInterval);
+  }, [cleanupDeletedUserChats]);
 
   // Listen for new messages to update chat list
   useEffect(() => {
@@ -117,21 +167,49 @@ const ChatListScreen = ({ navigation, user }) => {
   };
 
   const getChatTitle = (chat) => {
+    if (!chat) {
+      console.warn('⚠️ getChatTitle: chat is null or undefined');
+      return 'Unknown Chat';
+    }
+    
     if (chat.type === 'group') {
-      return chat.name;
+      return chat.name || 'Unnamed Group';
     } else {
-      const otherParticipant = chat.participants.find(p => p._id !== user._id);
-      return otherParticipant?.name || 'Unknown User';
+      // Validate participants array exists
+      if (!chat.participants || !Array.isArray(chat.participants)) {
+        console.warn('⚠️ getChatTitle: chat.participants is invalid:', chat.participants);
+        return 'Unknown Chat';
+      }
+      
+      const otherParticipant = chat.participants.find(p => p && p._id && p._id !== user._id);
+      if (!otherParticipant) {
+        console.warn('⚠️ getChatTitle: No other participant found in chat:', chat._id);
+        return 'Deleted User';
+      }
+      
+      return otherParticipant.name || 'Deleted User';
     }
   };
 
   const getChatAvatar = (chat) => {
+    // Add validation to prevent errors with invalid chat objects
+    if (!chat) {
+      console.warn('⚠️ getChatAvatar: chat is null or undefined');
+      return null;
+    }
+    
     if (chat.type === 'group') {
       // Use chat image if available, otherwise use default group image
       return chat.image || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&h=150&fit=crop&crop=face';
     } else {
-      const otherParticipant = chat.participants.find(p => p._id !== user._id);
-      return otherParticipant?.avatar || require('../../assets/logo.png');
+      // Validate participants array exists
+      if (!chat.participants || !Array.isArray(chat.participants)) {
+        console.warn('⚠️ getChatAvatar: chat.participants is invalid:', chat.participants);
+        return null;
+      }
+      
+      const otherParticipant = chat.participants.find(p => p && p._id !== user._id);
+      return otherParticipant?.avatar || null;
     }
   };
 
@@ -174,21 +252,38 @@ const ChatListScreen = ({ navigation, user }) => {
 
   const handleChatPress = async (chat) => {
     try {
+      // Validate chat object
+      if (!chat || !chat._id) {
+        console.error('❌ Invalid chat object:', chat);
+        Alert.alert('Error', 'Invalid chat information');
+        return;
+      }
+
+      console.log('🔍 Opening chat:', chat._id);
       currentOpenChatId.current = chat._id; // Set open chat
-      await api.markChatAsRead(chat._id);
-      setChats(prevChats => 
-        prevChats.map(c => 
-          c._id === chat._id ? { ...c, unreadCount: 0 } : c
-        )
-      );
+      
+      // Mark chat as read (don't fail if this doesn't work)
+      try {
+        await api.markChatAsRead(chat._id);
+        setChats(prevChats => 
+          prevChats.map(c => 
+            c._id === chat._id ? { ...c, unreadCount: 0 } : c
+          )
+        );
+      } catch (markReadError) {
+        console.error('❌ Failed to mark chat as read:', markReadError);
+        // Continue anyway, don't block chat opening
+      }
+      
+      // Navigate to chat with proper parameters
       navigation.navigate('Chat', { 
         chatId: chat._id,
         chatTitle: getChatTitle(chat),
         onGoBack: () => { currentOpenChatId.current = null; } // Clear on back
       });
     } catch (error) {
-      console.error('Error opening chat:', error);
-      Alert.alert('Error', 'Failed to open chat');
+      console.error('❌ Error opening chat:', error);
+      Alert.alert('Error', 'Failed to open chat. Please try again.');
     }
   };
 
@@ -201,6 +296,41 @@ const ChatListScreen = ({ navigation, user }) => {
     }
   };
 
+  const cleanupDeletedUserChats = useCallback(async () => {
+    try {
+      console.log('🧹 Starting cleanup of deleted user chats...');
+      const chatsToRemove = [];
+      
+      // Check each chat for deleted users
+      for (const chat of chats) {
+        if (chat.type === 'direct' && chat.participants) {
+          const otherParticipant = chat.participants.find(p => p && p._id && p._id !== user._id);
+          if (!otherParticipant || !otherParticipant.name || otherParticipant.name === 'Unknown User') {
+            console.log(`🗑️ Marking chat for deletion (deleted user): ${chat._id}`);
+            chatsToRemove.push(chat._id);
+          }
+        }
+      }
+      
+      // Remove chats with deleted users from the UI
+      if (chatsToRemove.length > 0) {
+        setChats(prevChats => prevChats.filter(chat => !chatsToRemove.includes(chat._id)));
+        console.log(`✅ Cleaned up ${chatsToRemove.length} chats with deleted users`);
+        
+        // Optionally, you can also delete them from the server
+        // for (const chatId of chatsToRemove) {
+        //   try {
+        //     await api.deleteChat(chatId);
+        //   } catch (error) {
+        //     console.error(`Failed to delete chat ${chatId} from server:`, error);
+        //   }
+        // }
+      }
+    } catch (error) {
+      console.error('❌ Error during chat cleanup:', error);
+    }
+  }, [chats, user._id]);
+
   const filteredChats = chats.filter(chat => {
     if (!searchQuery) return true;
     
@@ -208,26 +338,34 @@ const ChatListScreen = ({ navigation, user }) => {
     return title.includes(searchQuery.toLowerCase());
   });
 
-  const renderChatItem = ({ item: chat }) => (
-    <TouchableOpacity
-      style={[styles.chatItem, { borderBottomColor: colors.borderLight }]}
-      onPress={() => handleChatPress(chat)}
-      onLongPress={() => {
-        Alert.alert(
-          'Delete Chat',
-          'Delete this chat?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => handleDeleteChat(chat._id) }
-          ]
-        );
-      }}
-      activeOpacity={0.7}
-    >
+  const renderChatItem = ({ item: chat }) => {
+    // Add validation to prevent rendering invalid chat objects
+    if (!chat || !chat._id) {
+      console.warn('⚠️ renderChatItem: Invalid chat object:', chat);
+      return null;
+    }
+    
+    return (
+      <TouchableOpacity
+        style={[styles.chatItem, { borderBottomColor: colors.borderLight }]}
+        onPress={() => handleChatPress(chat)}
+        onLongPress={() => {
+          Alert.alert(
+            'Delete Chat',
+            'Delete this chat?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: () => handleDeleteChat(chat._id) }
+            ]
+          );
+        }}
+        activeOpacity={0.7}
+      >
       <View style={styles.avatarContainer}>
         {(() => {
           const avatarUrl = getChatAvatar(chat);
-          if (avatarUrl && avatarUrl.startsWith('http')) {
+          // Add proper validation to prevent undefined.startsWith error
+          if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
             return (
               <Image 
                 source={{ uri: avatarUrl }}
@@ -281,7 +419,8 @@ const ChatListScreen = ({ navigation, user }) => {
         </View>
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <SafeAreaView 
@@ -291,12 +430,21 @@ const ChatListScreen = ({ navigation, user }) => {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
-        <TouchableOpacity 
-          style={styles.searchButton}
-          onPress={() => navigation.navigate('UserSearch')}
-        >
-          <Ionicons name="search" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={cleanupDeletedUserChats}
+            title="Cleanup"
+          >
+            <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.searchButton}
+            onPress={() => navigation.navigate('UserSearch')}
+          >
+            <Ionicons name="search" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -387,6 +535,18 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#0f172a',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchButton: {
     width: 40,

@@ -69,8 +69,17 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   React.useEffect(() => {
     if (post) {
       setLocalPost(post);
+      
+      // Check if this is a secret post and user is already verified
+      if (post.isSecret && post.author._id !== user?._id) {
+        const isUserVerified = post.passwordVerifiedUsers && post.passwordVerifiedUsers.includes(user?._id);
+        if (isUserVerified) {
+          console.log('🔓 User already verified for secret post:', post._id);
+          setIsSecretPostUnlocked(true);
+        }
+      }
     }
-  }, [post]);
+  }, [post, user?._id]);
 
   // Real-time socket listeners - optimized to prevent excessive re-renders
   useEffect(() => {
@@ -231,25 +240,37 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
 
   const handleSecretPostPassword = async (password) => {
     try {
+      console.log('🔐 Verifying password for post:', post._id);
       const response = await apiService.verifySecretPostPassword(post._id, password);
+      console.log('🔐 Server response:', response);
       if (response.success) {
+        // Update local post with server response to include the user in passwordVerifiedUsers
+        console.log('✅ Password verified, updating local post with:', response.data.post);
+        setLocalPost(response.data.post);
         setIsSecretPostUnlocked(true);
         setSecretPasswordModalVisible(false);
-        // Don't update the post with server data - keep local state only
       }
     } catch (error) {
+      console.error('❌ Password verification failed:', error);
       throw new Error(error.message || 'Failed to verify password');
     }
   };
 
   const handleSecretPostPress = () => {
-    // Check if user is the author
+    // Check if user is the author or already verified
     if (String(post.author._id) === String(user?._id)) {
       setIsSecretPostUnlocked(true);
       return;
     }
     
-    // Show password modal - no persistent verification
+    // Check if user has already verified this post
+    const isUserVerified = localPost.passwordVerifiedUsers && localPost.passwordVerifiedUsers.includes(user?._id);
+    if (isUserVerified) {
+      setIsSecretPostUnlocked(true);
+      return;
+    }
+    
+    // Show password modal for verification
     setSecretPasswordModalVisible(true);
   };
 

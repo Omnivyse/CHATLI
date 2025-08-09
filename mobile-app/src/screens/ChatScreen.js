@@ -28,7 +28,25 @@ import { useNavigationState } from '../contexts/NavigationContext';
 const ChatScreen = ({ navigation, route, user }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
-  const { chatId, chatTitle } = route.params;
+  
+  // Add proper parameter validation with fallbacks
+  const { chatId, chatTitle } = route.params || {};
+  
+  // Validate required parameters
+  if (!chatId) {
+    console.error('❌ ChatScreen: Missing chatId parameter');
+    Alert.alert('Error', 'Chat information is missing. Please try again.');
+    navigation.goBack();
+    return null;
+  }
+  
+  if (!user) {
+    console.error('❌ ChatScreen: Missing user parameter');
+    Alert.alert('Error', 'User information is missing. Please try again.');
+    navigation.goBack();
+    return null;
+  }
+  
   const { updateNavigationState } = useNavigationState();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -47,97 +65,120 @@ const ChatScreen = ({ navigation, route, user }) => {
   // Removed replyingTo state temporarily
 
   useEffect(() => {
-    loadMessages();
-    loadChatInfo();
-    
-    // Ensure proper scroll position after messages load
-    const ensureScrollPosition = () => {
-      if (flatListRef.current && messages.length > 0) {
-        setTimeout(() => {
-          flatListRef.current.scrollToOffset({ offset: 0, animated: false });
-        }, 200);
-      }
-    };
-    
-    // Update navigation state when chat screen is focused
-    updateNavigationState('Chat', chatId);
-    
-    // Enhanced socket setup with better error handling for TestFlight
-    const setupSocket = async () => {
-      console.log('🔌 Setting up socket for chat:', chatId);
-      console.log('👤 Current user:', user._id);
-      console.log('📱 Environment:', __DEV__ ? 'Development' : 'Production (TestFlight)');
-      
-      // Check if socket is ready
-      if (!socketService.isReady()) {
-        console.log('⚠️ Socket not ready, attempting to connect...');
-        // Try to connect if not already connected
-        socketService.connect(user.token);
+    // Add try-catch around the entire setup
+    const setupChat = async () => {
+      try {
+        console.log('🔍 ChatScreen: Setting up chat with ID:', chatId);
+        console.log('👤 User ID:', user._id);
         
-        // Wait for connection with timeout
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Socket connection timeout'));
-          }, 10000); // 10 second timeout
-          
-          const checkConnection = () => {
-            if (socketService.isReady()) {
-              console.log('✅ Socket connected successfully');
-              clearTimeout(timeout);
-              resolve();
-            } else {
-              console.log('⏳ Waiting for socket connection...');
-              setTimeout(checkConnection, 500);
-            }
-          };
-          checkConnection();
-        }).catch(error => {
-          console.error('❌ Socket connection failed:', error.message);
-          // Continue anyway, the app can still work with API calls
-        });
-      }
-      
-      // Join chat room with enhanced retry logic
-      const joinChatWithRetry = (retries = 5) => {
-        if (socketService.isReady()) {
-          console.log('🎯 Joining chat room:', chatId);
-          socketService.joinChat(chatId);
-          
-          // Verify chat room joining with multiple checks
-          setTimeout(() => {
-            console.log('🔍 Verifying chat room join...');
-            // Test if we can receive events
-            socketService.emit('test_chat_join', { chatId, userId: user._id });
+        await loadMessages();
+        await loadChatInfo();
+        
+        // Ensure proper scroll position after messages load
+        const ensureScrollPosition = () => {
+          if (flatListRef.current && messages.length > 0) {
+            setTimeout(() => {
+              flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+            }, 200);
+          }
+        };
+        
+        // Update navigation state when chat screen is focused
+        updateNavigationState('Chat', chatId);
+        
+        // Enhanced socket setup with better error handling for TestFlight
+        const setupSocket = async () => {
+          try {
+            console.log('🔌 Setting up socket for chat:', chatId);
+            console.log('👤 Current user:', user._id);
+            console.log('📱 Environment:', __DEV__ ? 'Development' : 'Production (TestFlight)');
             
-            // Additional verification for TestFlight builds
-            if (!__DEV__) {
-              console.log('🧪 TestFlight: Additional socket verification...');
-              // Send a test message to verify socket is working
-              socketService.emit('test_message', { 
-                chatId, 
-                userId: user._id,
-                timestamp: Date.now()
+            // Check if socket is ready
+            if (!socketService.isReady()) {
+              console.log('⚠️ Socket not ready, attempting to connect...');
+              // Try to connect if not already connected
+              socketService.connect(user.token);
+              
+              // Wait for connection with timeout
+              await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                  reject(new Error('Socket connection timeout'));
+                }, 10000); // 10 second timeout
+                
+                const checkConnection = () => {
+                  if (socketService.isReady()) {
+                    console.log('✅ Socket connected successfully');
+                    clearTimeout(timeout);
+                    resolve();
+                  } else {
+                    console.log('⏳ Waiting for socket connection...');
+                    setTimeout(checkConnection, 500);
+                  }
+                };
+                checkConnection();
+              }).catch(error => {
+                console.error('❌ Socket connection failed:', error.message);
+                // Continue anyway, the app can still work with API calls
               });
             }
-          }, 1000);
-        } else if (retries > 0) {
-          console.log(`🔄 Retrying chat join... (${retries} attempts left)`);
-          setTimeout(() => joinChatWithRetry(retries - 1), 2000); // Increased delay
-        } else {
-          console.error('❌ Failed to join chat room after retries');
-          // Show user-friendly message
-          Alert.alert(
-            'Холболтын асуудал',
-            'Чат холболт амжилтгүй болсон. Мессежүүд хадгалагдахгүй байж болно.',
-            [{ text: 'OK' }]
-          );
-        }
-      };
-      
-      joinChatWithRetry();
+            
+            // Join chat room with enhanced retry logic
+            const joinChatWithRetry = (retries = 5) => {
+              if (socketService.isReady()) {
+                console.log('🎯 Joining chat room:', chatId);
+                socketService.joinChat(chatId);
+                
+                // Verify chat room joining with multiple checks
+                setTimeout(() => {
+                  console.log('🔍 Verifying chat room join...');
+                  // Test if we can receive events
+                  socketService.emit('test_chat_join', { chatId, userId: user._id });
+                  
+                  // Additional verification for TestFlight builds
+                  if (!__DEV__) {
+                    console.log('🧪 TestFlight: Additional socket verification...');
+                    // Send a test message to verify socket is working
+                    socketService.emit('test_message', { 
+                      chatId, 
+                      userId: user._id,
+                      timestamp: Date.now()
+                    });
+                  }
+                }, 1000);
+              } else if (retries > 0) {
+                console.log(`🔄 Retrying chat join... (${retries} attempts left)`);
+                setTimeout(() => joinChatWithRetry(retries - 1), 2000);
+              } else {
+                console.error('❌ Failed to join chat room after all retries');
+                Alert.alert(
+                  'Connection Warning',
+                  'Unable to connect to real-time chat. Messages may be delayed.',
+                  [{ text: 'OK' }]
+                );
+              }
+            };
+            
+            joinChatWithRetry();
+          } catch (socketError) {
+            console.error('❌ Socket setup error:', socketError);
+            // Don't crash the app, just show a warning
+            Alert.alert(
+              'Connection Warning',
+              'Unable to connect to real-time chat. Messages may be delayed.',
+              [{ text: 'OK' }]
+            );
+          }
+        };
+        
+        await setupSocket();
+      } catch (error) {
+        console.error('❌ ChatScreen setup error:', error);
+        Alert.alert('Error', 'Failed to load chat. Please try again.');
+        navigation.goBack();
+      }
     };
     
-    setupSocket();
+    setupChat();
     
     // Enhanced socket status checking
     console.log('Socket connection status:', socketService.getConnectionStatus());
@@ -475,17 +516,23 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   const loadChatInfo = async () => {
     try {
+      console.log('🔍 Loading chat info for chatId:', chatId);
       const response = await api.getChat(chatId);
       if (response.success) {
         setChatInfo(response.data.chat);
+        console.log('✅ Chat info loaded successfully');
+      } else {
+        console.error('❌ Failed to load chat info:', response.message);
       }
     } catch (error) {
-      console.error('Load chat info error:', error);
+      console.error('❌ Load chat info error:', error);
+      // Don't show alert here, just log the error
     }
   };
 
   const loadMessages = async () => {
     try {
+      console.log('📥 Loading messages for chatId:', chatId);
       setLoading(true);
       const response = await api.getMessages(chatId);
       if (response.success) {
@@ -517,7 +564,12 @@ const ChatScreen = ({ navigation, route, user }) => {
         setMessages(reversedMessages);
         
         // Mark messages as read
-        await api.markChatAsRead(chatId);
+        try {
+          await api.markChatAsRead(chatId);
+        } catch (markReadError) {
+          console.error('❌ Failed to mark chat as read:', markReadError);
+          // Don't fail the entire load for this
+        }
         
         // Set initial scroll position to bottom (top of inverted list)
         setTimeout(() => {
@@ -528,11 +580,12 @@ const ChatScreen = ({ navigation, route, user }) => {
           }
         }, 100);
       } else {
-        Alert.alert('Алдаа', 'Мессежүүдийг ачаалахад алдаа гарлаа');
+        console.error('❌ Failed to load messages:', response.message);
+        Alert.alert('Error', 'Failed to load messages. Please try again.');
       }
     } catch (error) {
-      console.error('Load messages error:', error);
-      Alert.alert('Алдаа', 'Мессежүүдийг ачаалахад алдаа гарлаа');
+      console.error('❌ Load messages error:', error);
+      Alert.alert('Error', 'Failed to load messages. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
