@@ -83,10 +83,10 @@ const EmailVerificationBanner = ({
         
         <View style={styles.textContainer}>
           <Text style={[styles.title, { color: colors.textInverse || '#FFFFFF' }]}>
-            Имэйл хаягаа баталгаажуулна уу
+            Verify your email address
           </Text>
           <Text style={[styles.subtitle, { color: colors.textInverse || '#FFFFFF' }]}>
-            Бүрэн функцүүдийг ашиглахын тулд имэйл хаягаа баталгаажуулна уу
+            Please verify your email to access all features
           </Text>
         </View>
       </View>
@@ -98,7 +98,7 @@ const EmailVerificationBanner = ({
           activeOpacity={0.8}
         >
           <Text style={[styles.verifyButtonText, { color: colors.warning || '#FFA726' }]}>
-            Баталгаажуулах
+            Verify
           </Text>
         </TouchableOpacity>
 
@@ -108,7 +108,7 @@ const EmailVerificationBanner = ({
           activeOpacity={0.8}
         >
           <Text style={[styles.cancelButtonText, { color: colors.textInverse || '#FFFFFF' }]}>
-            Цуцлах
+            Cancel
           </Text>
         </TouchableOpacity>
       </View>

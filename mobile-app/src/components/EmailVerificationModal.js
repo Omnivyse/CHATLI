@@ -28,8 +28,6 @@ const EmailVerificationModal = ({
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '']);
-  const [textAreaCode, setTextAreaCode] = useState('');
-  const [useTextArea, setUseTextArea] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
@@ -39,16 +37,11 @@ const EmailVerificationModal = ({
   useEffect(() => {
     if (visible) {
       setVerificationCode(['', '', '', '', '']);
-      setTextAreaCode('');
       setError('');
       setCountdown(0);
       // Focus first input after modal opens
       setTimeout(() => {
-        if (useTextArea) {
-          // Text area will auto-focus
-        } else {
-          inputRefs.current[0]?.focus();
-        }
+        inputRefs.current[0]?.focus();
       }, 300);
     }
   }, [visible]);
@@ -77,24 +70,10 @@ const EmailVerificationModal = ({
     }
   };
 
-  const handleTextAreaChange = (text) => {
-    // Only allow numbers and limit to 5 digits
-    const numericText = text.replace(/[^0-9]/g, '');
-    if (numericText.length <= 5) {
-      setTextAreaCode(numericText);
-      setError('');
-      
-      // Auto-submit when 5 digits are entered
-      if (numericText.length === 5) {
-        handleVerification(numericText);
-      }
-    }
-  };
-
-  const handleVerification = async (codeFromTextArea = null) => {
-    const code = codeFromTextArea || verificationCode.join('');
+  const handleVerification = async () => {
+    const code = verificationCode.join('');
     if (code.length !== 5) {
-      setError('5 оронтой код оруулна уу');
+      setError('Please enter a 5-digit code');
       return;
     }
 
@@ -102,12 +81,12 @@ const EmailVerificationModal = ({
     setError('');
 
     try {
-      const response = await apiService.verifyEmail(code, user.email);
+      const response = await apiService.verifyEmail(user.email, code);
       
       if (response.success) {
         Alert.alert(
-          'Амжилттай',
-          'Имэйл хаяг амжилттай баталгаажлаа!',
+          'Success',
+          'Email verified successfully!',
           [
             {
               text: 'OK',
@@ -119,11 +98,11 @@ const EmailVerificationModal = ({
           ]
         );
       } else {
-        setError(response.message || 'Баталгаажуулалт амжилтгүй болсон');
+        setError(response.message || 'Verification failed');
       }
     } catch (error) {
       console.error('Verification error:', error);
-      setError('Баталгаажуулалт амжилтгүй болсон. Дахин оролдоно уу.');
+      setError('Verification failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -136,26 +115,21 @@ const EmailVerificationModal = ({
     setError('');
 
     try {
-      const response = await apiService.resendVerificationEmail(user.email);
+      const response = await apiService.resendVerificationCode(user.email);
       
       if (response.success) {
-        Alert.alert('Амжилттай', 'Баталгаажуулах имэйл дахин илгээгдлээ');
+        Alert.alert('Success', 'Verification email sent again');
         setCountdown(60); // Start countdown
         setVerificationCode(['', '', '', '', '']);
-        setTextAreaCode('');
         setError('');
         // Focus first input
-        if (useTextArea) {
-          // Text area will auto-focus
-        } else {
-          inputRefs.current[0]?.focus();
-        }
+        inputRefs.current[0]?.focus();
       } else {
-        setError(response.message || 'Имэйл илгээхэд алдаа гарлаа');
+        setError(response.message || 'Failed to send email');
       }
     } catch (error) {
       console.error('Resend error:', error);
-      setError('Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.');
+      setError('Failed to send email. Please try again.');
     } finally {
       setResendLoading(false);
     }
@@ -196,7 +170,7 @@ const EmailVerificationModal = ({
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: colors.text }]}>
-              Имэйл баталгаажуулалт
+              Email Verification
             </Text>
             <View style={styles.placeholder} />
           </View>
@@ -211,72 +185,33 @@ const EmailVerificationModal = ({
             </View>
 
             <Text style={[styles.instruction, { color: colors.textSecondary }]}>
-              Имэйл хаягаа шалгаж, 5 оронтой кодыг оруулна уу
+              Check your email and enter the 5-digit verification code
             </Text>
 
-            {/* Input Toggle */}
-            <View style={styles.toggleContainer}>
-              <Text style={[styles.toggleLabel, { color: colors.text }]}>
-                Оролтын хэлбэр:
-              </Text>
-              <TouchableOpacity
-                style={[styles.toggleButton, { backgroundColor: colors.surfaceVariant }]}
-                onPress={() => setUseTextArea(!useTextArea)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.toggleButtonText, { color: colors.text }]}>
-                  {useTextArea ? 'Цэгүүд' : 'Текст'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Code Input */}
-            {useTextArea ? (
-              <TextInput
-                style={[
-                  styles.textAreaInput,
-                  { 
-                    backgroundColor: colors.surfaceVariant,
-                    borderColor: error ? colors.error : colors.border,
-                    color: colors.text
-                  }
-                ]}
-                value={textAreaCode}
-                onChangeText={handleTextAreaChange}
-                placeholder="12345"
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-                maxLength={5}
-                selectTextOnFocus
-                editable={!loading}
-                textAlign="center"
-                autoFocus
-              />
-            ) : (
-              <View style={styles.codeInputContainer}>
-                {verificationCode.map((digit, index) => (
-                  <TextInput
-                    key={index}
-                    ref={(ref) => (inputRefs.current[index] = ref)}
-                    style={[
-                      styles.codeInput,
-                      { 
-                        backgroundColor: colors.surfaceVariant,
-                        borderColor: error ? colors.error : colors.border,
-                        color: colors.text
-                      }
-                    ]}
-                    value={digit}
-                    onChangeText={(text) => handleCodeChange(text, index)}
-                    keyboardType="numeric"
-                    maxLength={1}
-                    selectTextOnFocus
-                    editable={!loading}
-                    textAlign="center"
-                  />
-                ))}
-              </View>
-            )}
+            <View style={styles.codeInputContainer}>
+              {verificationCode.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  style={[
+                    styles.codeInput,
+                    { 
+                      backgroundColor: colors.surfaceVariant,
+                      borderColor: error ? colors.error : colors.border,
+                      color: colors.text
+                    }
+                  ]}
+                  value={digit}
+                  onChangeText={(text) => handleCodeChange(text, index)}
+                  keyboardType="numeric"
+                  maxLength={1}
+                  selectTextOnFocus
+                  editable={!loading}
+                  textAlign="center"
+                />
+              ))}
+            </View>
 
             {/* Error Message */}
             {error ? (
@@ -290,7 +225,7 @@ const EmailVerificationModal = ({
               <View style={styles.timerContainer}>
                 <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
                 <Text style={[styles.timerText, { color: colors.textSecondary }]}>
-                  Код {formatTime(countdown)} минутын дараа дуусна
+                  Code expires in {formatTime(countdown)}
                 </Text>
               </View>
             )}
@@ -302,18 +237,18 @@ const EmailVerificationModal = ({
                   styles.verifyButton,
                   { 
                     backgroundColor: colors.primary,
-                    opacity: (verificationCode.join('').length === 5 || textAreaCode.length === 5) && !loading ? 1 : 0.5
+                    opacity: verificationCode.join('').length === 5 && !loading ? 1 : 0.5
                   }
                 ]}
                 onPress={handleVerification}
-                disabled={loading || (verificationCode.join('').length !== 5 && textAreaCode.length !== 5)}
+                disabled={loading || verificationCode.join('').length !== 5}
                 activeOpacity={0.8}
               >
                 {loading ? (
                   <ActivityIndicator color={colors.textInverse} size="small" />
                 ) : (
                   <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>
-                    Баталгаажуулах
+                    Verify
                   </Text>
                 )}
               </TouchableOpacity>
@@ -334,7 +269,7 @@ const EmailVerificationModal = ({
                   <ActivityIndicator color={colors.textInverse} size="small" />
                 ) : (
                   <Text style={[styles.resendButtonText, { color: colors.textInverse }]}>
-                    Дахин илгээх
+                    Resend Code
                   </Text>
                 )}
               </TouchableOpacity>
@@ -402,24 +337,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  toggleLabel: {
-    fontSize: 14,
-  },
-  toggleButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  toggleButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   codeInputContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -433,17 +350,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  textAreaInput: {
-    height: 50,
-    borderWidth: 2,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    letterSpacing: 2,
-    marginBottom: 16,
   },
   errorText: {
     fontSize: 14,

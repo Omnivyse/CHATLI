@@ -26,8 +26,6 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
   const [countdown, setCountdown] = useState(0);
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '']);
   const [codeError, setCodeError] = useState('');
-  const [useTextArea, setUseTextArea] = useState(false);
-  const [textAreaCode, setTextAreaCode] = useState('');
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -77,35 +75,21 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
     }
   };
 
-  const handleTextAreaChange = (text) => {
-    // Only allow numbers and limit to 5 digits
-    const numericText = text.replace(/[^0-9]/g, '');
-    if (numericText.length <= 5) {
-      setTextAreaCode(numericText);
-      setCodeError('');
-      
-      // Auto-submit when 5 digits are entered
-      if (numericText.length === 5) {
-        handleVerification(numericText);
-      }
-    }
-  };
-
-  const handleVerification = async (codeFromTextArea = null) => {
-    const code = codeFromTextArea || verificationCode.join('');
+  const handleVerification = async () => {
+    const code = verificationCode.join('');
     if (code.length !== 5) {
-      setCodeError('5 оронтой код оруулна уу');
+      setCodeError('Please enter a 5-digit code');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await api.verifyEmail(code, email);
+      const response = await api.verifyEmail(email, code);
       
       if (response.success) {
         Alert.alert(
-          'Амжилттай',
-          'Имэйл хаяг амжилттай баталгаажлаа!',
+          'Success',
+          'Email verified successfully!',
           [
             {
               text: 'OK',
@@ -125,11 +109,11 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
           ]
         );
       } else {
-        setCodeError(response.message || 'Баталгаажуулалт амжилтгүй болсон');
+        setCodeError(response.message || 'Verification failed');
       }
     } catch (error) {
       console.error('Verification error:', error);
-      setCodeError('Баталгаажуулалт амжилтгүй болсон. Дахин оролдоно уу.');
+      setCodeError('Verification failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -140,21 +124,21 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
 
     setResendLoading(true);
     try {
-      const response = await api.resendVerificationEmail(email);
+      const response = await api.resendVerificationCode(email);
       
       if (response.success) {
-        Alert.alert('Амжилттай', 'Баталгаажуулах имэйл дахин илгээгдлээ');
+        Alert.alert('Success', 'Verification email sent again');
         setCountdown(60); // Start countdown again
         setVerificationCode(['', '', '', '', '']); // Clear code
         setCodeError(''); // Clear error
         // Focus first input
         inputRefs.current[0]?.focus();
       } else {
-        Alert.alert('Алдаа', response.message || 'Имэйл илгээхэд алдаа гарлаа');
+        Alert.alert('Error', response.message || 'Failed to send email');
       }
     } catch (error) {
       console.error('Resend error:', error);
-      Alert.alert('Алдаа', 'Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.');
+      Alert.alert('Error', 'Failed to send email. Please try again.');
     } finally {
       setResendLoading(false);
     }
@@ -190,7 +174,7 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.text }]}>
-            Имэйл баталгаажуулалт
+            Email Verification
           </Text>
         </View>
 
@@ -204,76 +188,42 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
           </View>
 
           <Text style={[styles.heading, { color: colors.text }]}>
-            Имэйл хаягаа баталгаажуулна уу
+            Verify your email address
           </Text>
 
           <Text style={[styles.description, { color: colors.textSecondary }]}>
-            {email ? `"${email}" хаяг руу баталгаажуулах имэйл илгээгдлээ.` : 'Имэйл хаягаа шалгаж баталгаажуулах кодыг оруулна уу.'}
+            {email ? `A verification email has been sent to "${email}".` : 'Please check your email and enter the verification code.'}
           </Text>
 
           {/* Verification Code Input */}
           <View style={styles.codeContainer}>
-            <View style={styles.codeInputHeader}>
-              <Text style={[styles.codeLabel, { color: colors.text }]}>
-                5 оронтой код оруулна уу
-              </Text>
-              <TouchableOpacity
-                style={[styles.toggleButton, { backgroundColor: colors.surfaceVariant }]}
-                onPress={() => setUseTextArea(!useTextArea)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.toggleButtonText, { color: colors.text }]}>
-                  {useTextArea ? 'Цэгүүд' : 'Текст'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={[styles.codeLabel, { color: colors.text }]}>
+              Enter 5-digit code
+            </Text>
             
-            {useTextArea ? (
-              <TextInput
-                style={[
-                  styles.textAreaInput,
-                  { 
-                    backgroundColor: colors.surface,
-                    borderColor: codeError ? colors.error : colors.border,
-                    color: colors.text
-                  }
-                ]}
-                value={textAreaCode}
-                onChangeText={handleTextAreaChange}
-                placeholder="12345"
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-                maxLength={5}
-                selectTextOnFocus
-                editable={!loading}
-                textAlign="center"
-                autoFocus
-              />
-            ) : (
-              <View style={styles.codeInputContainer}>
-                {verificationCode.map((digit, index) => (
-                  <TextInput
-                    key={index}
-                    ref={(ref) => (inputRefs.current[index] = ref)}
-                    style={[
-                      styles.codeInput,
-                      { 
-                        backgroundColor: colors.surface,
-                        borderColor: codeError ? colors.error : colors.border,
-                        color: colors.text
-                      }
-                    ]}
-                    value={digit}
-                    onChangeText={(text) => handleCodeChange(text, index)}
-                    onKeyPress={(e) => handleKeyPress(e, index)}
-                    keyboardType="numeric"
-                    maxLength={1}
-                    selectTextOnFocus
-                    editable={!loading}
-                  />
-                ))}
-              </View>
-            )}
+            <View style={styles.codeInputContainer}>
+              {verificationCode.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  style={[
+                    styles.codeInput,
+                    { 
+                      backgroundColor: colors.surface,
+                      borderColor: codeError ? colors.error : colors.border,
+                      color: colors.text
+                    }
+                  ]}
+                  value={digit}
+                  onChangeText={(text) => handleCodeChange(text, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  keyboardType="numeric"
+                  maxLength={1}
+                  selectTextOnFocus
+                  editable={!loading}
+                />
+              ))}
+            </View>
             
             {codeError ? (
               <Text style={[styles.errorText, { color: colors.error }]}>
@@ -287,7 +237,7 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
             <View style={styles.timerContainer}>
               <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
               <Text style={[styles.timerText, { color: colors.textSecondary }]}>
-                Код {formatTime(countdown)} минутын дараа дуусна
+                Code expires in {formatTime(countdown)}
               </Text>
             </View>
           )}
@@ -298,7 +248,7 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
                 <Text style={[styles.stepNumberText, { color: colors.textInverse }]}>1</Text>
               </View>
               <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-                Имэйл хаягаа шалгана уу
+                Check your email
               </Text>
             </View>
 
@@ -307,7 +257,7 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
                 <Text style={[styles.stepNumberText, { color: colors.textInverse }]}>2</Text>
               </View>
               <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-                5 оронтой кодыг оруулна уу
+                Enter the 5-digit code
               </Text>
             </View>
 
@@ -316,7 +266,7 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
                 <Text style={[styles.stepNumberText, { color: colors.textInverse }]}>3</Text>
               </View>
               <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-                Апп руу буцаж орж нэвтэрнэ үү
+                Return to app and login
               </Text>
             </View>
           </View>
@@ -327,14 +277,14 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
           >
             <Ionicons name="mail" size={20} color={colors.textInverse} />
             <Text style={[styles.emailButtonText, { color: colors.textInverse }]}>
-              Имэйл хаягаа нээх
+              Open Email
             </Text>
           </TouchableOpacity>
 
           <View style={styles.divider}>
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
-              эсвэл
+              or
             </Text>
             <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
@@ -360,14 +310,14 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
                   color={colors.textInverse} 
                 />
                 <Text style={[styles.resendButtonText, { color: colors.textInverse }]}>
-                  {countdown > 0 ? `${formatTime(countdown)}` : 'Дахин илгээх'}
+                  {countdown > 0 ? `${formatTime(countdown)}` : 'Resend Code'}
                 </Text>
               </>
             )}
           </TouchableOpacity>
 
           <Text style={[styles.note, { color: colors.textSecondary }]}>
-            Имэйл ирээгүй бол спам хавтсаа шалгана уу
+            If you don't see the email, check your spam folder
           </Text>
         </View>
       </ScrollView>
@@ -376,7 +326,7 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.text }]}>
-            Баталгаажуулж байна...
+            Verifying...
           </Text>
         </View>
       )}
@@ -548,31 +498,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-  },
-  codeInputHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  toggleButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  toggleButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  textAreaInput: {
-    height: 50,
-    borderWidth: 2,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    letterSpacing: 2,
   },
 });
 
