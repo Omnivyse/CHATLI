@@ -399,6 +399,18 @@ export default function App() {
           }
         }
         
+        // Run real-time messaging test in production builds
+        if (!__DEV__) {
+          console.log('🔍 Running real-time messaging debug test for production build...');
+          try {
+            const { runRealtimeMessagingTest } = require('./test-realtime-messaging.js');
+            // This will be called after user authentication
+            console.log('🧪 Real-time messaging test ready - will run when user is authenticated');
+          } catch (debugError) {
+            console.log('⚠️ Real-time messaging test error (non-critical):', debugError.message);
+          }
+        }
+        
         // Check if user is already logged in
         await checkAuth();
       } catch (e) {

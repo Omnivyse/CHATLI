@@ -62,10 +62,11 @@ const ChatScreen = ({ navigation, route, user }) => {
     // Update navigation state when chat screen is focused
     updateNavigationState('Chat', chatId);
     
-    // Ensure socket is connected and authenticated before joining chat
+    // Enhanced socket setup with better error handling for TestFlight
     const setupSocket = async () => {
       console.log('🔌 Setting up socket for chat:', chatId);
       console.log('👤 Current user:', user._id);
+      console.log('📱 Environment:', __DEV__ ? 'Development' : 'Production (TestFlight)');
       
       // Check if socket is ready
       if (!socketService.isReady()) {
@@ -73,11 +74,16 @@ const ChatScreen = ({ navigation, route, user }) => {
         // Try to connect if not already connected
         socketService.connect(user.token);
         
-        // Wait for connection
-        await new Promise((resolve) => {
+        // Wait for connection with timeout
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Socket connection timeout'));
+          }, 10000); // 10 second timeout
+          
           const checkConnection = () => {
             if (socketService.isReady()) {
               console.log('✅ Socket connected successfully');
+              clearTimeout(timeout);
               resolve();
             } else {
               console.log('⏳ Waiting for socket connection...');
@@ -85,26 +91,46 @@ const ChatScreen = ({ navigation, route, user }) => {
             }
           };
           checkConnection();
+        }).catch(error => {
+          console.error('❌ Socket connection failed:', error.message);
+          // Continue anyway, the app can still work with API calls
         });
       }
       
-      // Join chat room with retry logic
-      const joinChatWithRetry = (retries = 3) => {
+      // Join chat room with enhanced retry logic
+      const joinChatWithRetry = (retries = 5) => {
         if (socketService.isReady()) {
           console.log('🎯 Joining chat room:', chatId);
           socketService.joinChat(chatId);
           
-          // Verify chat room joining
+          // Verify chat room joining with multiple checks
           setTimeout(() => {
             console.log('🔍 Verifying chat room join...');
             // Test if we can receive events
             socketService.emit('test_chat_join', { chatId, userId: user._id });
+            
+            // Additional verification for TestFlight builds
+            if (!__DEV__) {
+              console.log('🧪 TestFlight: Additional socket verification...');
+              // Send a test message to verify socket is working
+              socketService.emit('test_message', { 
+                chatId, 
+                userId: user._id,
+                timestamp: Date.now()
+              });
+            }
           }, 1000);
         } else if (retries > 0) {
           console.log(`🔄 Retrying chat join... (${retries} attempts left)`);
-          setTimeout(() => joinChatWithRetry(retries - 1), 1000);
+          setTimeout(() => joinChatWithRetry(retries - 1), 2000); // Increased delay
         } else {
           console.error('❌ Failed to join chat room after retries');
+          // Show user-friendly message
+          Alert.alert(
+            'Холболтын асуудал',
+            'Чат холболт амжилтгүй болсон. Мессежүүд хадгалагдахгүй байж болно.',
+            [{ text: 'OK' }]
+          );
         }
       };
       
@@ -113,22 +139,53 @@ const ChatScreen = ({ navigation, route, user }) => {
     
     setupSocket();
     
-    // Check socket connection status
+    // Enhanced socket status checking
     console.log('Socket connection status:', socketService.getConnectionStatus());
     console.log('Socket ready:', socketService.isReady());
     
-    // Listen for new messages
-    socketService.on('new_message', handleNewMessage);
-    socketService.on('user_typing', handleTypingStatus);
-    socketService.on('reaction_added', handleReactionAdded);
-    socketService.on('reaction_removed', handleReactionRemoved);
+    // Enhanced message listeners with better error handling
+    const messageHandler = (data) => {
+      console.log('📨 New message received via socket:', data);
+      handleNewMessage(data);
+    };
+    
+    const typingHandler = (data) => {
+      console.log('⌨️ Typing indicator received:', data);
+      handleTypingStatus(data);
+    };
+    
+    const reactionHandler = (data) => {
+      console.log('😀 Reaction received:', data);
+      handleReactionAdded(data);
+    };
+    
+    const reactionRemovedHandler = (data) => {
+      console.log('🗑️ Reaction removed:', data);
+      handleReactionRemoved(data);
+    };
+    
+    // Listen for new messages with enhanced logging
+    socketService.on('new_message', messageHandler);
+    socketService.on('user_typing', typingHandler);
+    socketService.on('reaction_added', reactionHandler);
+    socketService.on('reaction_removed', reactionRemovedHandler);
+    
+    // Test listeners for debugging
     socketService.on('test_reaction_received', (data) => {
       console.log('🧪 TEST REACTION RECEIVED:', data);
+    });
+    
+    socketService.on('test_message_received', (data) => {
+      console.log('🧪 TEST MESSAGE RECEIVED:', data);
     });
     
     // Listen for chat join confirmation
     socketService.on('chat_joined', (data) => {
       console.log('✅ Chat room joined successfully:', data);
+    });
+    
+    socketService.on('chat_join_error', (error) => {
+      console.error('❌ Chat join error:', error);
     });
     
     // Listen for reaction acknowledgments
@@ -140,9 +197,9 @@ const ChatScreen = ({ navigation, route, user }) => {
       console.log('✅ Reaction removed acknowledgment:', data);
     });
     
-    // Listen for test responses
+    // Listen for test chat join response
     socketService.on('test_chat_join_response', (data) => {
-      console.log('🧪 Chat join test response:', data);
+      console.log('🧪 Test chat join response:', data);
     });
     
     // Listen for user joined chat events
@@ -166,15 +223,15 @@ const ChatScreen = ({ navigation, route, user }) => {
     }, 2000);
     
     return () => {
-      // Clean up
-      console.log('🧹 Cleaning up chat screen...');
-      socketService.leaveChat(chatId);
-      socketService.off('new_message', handleNewMessage);
-      socketService.off('user_typing', handleTypingStatus);
-      socketService.off('reaction_added', handleReactionAdded);
-      socketService.off('reaction_removed', handleReactionRemoved);
+      console.log('🧹 Cleaning up chat screen socket listeners...');
+      socketService.off('new_message', messageHandler);
+      socketService.off('user_typing', typingHandler);
+      socketService.off('reaction_added', reactionHandler);
+      socketService.off('reaction_removed', reactionRemovedHandler);
       socketService.off('test_reaction_received');
+      socketService.off('test_message_received');
       socketService.off('chat_joined');
+      socketService.off('chat_join_error');
       socketService.off('reaction_added_ack');
       socketService.off('reaction_removed_ack');
       socketService.off('test_chat_join_response');
@@ -189,7 +246,7 @@ const ChatScreen = ({ navigation, route, user }) => {
       // Update navigation state when leaving
       updateNavigationState(null, null);
     };
-  }, [chatId, updateNavigationState]);
+  }, [chatId, user._id, user.token]);
 
   // Handle scroll position when messages change
   useEffect(() => {
@@ -482,25 +539,49 @@ const ChatScreen = ({ navigation, route, user }) => {
   };
 
   const handleNewMessage = (data) => {
+    console.log('📨 handleNewMessage called with data:', data);
+    console.log('📱 Current chatId:', chatId);
+    console.log('📱 Environment:', __DEV__ ? 'Development' : 'Production (TestFlight)');
+    
     if (data.chatId === chatId) {
+      console.log('✅ Message is for current chat, updating messages...');
+      
       setMessages(prev => {
         // Check if message already exists to prevent duplicates
         const messageExists = prev.some(msg => msg._id === data.message._id);
         if (messageExists) {
+          console.log('⚠️ Message already exists, skipping duplicate');
           return prev;
         }
-        return [data.message, ...prev]; // Add new message at the beginning for inverted list
+        
+        console.log('✅ Adding new message to chat');
+        const newMessages = [data.message, ...prev]; // Add new message at the beginning for inverted list
+        console.log('📊 Total messages in chat:', newMessages.length);
+        return newMessages;
       });
       
       // Always scroll to bottom for new messages from other users
       // Only skip auto-scroll if user is actively scrolling up to read older messages
       if (isNearBottom || data.message.sender._id !== user._id) {
+        console.log('🔄 Auto-scrolling to bottom for new message');
         setTimeout(() => {
           if (flatListRef.current) {
             flatListRef.current.scrollToOffset({ offset: 0, animated: true });
           }
         }, 100);
+      } else {
+        console.log('⏸️ Skipping auto-scroll - user is reading older messages');
       }
+      
+      // Show a brief notification for new messages from other users in TestFlight
+      if (!__DEV__ && data.message.sender._id !== user._id) {
+        console.log('🔔 TestFlight: Showing in-app notification for new message');
+        // You can add a toast or notification here if needed
+      }
+    } else {
+      console.log('❌ Message is not for current chat, ignoring');
+      console.log('Expected chatId:', chatId);
+      console.log('Received chatId:', data.chatId);
     }
   };
 
@@ -594,19 +675,36 @@ const ChatScreen = ({ navigation, route, user }) => {
         const message = response.data.message;
         if (__DEV__) {
           console.log('✅ Message sent successfully:', message);
+        } else {
+          console.log('✅ TestFlight: Message sent successfully via API');
         }
         
         setMessages(prev => {
           // Check if message already exists to prevent duplicates
           const messageExists = prev.some(msg => msg._id === message._id);
           if (messageExists) {
+            console.log('⚠️ Message already exists in local state, skipping duplicate');
             return prev;
           }
           return [message, ...prev]; // Add new message at the beginning for inverted list
         });
         
-        // Emit message to other users
-        socketService.sendMessage(chatId, message);
+        // Enhanced socket emission with better error handling
+        try {
+          if (socketService.isReady()) {
+            console.log('📡 Emitting message via socket to other users');
+            socketService.sendMessage(chatId, message);
+          } else {
+            console.warn('⚠️ Socket not ready, message sent via API only');
+            // In TestFlight, this might be normal if socket connection is unstable
+            if (!__DEV__) {
+              console.log('🧪 TestFlight: Socket not ready, but message was saved via API');
+            }
+          }
+        } catch (socketError) {
+          console.error('❌ Socket emission error:', socketError);
+          // Don't fail the message send if socket fails
+        }
         
         // Always scroll to bottom when user sends a message
         setIsNearBottom(true);

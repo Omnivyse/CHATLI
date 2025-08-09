@@ -331,6 +331,29 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Test message event for debugging
+  socket.on('test_message', (data) => {
+    console.log('🧪 Test message received:', data);
+    const { chatId, userId, timestamp } = data;
+    
+    // Broadcast test message to chat room
+    socket.to(`chat_${chatId}`).emit('test_message_received', {
+      chatId,
+      userId,
+      timestamp,
+      message: 'Test message from server',
+      serverTimestamp: new Date().toISOString()
+    });
+    
+    // Send confirmation back to sender
+    socket.emit('test_message_sent', {
+      success: true,
+      chatId,
+      timestamp,
+      message: 'Test message sent successfully'
+    });
+  });
+
   // Leave chat room
   socket.on('leave_chat', (chatId) => {
     socket.leave(`chat_${chatId}`);

@@ -20,6 +20,15 @@ class PushNotificationService {
         return false;
       }
 
+      console.log('🔔 Sending push notification:', {
+        title,
+        body,
+        data,
+        soundType,
+        tokenLength: pushToken.length,
+        tokenPrefix: pushToken.substring(0, 20) + '...'
+      });
+
       const sound = this.getSoundForType(soundType);
 
       const message = {
@@ -32,13 +41,18 @@ class PushNotificationService {
         channelId: this.getChannelId(soundType),
       };
 
+      console.log('📤 Push notification payload:', message);
+
       const response = await axios.post(this.expoPushUrl, message, {
         headers: {
           'Accept': 'application/json',
           'Accept-encoding': 'gzip, deflate',
           'Content-Type': 'application/json',
         },
+        timeout: 10000, // 10 second timeout
       });
+
+      console.log('📥 Push notification response:', response.data);
 
       if (response.data && response.data.data && response.data.data.status === 'ok') {
         console.log('✅ Push notification sent successfully:', { title, body, data, sound });
@@ -49,6 +63,11 @@ class PushNotificationService {
       }
     } catch (error) {
       console.error('❌ Error sending push notification:', error.message);
+      console.error('❌ Error details:', {
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       return false;
     }
   }
@@ -122,7 +141,14 @@ class PushNotificationService {
 
   // Send message notification
   async sendMessageNotification(pushToken, senderName, messageContent, chatId) {
-    return this.sendPushNotification(
+    console.log('💬 Sending message notification:', {
+      senderName,
+      messageContent: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
+      chatId,
+      tokenLength: pushToken?.length || 0
+    });
+    
+    const result = await this.sendPushNotification(
       pushToken,
       `New message from ${senderName}`,
       messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent,
@@ -134,6 +160,9 @@ class PushNotificationService {
       },
       'message'
     );
+    
+    console.log('💬 Message notification result:', result);
+    return result;
   }
 
   // Send like notification
