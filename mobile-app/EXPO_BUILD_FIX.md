@@ -12,6 +12,7 @@ The Expo build was failing with the following errors:
 6. **Missing react-native-toast-message**: App.js imported `react-native-toast-message` but package was not installed
 7. **Missing expo-linear-gradient**: LoginScreen.js and ClipsScreen.js imported `expo-linear-gradient` but package was not installed
 8. **Missing expo-video-thumbnails**: CreatePostScreen.js imported `expo-video-thumbnails` but package was not installed
+9. **App Store Submission Error**: Invalid UIBackgroundModes value `'background-processing'` in Info.plist
 
 ## Root Cause
 
@@ -25,6 +26,8 @@ Additionally, several packages were being imported in the code but weren't insta
 - `react-native-toast-message` for UI notifications
 - `expo-linear-gradient` for gradient backgrounds
 - `expo-video-thumbnails` for video thumbnail generation
+
+The app.json contained invalid iOS background modes that are not accepted by the App Store.
 
 ## Solution Applied
 
@@ -67,7 +70,16 @@ Updated `mobile-app/app.json`:
 {
   "expo": {
     // Changed from object to string
-    "icon": "./assets/appicon.png"
+    "icon": "./assets/appicon.png",
+    "ios": {
+      "infoPlist": {
+        // Fixed UIBackgroundModes to use valid iOS values
+        "UIBackgroundModes": [
+          "remote-notification",
+          "fetch"
+        ]
+      }
+    }
   }
 }
 ```
@@ -109,6 +121,7 @@ Added to `mobile-app/package.json`:
 6. **Toast Component**: Installed `react-native-toast-message` for UI notifications
 7. **Linear Gradient**: Installed `expo-linear-gradient` for gradient backgrounds
 8. **Video Thumbnails**: Installed `expo-video-thumbnails` for video processing
+9. **App Store Validation**: Fixed UIBackgroundModes for App Store submission
 
 ## Key Changes Summary
 
@@ -121,6 +134,7 @@ Added to `mobile-app/package.json`:
 | `package.json` | Added expo-linear-gradient dependency | Fix missing gradient component |
 | `package.json` | Added expo-video-thumbnails dependency | Fix missing video processing |
 | `app.json` | Fixed icon field to be string | Fix schema validation error |
+| `app.json` | Fixed UIBackgroundModes values | Fix App Store submission validation |
 | `package.json` | Added expo doctor config | Suppress non-critical warnings |
 | `.env` | Created environment variables file | Provide required environment variables |
 
@@ -135,16 +149,17 @@ Added to `mobile-app/package.json`:
 ✅ **FIXED**: expo-linear-gradient dependency added  
 ✅ **FIXED**: expo-video-thumbnails dependency added  
 ✅ **FIXED**: Environment variables configured  
+✅ **FIXED**: UIBackgroundModes validation for App Store  
 ✅ **VERIFIED**: Expo doctor shows 15/15 checks passed  
 
 ## Next Steps
 
-The app should now build successfully in Expo. The previous notification and real-time messaging fixes from version 1.0.8 are preserved and should work correctly with the updated dependencies.
+The app should now build successfully in Expo and pass App Store validation. The previous notification and real-time messaging fixes from version 1.0.8 are preserved and should work correctly with the updated dependencies.
 
 ## Files Modified
 
 1. `mobile-app/package.json` - Updated all dependency versions
-2. `mobile-app/app.json` - Fixed icon schema
+2. `mobile-app/app.json` - Fixed icon schema and UIBackgroundModes
 3. `mobile-app/.env` - Created environment variables file
 4. `mobile-app/EXPO_BUILD_FIX.md` - This documentation
 
