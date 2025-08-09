@@ -29,8 +29,11 @@
         "NSLocationWhenInUseUsageDescription": "This app uses location to show nearby events and posts.",
         "UIBackgroundModes": [
           "remote-notification",
+          "background-processing",
+          "remote-notification",
           "background-processing"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -51,7 +54,9 @@
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -82,4 +87,3 @@
     }
   }
 }
-
