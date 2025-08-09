@@ -1,6 +1,6 @@
 {
   "name": "chatli-mobile",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "CHATLI Mobile App - React Native",
   "main": "expo/AppEntry.js",
   "scripts": {

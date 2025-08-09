@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Navigation state tracking
 let navigationStateRef = null;
@@ -240,16 +241,18 @@ class PushNotificationService {
   // Set up notification listeners
   setupNotificationListeners() {
     try {
-      // Listen for incoming notifications when app is in foreground
+      // Listen for incoming notifications
       this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-        console.log('🔔 Notification received in foreground:', notification);
+        console.log('🔔 Notification received:', notification);
         console.log('📋 Notification details:', {
           title: notification.request.content.title,
           body: notification.request.content.body,
           data: notification.request.content.data,
           sound: notification.request.content.sound
         });
-        this.handleNotificationReceived(notification);
+        this.handleNotificationReceived(notification).catch(error => {
+          console.log('⚠️ Error in handleNotificationReceived:', error.message);
+        });
       });
 
       // Listen for notification responses (when user taps notification)
@@ -269,10 +272,20 @@ class PushNotificationService {
   }
 
   // Handle incoming notifications
-  handleNotificationReceived(notification) {
+  async handleNotificationReceived(notification) {
     try {
       const { title, body, data } = notification.request.content;
       console.log('🔔 Handling notification:', { title, body, data });
+      
+      // Filter out notifications from the sender
+      if (data && data.type === 'message' && data.senderId) {
+        // Get current user ID from storage or context
+        const currentUserId = await this.getCurrentUserId();
+        if (currentUserId && data.senderId === currentUserId) {
+          console.log('🔔 Notification suppressed - sender is current user');
+          return;
+        }
+      }
       
       // Check if we should suppress this notification based on navigation state
       if (navigationStateRef && navigationStateRef.shouldShowNotification) {
@@ -292,7 +305,8 @@ class PushNotificationService {
           console.log('💬 Message notification received:', {
             chatId: data.chatId,
             senderName: data.senderName,
-            messageContent: data.messageContent
+            messageContent: data.messageContent,
+            senderId: data.senderId
           });
         }
       }
@@ -475,6 +489,22 @@ class PushNotificationService {
       console.log('🔔 Push notification listeners cleaned up');
     } catch (error) {
       console.log('⚠️ Error cleaning up notification listeners:', error.message);
+    }
+  }
+
+  // Get current user ID from storage
+  async getCurrentUserId() {
+    try {
+      // Try to get user ID from AsyncStorage
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user._id;
+      }
+      return null;
+    } catch (error) {
+      console.log('⚠️ Error getting current user ID:', error.message);
+      return null;
     }
   }
 }

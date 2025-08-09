@@ -274,53 +274,34 @@ class ApiService {
   }
 
   async updatePrivacySettings(settings) {
-    try {
-      const response = await this.request('/auth/privacy-settings', {
-        method: 'PUT',
-        body: JSON.stringify(settings)
-      });
-      return response;
-    } catch (error) {
-      if (__DEV__) console.error('Update privacy settings error:', error);
-      throw error;
-    }
+    return this.request('/auth/privacy-settings', {
+      method: 'PUT',
+      body: settings
+    });
   }
 
   async getCurrentUser() {
-    try {
-      return await this.request('/auth/me');
-    } catch (error) {
-      if (__DEV__) console.log('getCurrentUser error:', error.message);
-      // Clear token on any error
-      await this.clearToken();
-      return { success: false, message: 'Authentication failed' };
-    }
+    return this.request('/auth/me');
   }
 
   async updatePushToken(pushToken) {
-    try {
-      const response = await this.request('/auth/push-token', {
-        method: 'POST',
-        body: { pushToken }
-      });
-      return response;
-    } catch (error) {
-      if (__DEV__) console.error('Update push token error:', error);
-      throw error;
-    }
+    return this.request('/auth/push-token', {
+      method: 'PUT',
+      body: { pushToken },
+    });
   }
 
   async updateProfile(profileData) {
     return this.request('/auth/profile', {
       method: 'PUT',
-      body: JSON.stringify(profileData),
+      body: profileData,
     });
   }
 
   async deleteAccount(password) {
     return this.request('/auth/delete-account', {
       method: 'DELETE',
-      body: JSON.stringify({ password }),
+      body: { password },
     });
   }
 
@@ -336,7 +317,7 @@ class ApiService {
   async createChat(chatData) {
     return this.request('/chats', {
       method: 'POST',
-      body: JSON.stringify(chatData),
+      body: chatData,
     });
   }
 
@@ -381,7 +362,7 @@ class ApiService {
   async editMessage(chatId, messageId, newText) {
     return this.request(`/chats/${chatId}/messages/${messageId}`, {
       method: 'PUT',
-      body: JSON.stringify({ content: { text: newText } }),
+      body: { content: { text: newText } },
     });
   }
 
@@ -415,14 +396,14 @@ class ApiService {
   async createPost(postData) {
     return this.request('/posts', {
       method: 'POST',
-      body: JSON.stringify(postData),
+      body: postData,
     });
   }
 
   async verifySecretPostPassword(postId, password) {
     return this.request(`/posts/${postId}/verify-password`, {
       method: 'POST',
-      body: JSON.stringify({ password }),
+      body: { password },
     });
   }
 
@@ -435,7 +416,7 @@ class ApiService {
   async commentOnPost(postId, content) {
     return this.request(`/posts/${postId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: { content },
     });
   }
 
@@ -447,7 +428,7 @@ class ApiService {
   async addComment(postId, content) {
     return this.request(`/posts/${postId}/comment`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: { content },
     });
   }
 
@@ -643,7 +624,7 @@ class ApiService {
   async reactToMessage(chatId, messageId, emoji) {
     return this.request(`/chats/${chatId}/messages/${messageId}/react`, {
       method: 'POST',
-      body: JSON.stringify({ emoji }),
+      body: { emoji },
     });
   }
 
@@ -651,7 +632,7 @@ class ApiService {
   async replyToMessage(chatId, messageId, content) {
     return this.request(`/chats/${chatId}/messages/${messageId}/reply`, {
       method: 'POST',
-      body: JSON.stringify({ content })
+      body: { content }
     });
   }
 
@@ -661,36 +642,9 @@ class ApiService {
   }
 
   async createEvent(eventData) {
-    const formData = new FormData();
-    
-    // Add text fields
-    formData.append('name', eventData.name);
-    formData.append('description', eventData.description);
-    formData.append('userNumber', eventData.userNumber.toString());
-    formData.append('isPrivate', eventData.isPrivate.toString());
-    
-    // Add password if it's a private event
-    if (eventData.isPrivate && eventData.password) {
-      formData.append('password', eventData.password);
-    }
-    
-    // Add image file
-    if (eventData.image) {
-      const imageUri = eventData.image;
-      const filename = imageUri.split('/').pop();
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-      
-      formData.append('image', {
-        uri: imageUri,
-        name: filename,
-        type
-      });
-    }
-
     return this.request('/events', {
       method: 'POST',
-      body: formData
+      body: eventData,
     });
   }
 
@@ -698,7 +652,7 @@ class ApiService {
     const body = password ? { password } : {};
     return this.request(`/events/${eventId}/join`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body,
     });
   }
 
@@ -716,14 +670,14 @@ class ApiService {
 
   async likeEvent(eventId) {
     return this.request(`/events/${eventId}/like`, {
-      method: 'POST'
+      method: 'POST',
     });
   }
 
   async commentOnEvent(eventId, content) {
-    return this.request(`/events/${eventId}/comment`, {
+    return this.request(`/events/${eventId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content })
+      body: { content }
     });
   }
 
@@ -739,31 +693,27 @@ class ApiService {
 
   // Event Chat Methods
   async getEventChatMessages(eventId, page = 1, limit = 50) {
-    return this.request(`/event-chats/${eventId}/messages?page=${page}&limit=${limit}`);
+    return this.request(`/events/${eventId}/chat?page=${page}&limit=${limit}`);
   }
 
   async sendEventChatMessage(eventId, content, type = 'text') {
-    return this.request(`/event-chats/${eventId}/messages`, {
+    return this.request(`/events/${eventId}/chat`, {
       method: 'POST',
-      body: JSON.stringify({ content, type }),
+      body: { content, type }
     });
   }
 
   async markEventChatAsRead(eventId) {
-    return this.request(`/event-chats/${eventId}/messages/read`, {
-      method: 'PUT',
+    return this.request(`/events/${eventId}/chat/read`, {
+      method: 'POST',
     });
   }
 
   // Report functionality
   async submitReport(category, description) {
-    return this.request('/reports/submit', {
+    return this.request('/reports', {
       method: 'POST',
-      body: { 
-        category, 
-        description,
-        userEmail: this.userEmail || null // Will be set from user data on server
-      }
+      body: { category, description },
     });
   }
 }

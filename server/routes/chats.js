@@ -379,7 +379,8 @@ router.post('/:id/messages', auth, [
             participant.pushToken,
             req.user.name,
             messageText,
-            chat._id.toString()
+            chat._id.toString(),
+            req.user._id.toString()
           );
         }
       }
