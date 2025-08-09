@@ -9,10 +9,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "icon": {
-      "image": "./assets/appicon.png",
-      "resizeMode": "contain"
-    },
+    "icon": "./assets/appicon.png",
     "assetBundlePatterns": [
       "**/*",
       "assets/sounds/*"
