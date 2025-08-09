@@ -63,16 +63,35 @@ const EmailVerificationModal = ({
     }
 
     // Auto-submit when all digits are entered
-    if (index === 4 && digit && newCode.every(d => d !== '')) {
-      setTimeout(() => {
-        handleVerification();
-      }, 200);
+    if (index === 4 && digit) {
+      // Check if all previous digits are filled
+      const allDigitsFilled = newCode.every(d => d !== '');
+      console.log('🔐 Auto-submit check:', { 
+        index, 
+        digit, 
+        newCode, 
+        allDigitsFilled 
+      });
+      
+      if (allDigitsFilled) {
+        setTimeout(() => {
+          handleVerification();
+        }, 300); // Increased delay to ensure state is updated
+      }
     }
   };
 
   const handleVerification = async () => {
     const code = verificationCode.join('');
-    if (code.length !== 5) {
+    console.log('🔐 Verification attempt:', {
+      code,
+      codeLength: code.length,
+      verificationCode,
+      allDigits: verificationCode.every(d => d !== '')
+    });
+    
+    // Check if all 5 digits are entered
+    if (verificationCode.length !== 5 || verificationCode.some(d => d === '')) {
       setError('Please enter a 5-digit code');
       return;
     }
@@ -81,7 +100,9 @@ const EmailVerificationModal = ({
     setError('');
 
     try {
+      console.log('🔐 Sending verification request:', { email: user.email, code });
       const response = await apiService.verifyEmail(user.email, code);
+      console.log('🔐 Verification response:', response);
       
       if (response.success) {
         Alert.alert(
@@ -102,7 +123,7 @@ const EmailVerificationModal = ({
       }
     } catch (error) {
       console.error('Verification error:', error);
-      setError('Verification failed. Please try again.');
+      setError(error.message || 'Verification failed. Please try again.');
     } finally {
       setLoading(false);
     }

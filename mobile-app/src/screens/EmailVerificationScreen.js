@@ -64,8 +64,21 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
     }
 
     // Auto-submit when all digits are entered
-    if (index === 4 && text && newCode.every(digit => digit !== '')) {
-      handleVerification();
+    if (index === 4 && text) {
+      // Check if all previous digits are filled
+      const allDigitsFilled = newCode.every(digit => digit !== '');
+      console.log('🔐 EmailVerificationScreen auto-submit check:', { 
+        index, 
+        text, 
+        newCode, 
+        allDigitsFilled 
+      });
+      
+      if (allDigitsFilled) {
+        setTimeout(() => {
+          handleVerification();
+        }, 300); // Increased delay to ensure state is updated
+      }
     }
   };
 
@@ -77,14 +90,26 @@ const EmailVerificationScreen = ({ navigation, route, onLogin }) => {
 
   const handleVerification = async () => {
     const code = verificationCode.join('');
-    if (code.length !== 5) {
+    console.log('🔐 EmailVerificationScreen verification attempt:', {
+      code,
+      codeLength: code.length,
+      verificationCode,
+      allDigits: verificationCode.every(d => d !== '')
+    });
+    
+    // Check if all 5 digits are entered
+    if (verificationCode.length !== 5 || verificationCode.some(d => d === '')) {
       setCodeError('Please enter a 5-digit code');
       return;
     }
 
     setLoading(true);
+    setCodeError('');
+    
     try {
+      console.log('🔐 Sending verification request:', { email, code });
       const response = await api.verifyEmail(email, code);
+      console.log('🔐 Verification response:', response);
       
       if (response.success) {
         Alert.alert(
