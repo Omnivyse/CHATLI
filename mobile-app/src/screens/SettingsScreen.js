@@ -66,6 +66,13 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
       title: getTranslation('settings', language),
       items: [
         {
+          icon: 'moon-outline',
+          title: getTranslation('darkMode', language),
+          subtitle: getTranslation('darkMode', language),
+          type: 'custom',
+          customComponent: <ThemeToggle size={20} />,
+        },
+        {
           icon: 'download-outline',
           title: getTranslation('autoDownload', language),
           subtitle: getTranslation('autoDownload', language),
@@ -244,6 +251,8 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
               thumbColor={item.value ? colors.primary : colors.textSecondary}
               ios_backgroundColor={colors.surfaceVariant}
             />
+          ) : item.type === 'custom' ? (
+            item.customComponent
           ) : item.type === 'arrow' ? (
             <Ionicons name="chevron-forward" size={20} color={subtitleColor} />
           ) : null}

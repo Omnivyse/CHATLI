@@ -21,6 +21,7 @@ import apiService from './src/services/api';
 import socketService from './src/services/socket';
 import analyticsService from './src/services/analyticsService';
 import pushNotificationService, { setNavigationStateRef } from './src/services/pushNotificationService';
+import appUpdateService from './src/services/appUpdateService';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -37,6 +38,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import ClipsScreen from './src/screens/ClipsScreen';
 import HelpCenterScreen from './src/screens/HelpCenterScreen';
+import AppUpdateScreen from './src/screens/AppUpdateScreen';
 
 import EmailVerificationBanner from './src/components/EmailVerificationBanner';
 import EmailVerificationModal from './src/components/EmailVerificationModal';
@@ -351,12 +353,15 @@ function MainStackNavigator({ user, onLogout, onGoToVerification }) {
 }
 
 export default function App() {
+  const [appIsReady, setAppIsReady] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [appIsReady, setAppIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [showVerificationBanner, setShowVerificationBanner] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showUpdateScreen, setShowUpdateScreen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState(null);
+
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -388,28 +393,8 @@ export default function App() {
         // Initialize analytics
         analyticsService.init();
         
-        // Run notification debug test in production builds
-        if (!__DEV__) {
-          console.log('🔍 Running notification debug test for production build...');
-          try {
-            const { runNotificationDebugTest } = require('./test-notification-debug.js');
-            await runNotificationDebugTest();
-          } catch (debugError) {
-            console.log('⚠️ Debug test error (non-critical):', debugError.message);
-          }
-        }
-        
-        // Run real-time messaging test in production builds
-        if (!__DEV__) {
-          console.log('🔍 Running real-time messaging debug test for production build...');
-          try {
-            const { runRealtimeMessagingTest } = require('./test-realtime-messaging.js');
-            // This will be called after user authentication
-            console.log('🧪 Real-time messaging test ready - will run when user is authenticated');
-          } catch (debugError) {
-            console.log('⚠️ Real-time messaging test error (non-critical):', debugError.message);
-          }
-        }
+        // Check for app updates
+        await checkForAppUpdates();
         
         // Check if user is already logged in
         await checkAuth();
@@ -470,6 +455,50 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkForAppUpdates = async () => {
+    try {
+      console.log('🔍 Checking for app updates...');
+      
+      // For testing, you can use mock data
+      // In production, this should call the actual API
+      const updateInfo = __DEV__ 
+        ? appUpdateService.getMockUpdateInfo()
+        : await appUpdateService.getUpdateInfo();
+      
+      if (updateInfo && updateInfo.isUpdateRequired) {
+        console.log('🔍 Update required:', updateInfo);
+        setUpdateInfo(updateInfo);
+        
+        // Show update screen immediately for force updates
+        if (updateInfo.isForceUpdate) {
+          setShowUpdateScreen(true);
+        } else {
+          // For recommended updates, you might want to show a modal or banner
+          // For now, we'll show the update screen
+          setShowUpdateScreen(true);
+        }
+      } else {
+        console.log('🔍 No update required');
+      }
+    } catch (error) {
+      console.error('Error checking for app updates:', error);
+      // Don't block app startup if update check fails
+    }
+  };
+
+  const handleUpdateSkip = async () => {
+    if (updateInfo) {
+      await appUpdateService.skipVersion(updateInfo.latestVersion);
+      setShowUpdateScreen(false);
+      setUpdateInfo(null);
+    }
+  };
+
+  const handleUpdateComplete = () => {
+    setShowUpdateScreen(false);
+    setUpdateInfo(null);
   };
 
   const handleLogin = async (userData, loginInfo = {}) => {
@@ -640,8 +669,10 @@ export default function App() {
               onVerificationSuccess={handleVerificationSuccess}
               onGoToVerification={handleGoToVerification}
               onCancelVerification={handleCancelVerification}
-              // showWelcomeModal={showWelcomeModal} // This line is removed
-              // setShowWelcomeModal={setShowWelcomeModal} // This line is removed
+              showUpdateScreen={showUpdateScreen}
+              updateInfo={updateInfo}
+              onUpdateSkip={handleUpdateSkip}
+              onUpdateComplete={handleUpdateComplete}
             />
           </SafeAreaProvider>
         </NavigationProvider>
@@ -661,7 +692,11 @@ function AppContent({
   setShowVerificationModal,
   onVerificationSuccess,
   onGoToVerification,
-  onCancelVerification
+  onCancelVerification,
+  showUpdateScreen,
+  updateInfo,
+  onUpdateSkip,
+  onUpdateComplete
 }) {
   const { theme, isLoading } = useTheme();
   const { language, isLoading: languageLoading } = useLanguage();
@@ -676,6 +711,20 @@ function AppContent({
 
   if (isLoading || languageLoading) {
     return <LoadingScreen />;
+  }
+
+  // Show update screen if update is required
+  if (showUpdateScreen && updateInfo) {
+    return (
+      <AppUpdateScreen
+        isUpdateRequired={updateInfo.isForceUpdate}
+        currentVersion={updateInfo.currentVersion}
+        latestVersion={updateInfo.latestVersion}
+        updateDescription={updateInfo.updateDescription}
+        onSkip={updateInfo.canSkip ? onUpdateSkip : null}
+        onUpdate={onUpdateComplete}
+      />
+    );
   }
 
   return (
@@ -709,13 +758,6 @@ function AppContent({
         user={user}
         onVerificationSuccess={onVerificationSuccess}
       />
-
-      {/* Welcome Modal */}
-      {/* <WelcomeModal // This line is removed */}
-      {/*   isVisible={showWelcomeModal} // This line is removed */}
-      {/*   onClose={() => setShowWelcomeModal(false)} // This line is removed */}
-      {/*   user={user} // This line is removed */}
-      {/* /> // This line is removed */}
       
       <Toast />
       

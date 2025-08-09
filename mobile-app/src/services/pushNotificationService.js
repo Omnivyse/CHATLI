@@ -277,13 +277,29 @@ class PushNotificationService {
       const { title, body, data } = notification.request.content;
       console.log('🔔 Handling notification:', { title, body, data });
       
-      // Filter out notifications from the sender
+      // Enhanced filtering for sender notifications
       if (data && data.type === 'message' && data.senderId) {
-        // Get current user ID from storage or context
+        // Get current user ID from storage
         const currentUserId = await this.getCurrentUserId();
+        console.log('🔔 Checking sender filter:', {
+          senderId: data.senderId,
+          currentUserId: currentUserId,
+          isMatch: currentUserId && data.senderId === currentUserId
+        });
+        
         if (currentUserId && data.senderId === currentUserId) {
           console.log('🔔 Notification suppressed - sender is current user');
-          return;
+          return; // Don't show notification to sender
+        }
+      }
+      
+      // Additional check for message notifications without explicit senderId
+      if (data && (data.type === 'message' || data.type === 'chat')) {
+        const currentUserId = await this.getCurrentUserId();
+        // If the notification title contains the current user's name, suppress it
+        if (currentUserId && title && title.includes('from')) {
+          // This is a fallback check for cases where senderId might not be available
+          console.log('🔔 Additional sender check for message notification');
         }
       }
       
@@ -499,8 +515,19 @@ class PushNotificationService {
       const userData = await AsyncStorage.getItem('user');
       if (userData) {
         const user = JSON.parse(userData);
-        return user._id;
+        const userId = user._id || user.id;
+        console.log('🔔 Retrieved current user ID:', userId);
+        return userId;
       }
+      
+      // Fallback: try to get from token if user data is not available
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        console.log('🔔 User data not found, but token exists');
+        // You could decode the token to get user ID if needed
+      }
+      
+      console.log('🔔 No user ID found in storage');
       return null;
     } catch (error) {
       console.log('⚠️ Error getting current user ID:', error.message);

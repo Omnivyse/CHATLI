@@ -225,6 +225,27 @@ export const translations = {
     loggedOut: 'Гарлаа',
     loggedIn: 'Нэвтэрлээ',
     registered: 'Бүртгэгдлээ',
+
+    // App Update
+    updateAvailable: 'Шинэчлэлт боломжтой',
+    updateRequiredMessage: 'Таны CHATLI апп-д шинэчлэлт хийх шаардлагатай байна. Шинэчлэлт нь аюулгүй байдал, гүйцэтгэл сайжруулалт болон шинэ функцуудыг агуулна.',
+    currentVersion: 'Одоогийн хувилбар',
+    latestVersion: 'Хамгийн сүүлийн хувилбар',
+    whatsNew: 'Шинэ зүйлс',
+    updateNow: 'Одоо шинэчлэх',
+    skipForNow: 'Одоохондоо алгасах',
+    updateBenefits: 'Шинэчлэлтийн давуу талууд',
+    bugFixes: 'Алдаа засварууд',
+    performanceImprovements: 'Гүйцэтгэл сайжруулалт',
+    newFeatures: 'Шинэ функцууд',
+    securityUpdates: 'Аюулгүй байдлын шинэчлэлтүүд',
+    cannotOpenAppStore: 'App Store-г нээх боломжгүй байна',
+    updateError: 'Шинэчлэлт хийхэд алдаа гарлаа',
+    forceUpdateRequired: 'Шаардлагатай шинэчлэлт',
+    recommendedUpdate: 'Санал болгох шинэчлэлт',
+    updateCheckFailed: 'Шинэчлэлт шалгахад алдаа гарлаа',
+    noUpdateAvailable: 'Шинэчлэлт байхгүй байна',
+    checkingForUpdates: 'Шинэчлэлт шалгаж байна...',
   },
   en: {
     // Common
@@ -452,6 +473,27 @@ export const translations = {
     loggedOut: 'Logged Out',
     loggedIn: 'Logged In',
     registered: 'Registered',
+
+    // App Update
+    updateAvailable: 'Update Available',
+    updateRequiredMessage: 'An update is required for your CHATLI app. The update includes security improvements, performance enhancements, and new features.',
+    currentVersion: 'Current Version',
+    latestVersion: 'Latest Version',
+    whatsNew: 'What\'s New',
+    updateNow: 'Update Now',
+    skipForNow: 'Skip for Now',
+    updateBenefits: 'Update Benefits',
+    bugFixes: 'Bug Fixes',
+    performanceImprovements: 'Performance Improvements',
+    newFeatures: 'New Features',
+    securityUpdates: 'Security Updates',
+    cannotOpenAppStore: 'Cannot open App Store',
+    updateError: 'Failed to update',
+    forceUpdateRequired: 'Force Update Required',
+    recommendedUpdate: 'Recommended Update',
+    updateCheckFailed: 'Failed to check for updates',
+    noUpdateAvailable: 'No update available',
+    checkingForUpdates: 'Checking for updates...',
   }
 };
 
