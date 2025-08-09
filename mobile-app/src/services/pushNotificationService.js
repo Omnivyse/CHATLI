@@ -33,22 +33,53 @@ class PushNotificationService {
     };
   }
 
+  // Get the correct project ID for different environments
+  getProjectId() {
+    // Try multiple sources for project ID
+    const projectId = 
+      Constants.expoConfig?.extra?.eas?.projectId ||
+      Constants.expoConfig?.extra?.projectId ||
+      Constants.expoConfig?.projectId ||
+      process.env.EXPO_PROJECT_ID ||
+      '228cdfa0-b203-439c-bfe6-c6b682a56be3'; // Fallback to your actual project ID
+    
+    console.log('🔍 Project ID detection:', {
+      fromEas: Constants.expoConfig?.extra?.eas?.projectId,
+      fromExtra: Constants.expoConfig?.extra?.projectId,
+      fromConfig: Constants.expoConfig?.projectId,
+      fromEnv: process.env.EXPO_PROJECT_ID,
+      final: projectId,
+      isDevelopment: __DEV__,
+      isProduction: !__DEV__
+    });
+    
+    return projectId;
+  }
+
   // Initialize push notifications
   async initialize() {
     try {
       console.log('🔔 Initializing push notifications...');
+      console.log('📱 Device info:', {
+        isDevice: Device.isDevice,
+        platform: Platform.OS,
+        isDevelopment: __DEV__,
+        isProduction: !__DEV__
+      });
       
       // Request permissions
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
       
       if (existingStatus !== 'granted') {
+        console.log('🔔 Requesting notification permissions...');
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
       
       if (finalStatus !== 'granted') {
         console.log('❌ Push notification permissions not granted');
+        console.log('📋 Permission status:', finalStatus);
         return false;
       }
       
@@ -62,19 +93,25 @@ class PushNotificationService {
       // Get the token
       if (Device.isDevice) {
         try {
-          // Try to get projectId from various sources
-          const projectId = Constants.expoConfig?.extra?.eas?.projectId || 
-                           Constants.expoConfig?.extra?.projectId ||
-                           Constants.expoConfig?.projectId;
+          const projectId = this.getProjectId();
           
-          if (projectId) {
+          if (projectId && projectId !== 'your-project-id') {
+            console.log('🔔 Getting push token with project ID:', projectId);
+            
             this.expoPushToken = await Notifications.getExpoPushTokenAsync({
               projectId: projectId,
             });
-            console.log('🔔 Expo Push Token:', this.expoPushToken.data);
+            
+            console.log('✅ Expo Push Token obtained:', this.expoPushToken.data);
+            console.log('📋 Token details:', {
+              token: this.expoPushToken.data,
+              tokenLength: this.expoPushToken.data?.length,
+              startsWithExponent: this.expoPushToken.data?.startsWith('ExponentPushToken'),
+              isDevelopment: __DEV__,
+              isProduction: !__DEV__
+            });
           } else {
-            console.log('⚠️ No projectId found, skipping push token generation');
-            console.log('📋 This is normal in development or without EAS configuration');
+            console.log('⚠️ No valid project ID found, skipping push token generation');
             console.log('📋 Available config:', {
               expoConfig: Constants.expoConfig,
               extra: Constants.expoConfig?.extra,
@@ -82,12 +119,28 @@ class PushNotificationService {
             });
           }
         } catch (error) {
-          console.log('⚠️ Error getting push token:', error.message);
-          console.log('📋 This is normal in development or without EAS configuration');
+          console.error('❌ Error getting push token:', error);
+          console.log('📋 Error details:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+          });
+          
+          // For TestFlight builds, we need to be more specific about the error
+          if (error.message.includes('projectId')) {
+            console.log('🔧 Project ID configuration issue detected');
+            console.log('🔧 Please ensure your app.json has the correct project ID');
+          }
+          
           // Don't throw the error, just log it and continue
         }
       } else {
         console.log('⚠️ Must use physical device for push notifications');
+        console.log('📋 Current environment:', {
+          isDevice: Device.isDevice,
+          isSimulator: !Device.isDevice,
+          platform: Platform.OS
+        });
       }
       
       // Set up notification listeners
@@ -111,6 +164,10 @@ class PushNotificationService {
       return true;
     } catch (error) {
       console.error('❌ Error initializing push notifications:', error);
+      console.log('📋 Initialization error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       // Don't throw the error, just return false
       return false;
     }
@@ -186,14 +243,26 @@ class PushNotificationService {
       // Listen for incoming notifications when app is in foreground
       this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
         console.log('🔔 Notification received in foreground:', notification);
+        console.log('📋 Notification details:', {
+          title: notification.request.content.title,
+          body: notification.request.content.body,
+          data: notification.request.content.data,
+          sound: notification.request.content.sound
+        });
         this.handleNotificationReceived(notification);
       });
 
       // Listen for notification responses (when user taps notification)
       this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
         console.log('🔔 Notification response received:', response);
+        console.log('📋 Response details:', {
+          actionIdentifier: response.actionIdentifier,
+          data: response.notification.request.content.data
+        });
         this.handleNotificationResponse(response);
       });
+      
+      console.log('✅ Notification listeners set up successfully');
     } catch (error) {
       console.log('⚠️ Error setting up notification listeners:', error.message);
     }

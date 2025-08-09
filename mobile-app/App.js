@@ -388,6 +388,17 @@ export default function App() {
         // Initialize analytics
         analyticsService.init();
         
+        // Run notification debug test in production builds
+        if (!__DEV__) {
+          console.log('🔍 Running notification debug test for production build...');
+          try {
+            const { runNotificationDebugTest } = require('./test-notification-debug.js');
+            await runNotificationDebugTest();
+          } catch (debugError) {
+            console.log('⚠️ Debug test error (non-critical):', debugError.message);
+          }
+        }
+        
         // Check if user is already logged in
         await checkAuth();
       } catch (e) {
@@ -712,6 +723,13 @@ async function registerForPushNotificationsAsync() {
     // Check if we're in development or production
     const isDevelopment = __DEV__;
     
+    console.log('🔔 Registering for push notifications...');
+    console.log('📱 Environment:', {
+      isDevelopment,
+      isProduction: !isDevelopment,
+      platform: RNPlatform.OS
+    });
+    
     if (RNPlatform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
@@ -724,29 +742,81 @@ async function registerForPushNotificationsAsync() {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
+      console.log('🔔 Requesting notification permissions...');
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
     
     if (finalStatus !== 'granted') {
-      console.log('Push notification permission not granted');
+      console.log('❌ Push notification permission not granted');
+      console.log('📋 Permission status:', finalStatus);
       return null;
     }
     
+    console.log('✅ Push notification permissions granted');
+    
+    // Get project ID using the same logic as the service
+    const projectId = 
+      Constants.expoConfig?.extra?.eas?.projectId ||
+      Constants.expoConfig?.extra?.projectId ||
+      Constants.expoConfig?.projectId ||
+      process.env.EXPO_PROJECT_ID ||
+      '228cdfa0-b203-439c-bfe6-c6b682a56be3'; // Fallback to your actual project ID
+    
+    console.log('🔍 Project ID for push token:', {
+      projectId,
+      isDevelopment,
+      isProduction: !isDevelopment
+    });
+    
     // Only try to get push token if we have proper configuration
-    try {
-      token = (await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PROJECT_ID || 'your-project-id' // Add your actual project ID here
-      })).data;
-      console.log('Push token obtained successfully:', token);
-    } catch (pushTokenError) {
-      console.log('Push token error (this is normal in development):', pushTokenError.message);
+    if (projectId && projectId !== 'your-project-id') {
+      try {
+        token = (await Notifications.getExpoPushTokenAsync({
+          projectId: projectId,
+        })).data;
+        console.log('✅ Push token obtained successfully:', token);
+        console.log('📋 Token details:', {
+          token: token,
+          tokenLength: token?.length,
+          startsWithExponent: token?.startsWith('ExponentPushToken'),
+          isDevelopment,
+          isProduction: !isDevelopment
+        });
+      } catch (pushTokenError) {
+        console.error('❌ Push token error:', pushTokenError);
+        console.log('📋 Push token error details:', {
+          message: pushTokenError.message,
+          code: pushTokenError.code,
+          stack: pushTokenError.stack
+        });
+        
+        // For TestFlight builds, provide specific guidance
+        if (!isDevelopment) {
+          console.log('🔧 TestFlight build detected - checking configuration...');
+          console.log('🔧 Ensure your app.json has the correct project ID');
+          console.log('🔧 Current project ID:', projectId);
+        }
+        
+        return null;
+      }
+    } else {
+      console.log('⚠️ No valid project ID found, skipping push token generation');
+      console.log('📋 Available config:', {
+        expoConfig: Constants.expoConfig,
+        extra: Constants.expoConfig?.extra,
+        eas: Constants.expoConfig?.extra?.eas
+      });
       return null;
     }
     
     return token;
   } catch (error) {
-    console.log('Push notification setup error (this is normal in development):', error.message);
+    console.error('❌ Push notification setup error:', error);
+    console.log('📋 Setup error details:', {
+      message: error.message,
+      stack: error.stack
+    });
     return null;
   }
 } 
