@@ -63,6 +63,17 @@ class AppUpdateService {
   // Check if update is required by comparing versions
   isUpdateRequired(latestVersion, currentVersion = this.currentVersion) {
     try {
+      // Validate inputs
+      if (!latestVersion || typeof latestVersion !== 'string') {
+        console.warn('🔍 Invalid latestVersion provided to isUpdateRequired:', latestVersion);
+        return { required: false, type: 'none' };
+      }
+      
+      if (!currentVersion || typeof currentVersion !== 'string') {
+        console.warn('🔍 Invalid currentVersion provided to isUpdateRequired:', currentVersion);
+        return { required: false, type: 'none' };
+      }
+      
       const current = this.parseVersion(currentVersion);
       const latest = this.parseVersion(latestVersion);
       
@@ -97,6 +108,16 @@ class AppUpdateService {
 
   // Parse version string (e.g., "1.2.3" -> {major: 1, minor: 2, patch: 3})
   parseVersion(versionString) {
+    // Handle undefined, null, or empty version strings
+    if (!versionString || typeof versionString !== 'string') {
+      console.warn('🔍 Invalid version string provided:', versionString);
+      return {
+        major: 0,
+        minor: 0,
+        patch: 0
+      };
+    }
+    
     const parts = versionString.split('.').map(part => parseInt(part, 10));
     return {
       major: parts[0] || 0,
@@ -323,6 +344,25 @@ class AppUpdateService {
       }
 
       const { latestVersion, updateDescription, isForceUpdate } = versionInfo;
+      
+      console.log('🔍 Version info received:', {
+        latestVersion,
+        updateDescription,
+        isForceUpdate,
+        isTestFlight: versionInfo.isTestFlight
+      });
+      
+      // Validate that latestVersion exists and is a string
+      if (!latestVersion || typeof latestVersion !== 'string') {
+        console.warn('🔍 Invalid latestVersion in versionInfo:', latestVersion);
+        // For TestFlight introductions, we can still proceed
+        if (versionInfo.isTestFlight) {
+          console.log('🔍 Proceeding with TestFlight introduction despite invalid latestVersion');
+        } else {
+          return null;
+        }
+      }
+      
       const updateCheck = this.isUpdateRequired(latestVersion);
       
       console.log('🔍 Update check result:', updateCheck);

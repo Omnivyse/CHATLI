@@ -23,6 +23,11 @@ const CustomVideoPlayer = forwardRef(({
   const [error, setError] = useState(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState(16/9); // Default to 16:9
   const [isVertical, setIsVertical] = useState(false);
+  const [isIntersecting, setIsIntersecting] = useState(false);
+  const debounceTimeoutRef = useRef(null);
+  const stateLockRef = useRef(false);
+  const userInteractedRef = useRef(false);
+  const clickDebounceRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     pause: () => {
@@ -36,28 +41,94 @@ const CustomVideoPlayer = forwardRef(({
     }
   }));
 
-  // Intersection Observer for autoPlayOnView
+  // Intersection Observer for autoPlayOnView with debouncing
   useEffect(() => {
-    if (!autoPlayOnView || !videoRef.current) return;
+    if (!autoPlayOnView || !videoRef.current || inModal || hideControls) return;
     const video = videoRef.current;
     let observer;
+    
     const handleIntersection = (entries) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          video.muted = true;
-          video.play().catch(() => {});
-        } else {
-          video.pause();
+        const wasIntersecting = isIntersecting;
+        const isNowIntersecting = entry.isIntersecting;
+        
+        // Only process if the intersection state actually changed
+        if (wasIntersecting !== isNowIntersecting) {
+          setIsIntersecting(isNowIntersecting);
+          
+          // Clear any existing debounce timeout
+          if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+          }
+          
+          // Debounce the play/pause actions to prevent rapid state changes
+          debounceTimeoutRef.current = setTimeout(() => {
+            // Don't auto-control if user has recently interacted
+            if (userInteractedRef.current) {
+              return;
+            }
+            
+            // Don't auto-control if video is loading or has an error
+            if (isLoading || error) {
+              return;
+            }
+            
+            // Don't auto-control if video is muted and user hasn't interacted
+            if (isMuted && !userInteractedRef.current) {
+              return;
+            }
+            
+            // Don't auto-control if video is in fullscreen mode
+            if (isFullscreen) {
+              return;
+            }
+            
+            // Don't auto-control if video is in a loop
+            if (loop) {
+              return;
+            }
+            
+            // Don't change state if video is already in the desired state
+            if (isNowIntersecting && isPlaying) {
+              return; // Already playing, no need to change
+            }
+            if (!isNowIntersecting && !isPlaying) {
+              return; // Already paused, no need to change
+            }
+            
+            if (isNowIntersecting) {
+              // Video came into view - only play if it's not already playing
+              if (video.paused && !isPlaying) {
+                video.muted = true;
+                video.play().catch(() => {
+                  // Auto-play failed, that's okay
+                });
+              }
+            } else {
+              // Video went out of view - only pause if it's currently playing
+              if (!video.paused && isPlaying) {
+                video.pause();
+              }
+            }
+          }, 150); // 150ms debounce delay
         }
       });
     };
-    observer = new window.IntersectionObserver(handleIntersection, { threshold: 0.8 });
+    
+    observer = new window.IntersectionObserver(handleIntersection, { 
+      threshold: 0.8,
+      rootMargin: '50px' // Add some margin to prevent edge cases
+    });
     observer.observe(video);
+    
     return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
       observer && observer.disconnect();
       video.pause();
     };
-  }, [autoPlayOnView]);
+  }, [autoPlayOnView, isIntersecting, isPlaying, isLoading, error, isMuted, isFullscreen, loop, inModal, hideControls]);
 
   // Auto-hide controls after 3 seconds
   useEffect(() => {
@@ -65,7 +136,17 @@ const CustomVideoPlayer = forwardRef(({
     if (showControls && isPlaying && !hideControls && !minimalControls && !inModal) {
       timeout = setTimeout(() => setShowControls(false), 3000);
     }
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      // Also clear state lock timeout if component unmounts
+      if (stateLockRef.current) {
+        stateLockRef.current = false;
+      }
+      // Clear click debounce
+      if (clickDebounceRef.current) {
+        clickDebounceRef.current = false;
+      }
+    };
   }, [showControls, isPlaying, hideControls, minimalControls, inModal]);
 
   // Handle video events
@@ -87,9 +168,30 @@ const CustomVideoPlayer = forwardRef(({
       setCurrentTime(video.currentTime);
     };
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleEnded = () => setIsPlaying(false);
+    const handlePlay = () => {
+      // Only update state if it's actually different to prevent unnecessary re-renders
+      if (!isPlaying) {
+        setIsPlaying(true);
+      }
+      // Reset user interaction flag when video starts playing
+      userInteractedRef.current = false;
+    };
+    
+    const handlePause = () => {
+      // Only update state if it's actually different to prevent unnecessary re-renders
+      if (isPlaying) {
+        setIsPlaying(false);
+      }
+      // Reset user interaction flag when video is paused
+      userInteractedRef.current = false;
+    };
+    
+    const handleEnded = () => {
+      // Only update state if it's actually different to prevent unnecessary re-renders
+      if (isPlaying) {
+        setIsPlaying(false);
+      }
+    };
     const handleError = () => {
       setError('Video loading failed');
       setIsLoading(false);
@@ -122,12 +224,29 @@ const CustomVideoPlayer = forwardRef(({
   }, [autoPlay]);
 
   const togglePlay = () => {
-    if (videoRef.current) {
+    if (videoRef.current && !stateLockRef.current) {
+      // Set state lock to prevent rapid toggling
+      stateLockRef.current = true;
+      userInteractedRef.current = true; // Mark that user has interacted
+      
       if (isPlaying) {
         videoRef.current.pause();
       } else {
-        videoRef.current.play();
+        videoRef.current.play().catch(() => {
+          // Play failed, reset state lock
+          stateLockRef.current = false;
+        });
       }
+      
+      // Release state lock after a short delay
+      setTimeout(() => {
+        stateLockRef.current = false;
+      }, 300);
+      
+      // Reset user interaction flag after a longer delay
+      setTimeout(() => {
+        userInteractedRef.current = false;
+      }, 2000);
     }
   };
 
@@ -185,6 +304,17 @@ const CustomVideoPlayer = forwardRef(({
 
   const handleVideoClick = (e) => {
     e.stopPropagation();
+    
+    // Prevent rapid clicking
+    if (clickDebounceRef.current) {
+      return;
+    }
+    
+    clickDebounceRef.current = true;
+    setTimeout(() => {
+      clickDebounceRef.current = false;
+    }, 200);
+    
     if (hideControls || autoPlayOnView) {
       if (onClick) onClick();
       return;
@@ -226,8 +356,7 @@ const CustomVideoPlayer = forwardRef(({
         return {
           maxWidth: '400px',
           maxHeight: '600px',
-          aspectRatio: videoAspectRatio,
-          margin: '0 auto'
+          aspectRatio: videoAspectRatio
         };
       } else {
         return {
@@ -242,8 +371,7 @@ const CustomVideoPlayer = forwardRef(({
         return {
           maxWidth: '280px',
           maxHeight: '400px',
-          aspectRatio: videoAspectRatio,
-          margin: '0 auto'
+          aspectRatio: videoAspectRatio
         };
       } else {
         return {
@@ -256,7 +384,7 @@ const CustomVideoPlayer = forwardRef(({
   };
 
   // Dynamic container classes
-  const containerClasses = `relative w-full rounded-xl overflow-hidden bg-black z-auto ${className}`;
+  const containerClasses = `relative w-full rounded-xl overflow-hidden bg-black custom-video-player ${className}`;
 
   return (
     <div className={containerClasses} style={getContainerStyle()}>

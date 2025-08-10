@@ -268,23 +268,25 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
                   style={{ maxWidth: '100%' }}
                 />
               ) : (
-                <CustomVideoPlayer
-                  ref={videoRef}
-                  src={localPost.media[currentMedia].url}
-                  className="rounded border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
-                  onClick={() => {
-                    // Check if post is secret and user hasn't unlocked it
-                    if (localPost.isSecret && !shouldShowSecretContent) {
-                      handleSecretPostPress();
-                    } else {
-                      handleOpenModal();
-                    }
-                  }}
-                  muted={true}
-                  hideControls={true}
-                  autoPlayOnView={true}
-                  playPauseOnly={true}
-                />
+                <div className="post-video-container">
+                  <CustomVideoPlayer
+                    ref={videoRef}
+                    src={localPost.media[currentMedia].url}
+                    className="rounded border border-border dark:border-border-dark cursor-pointer hover:opacity-80 transition"
+                    onClick={() => {
+                      // Check if post is secret and user hasn't unlocked it
+                      if (localPost.isSecret && !shouldShowSecretContent) {
+                        handleSecretPostPress();
+                      } else {
+                        handleOpenModal();
+                      }
+                    }}
+                    muted={true}
+                    hideControls={true}
+                    autoPlayOnView={true}
+                    playPauseOnly={true}
+                  />
+                </div>
               )}
               {localPost.media.length > 1 && (
                 <button 
@@ -337,23 +339,25 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         />
       )}
       {(!localPost.media || localPost.media.length === 0) && localPost.video && !settingsModalOpen && (
-        <CustomVideoPlayer
-          ref={videoRef}
-          src={localPost.video}
-          className="rounded mb-2 cursor-pointer hover:opacity-80 transition"
-          onClick={() => {
-            // Check if post is secret and user hasn't unlocked it
-            if (localPost.isSecret && !shouldShowSecretContent) {
-              handleSecretPostPress();
-            } else {
-              handleOpenModal();
-            }
-          }}
-          muted={true}
-          hideControls={true}
-          autoPlayOnView={true}
-          playPauseOnly={true}
-        />
+        <div className="post-video-container mb-2">
+          <CustomVideoPlayer
+            ref={videoRef}
+            src={localPost.video}
+            className="rounded cursor-pointer hover:opacity-80 transition"
+            onClick={() => {
+              // Check if post is secret and user hasn't unlocked it
+              if (localPost.isSecret && !shouldShowSecretContent) {
+                handleSecretPostPress();
+              } else {
+                handleOpenModal();
+              }
+            }}
+            muted={true}
+            hideControls={true}
+            autoPlayOnView={true}
+            playPauseOnly={true}
+          />
+        </div>
       )}
       <div className="flex items-center gap-4 mb-2">
         <button onClick={handleLike} disabled={liking} className={`flex items-center gap-1 ${isLiked ? 'text-red-500' : 'text-secondary dark:text-secondary-dark'}`}>
