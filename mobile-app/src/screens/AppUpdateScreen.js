@@ -19,13 +19,15 @@ import { getThemeColors } from '../utils/themeUtils';
 
 const { width, height } = Dimensions.get('window');
 
-const AppUpdateScreen = ({ 
-  isUpdateRequired = true, 
-  currentVersion = '1.0.9',
-  latestVersion = '1.1.0',
+const AppUpdateScreen = ({
+  currentVersion = '1.1.4',
+  latestVersion = '1.1.4',
   updateDescription = '',
-  onSkip = null,
-  onUpdate
+  isUpdateRequired = false,
+  isForceUpdate = false,
+  onUpdate,
+  onSkip,
+  isTestFlight = false
 }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -36,7 +38,7 @@ const AppUpdateScreen = ({
       // Open App Store for iOS
       const appStoreUrl = 'https://apps.apple.com/app/chatli/id1234567890'; // Replace with your actual App Store URL
       const supported = await Linking.canOpenURL(appStoreUrl);
-      
+
       if (supported) {
         await Linking.openURL(appStoreUrl);
       } else {
@@ -64,7 +66,7 @@ const AppUpdateScreen = ({
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -83,12 +85,18 @@ const AppUpdateScreen = ({
 
             {/* Title */}
             <Text style={styles.title}>
-              {getTranslation('updateAvailable', language)}
+              {isTestFlight
+                ? getTranslation('welcomeToUpdate', language) || 'Welcome to CHATLI!'
+                : getTranslation('updateAvailable', language)
+              }
             </Text>
 
             {/* Subtitle */}
             <Text style={styles.subtitle}>
-              {getTranslation('updateRequiredMessage', language)}
+              {isTestFlight
+                ? getTranslation('testFlightWelcomeMessage', language) || 'Discover what\'s new in this version and enjoy an enhanced messaging experience.'
+                : getTranslation('updateRequiredMessage', language)
+              }
             </Text>
           </View>
         </LinearGradient>
@@ -103,7 +111,7 @@ const AppUpdateScreen = ({
                 {getTranslation('versionInfo', language)}
               </Text>
             </View>
-            
+
             <View style={styles.versionComparison}>
               <View style={styles.versionItem}>
                 <Text style={[styles.versionLabel, { color: colors.textSecondary }]}>
@@ -115,11 +123,11 @@ const AppUpdateScreen = ({
                   </Text>
                 </View>
               </View>
-              
+
               <View style={styles.versionArrow}>
                 <Ionicons name="arrow-forward" size={20} color={colors.textSecondary} />
               </View>
-              
+
               <View style={styles.versionItem}>
                 <Text style={[styles.versionLabel, { color: colors.textSecondary }]}>
                   {getTranslation('latestVersion', language)}
@@ -156,7 +164,7 @@ const AppUpdateScreen = ({
                 {getTranslation('updateBenefits', language)}
               </Text>
             </View>
-            
+
             <View style={styles.featureList}>
               <View style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: colors.primary + '20' }]}>
@@ -166,7 +174,7 @@ const AppUpdateScreen = ({
                   {getTranslation('bugFixes', language)}
                 </Text>
               </View>
-              
+
               <View style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: colors.primary + '20' }]}>
                   <Ionicons name="checkmark" size={16} color={colors.primary} />
@@ -175,7 +183,7 @@ const AppUpdateScreen = ({
                   {getTranslation('performanceImprovements', language)}
                 </Text>
               </View>
-              
+
               <View style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: colors.primary + '20' }]}>
                   <Ionicons name="checkmark" size={16} color={colors.primary} />
@@ -184,7 +192,7 @@ const AppUpdateScreen = ({
                   {getTranslation('newFeatures', language)}
                 </Text>
               </View>
-              
+
               <View style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: colors.primary + '20' }]}>
                   <Ionicons name="checkmark" size={16} color={colors.primary} />
@@ -200,22 +208,29 @@ const AppUpdateScreen = ({
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.updateButton}
-              onPress={handleUpdate}
+              onPress={isTestFlight ? handleSkip : handleUpdate}
               activeOpacity={0.8}
             >
               <LinearGradient
                 colors={[colors.primary, colors.primary + 'CC']}
                 style={styles.updateButtonGradient}
               >
-                <Ionicons name="arrow-up-circle" size={24} color="white" />
+                <Ionicons
+                  name={isTestFlight ? "checkmark-circle" : "arrow-up-circle"}
+                  size={24}
+                  color="white"
+                />
                 <Text style={styles.updateButtonText}>
-                  {getTranslation('updateNow', language)}
+                  {isTestFlight
+                    ? (getTranslation('getStarted', language) || 'Get Started')
+                    : getTranslation('updateNow', language)
+                  }
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Skip Button (only show if not required) */}
-            {!isUpdateRequired && onSkip && (
+            {/* Skip Button (only show if not required and not TestFlight) */}
+            {!isUpdateRequired && onSkip && !isTestFlight && (
               <TouchableOpacity
                 style={styles.skipButton}
                 onPress={handleSkip}

@@ -160,7 +160,7 @@ const handleSecretPostPress = () => {
 
 ## Version Information
 
-- **App Version**: 1.1.3
+- **App Version**: 1.1.4
 - **Fix Applied**: Secret post persistence and immediate content display
 - **Date**: Current session
 

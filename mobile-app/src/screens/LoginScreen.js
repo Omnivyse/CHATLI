@@ -17,10 +17,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 
 const { width, height } = Dimensions.get('window');
 
 const LoginScreen = ({ onLogin }) => {
+  const { language } = useLanguage();
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -75,31 +78,31 @@ const LoginScreen = ({ onLogin }) => {
   const handleSubmit = async () => {
     // Validate required fields
     if (!email || !password || (mode === 'register' && (!name || !username))) {
-      setError('Бүх талбарыг бөглөнө үү');
+      setError(getTranslation('emailRequired', language));
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError('Имэйл хаяг буруу байна');
+      setError(getTranslation('invalidEmail', language));
       return;
     }
 
     // Validate password length
     if (password.length < 6) {
-      setError('Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой');
+      setError(getTranslation('passwordTooShort', language));
       return;
     }
 
     // Validate username format (for registration)
     if (mode === 'register') {
       if (username.length < 3) {
-        setError('Хэрэглэгчийн нэр хамгийн багадаа 3 тэмдэгт байх ёстой');
+        setError('Username must be at least 3 characters');
         return;
       }
       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        setError('Хэрэглэгчийн нэр зөвхөн үсэг, тоо, _ тэмдэгт агуулж болно');
+        setError('Username can only contain letters, numbers, and _');
         return;
       }
     }
@@ -133,7 +136,7 @@ const LoginScreen = ({ onLogin }) => {
             return;
           }
           // Display the specific error message from the API
-          setError(res.message || 'Нэвтрэхэд алдаа гарлаа');
+          setError(res.message || getTranslation('loginError', language));
         }
       } else {
         const res = await api.register(name, username, email, password);
@@ -142,7 +145,7 @@ const LoginScreen = ({ onLogin }) => {
           onLogin(res.data.user, { isNewUser: true });
         } else {
           // Display the specific error message from the API
-          setError(res.message || 'Бүртгүүлэхэд алдаа гарлаа');
+          setError(res.message || getTranslation('registerError', language));
         }
       }
     } catch (error) {
@@ -153,18 +156,18 @@ const LoginScreen = ({ onLogin }) => {
       if (error.message.includes('Network request failed') || 
           error.message.includes('fetch') || 
           error.message.includes('timeout')) {
-        setError('Интернет холболтоо шалгана уу');
-      } else if (error.message.includes('Хүсэлт хугацаа дууссан')) {
-        setError('Хүсэлт хугацаа дууссан. Интернет холболтоо шалгана уу.');
-      } else if (error.message.includes('Оролтын алдаа') || error.message.includes('Input Error')) {
-        setError('Имэйл эсвэл нууц үг буруу байна');
+        setError('Please check your internet connection');
+              } else if (error.message.includes('Request timeout') || error.message.includes('timeout')) {
+          setError('Request timeout. Please check your internet connection.');
+        } else if (error.message.includes('Input Error') || error.message.includes('Input Error')) {
+        setError('Email or password is incorrect');
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        setError('Имэйл эсвэл нууц үг буруу байна');
+        setError('Email or password is incorrect');
       } else if (error.message.includes('404') || error.message.includes('Not Found')) {
-        setError('Хэрэглэгч олдсонгүй');
+        setError('User not found');
       } else {
         // Display the specific error message from the API
-        setError(error.message || (mode === 'login' ? 'Нэвтрэхэд алдаа гарлаа' : 'Бүртгүүлэхэд алдаа гарлаа'));
+        setError(error.message || (mode === 'login' ? getTranslation('loginError', language) : getTranslation('registerError', language)));
       }
     } finally {
       setLoading(false);
@@ -177,7 +180,7 @@ const LoginScreen = ({ onLogin }) => {
 
   // Test function to verify error display (remove in production)
   const testErrorDisplay = () => {
-    setError('Тест алдааны мессеж - Имэйл эсвэл нууц үг буруу байна');
+    setError('Test error message - Email or password is incorrect');
   };
 
   const blob1Transform = blob1Anim.interpolate({
@@ -256,7 +259,7 @@ const LoginScreen = ({ onLogin }) => {
                   styles.modeButtonText,
                   mode === 'login' && styles.activeModeButtonText
                 ]}>
-                  Нэвтрэх
+                  {getTranslation('login', language)}
                 </Text>
               </TouchableOpacity>
               
@@ -276,7 +279,7 @@ const LoginScreen = ({ onLogin }) => {
                   styles.registerButtonText,
                   mode === 'register' && styles.activeRegisterButtonText
                 ]}>
-                  Бүртгүүлэх
+                  {getTranslation('register', language)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -284,7 +287,7 @@ const LoginScreen = ({ onLogin }) => {
             {/* Beta Badge */}
             <View style={styles.betaBadge}>
               <Text style={styles.betaText}>
-                🚧 <Text style={styles.betaBold}>BETA хувилбар</Text> - Туршилтын горим
+                🚧 <Text style={styles.betaBold}>BETA VERSION</Text> - Testing Mode
               </Text>
             </View>
 
@@ -295,7 +298,7 @@ const LoginScreen = ({ onLogin }) => {
                   <View style={styles.inputContainer}>
                     <TextInput
                       style={styles.input}
-                      placeholder="Профайл нэр"
+                      placeholder={getTranslation('name', language)}
                       placeholderTextColor="#666"
                       value={name}
                       onChangeText={setName}
@@ -305,7 +308,7 @@ const LoginScreen = ({ onLogin }) => {
                   <View style={styles.inputContainer}>
                     <TextInput
                       style={styles.input}
-                      placeholder="Username"
+                      placeholder={getTranslation('username', language)}
                       placeholderTextColor="#666"
                       value={username}
                       onChangeText={setUsername}
@@ -318,7 +321,7 @@ const LoginScreen = ({ onLogin }) => {
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Имэйл"
+                  placeholder={getTranslation('email', language)}
                   placeholderTextColor="#666"
                   value={email}
                   onChangeText={setEmail}
@@ -331,7 +334,7 @@ const LoginScreen = ({ onLogin }) => {
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Нууц үг"
+                  placeholder={getTranslation('password', language)}
                   placeholderTextColor="#666"
                   value={password}
                   onChangeText={setPassword}
@@ -367,8 +370,8 @@ const LoginScreen = ({ onLogin }) => {
               >
                 <Text style={styles.submitButtonText}>
                   {loading 
-                    ? (mode === 'login' ? 'Нэвтэрч байна...' : 'Бүртгүүлж байна...') 
-                    : (mode === 'login' ? 'Нэвтрэх' : 'Бүртгүүлэх')
+                    ? (mode === 'login' ? 'Logging in...' : 'Registering...') 
+                    : (mode === 'login' ? getTranslation('login', language) : getTranslation('register', language))
                   }
                 </Text>
               </TouchableOpacity>
@@ -379,7 +382,7 @@ const LoginScreen = ({ onLogin }) => {
                   style={styles.forgotPasswordButton}
                   onPress={() => setShowForgotPassword(true)}
                 >
-                  <Text style={styles.forgotPasswordText}>Нууц үг мартсан?</Text>
+                  <Text style={styles.forgotPasswordText}>{getTranslation('forgotPassword', language)}</Text>
                 </TouchableOpacity>
               )}
             </View>

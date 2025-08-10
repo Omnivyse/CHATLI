@@ -161,7 +161,7 @@ Applied the same fixes to the dedicated email verification screen:
 
 ## Version Information
 
-- **App Version**: 1.1.3
+- **App Version**: 1.1.4
 - **Fix Applied**: Email verification validation and error handling
 - **Date**: Current session
 

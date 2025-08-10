@@ -14,10 +14,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 
 const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [step, setStep] = useState(1); // 1: email, 2: code, 3: new password
   const [email, setEmail] = useState('');
@@ -32,7 +35,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
 
   const handleSendCode = async () => {
     if (!email.trim()) {
-      setError('Имэйл хаяг оруулна уу');
+      setError(getTranslation('emailRequired', language));
       return;
     }
 
@@ -43,13 +46,13 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
       const response = await apiService.forgotPassword(email);
       
       if (response.success) {
-        Alert.alert('Амжилттай', 'Нууц үг сэргээх код имэйл хаяг руу илгээгдлээ');
+        Alert.alert(getTranslation('success', language), 'Password reset code has been sent to your email');
         setStep(2);
       } else {
-        setError(response.message || 'Код илгээхэд алдаа гарлаа');
+        setError(response.message || 'Failed to send code');
       }
     } catch (error) {
-      setError(error.message || 'Код илгээхэд алдаа гарлаа');
+      setError(error.message || 'Failed to send code');
     } finally {
       setLoading(false);
     }
@@ -57,7 +60,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
 
   const handleVerifyCode = async () => {
     if (!code.trim() || code.length !== 5) {
-      setError('5 оронтой код оруулна уу');
+      setError('Please enter a 5-digit code');
       return;
     }
 
@@ -71,10 +74,10 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
         setResetToken(response.data.resetToken);
         setStep(3);
       } else {
-        setError(response.message || 'Код буруу байна');
+        setError(response.message || 'Invalid code');
       }
     } catch (error) {
-      setError(error.message || 'Код шалгахад алдаа гарлаа');
+      setError(error.message || 'Failed to verify code');
     } finally {
       setLoading(false);
     }
@@ -82,17 +85,17 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
 
   const handleResetPassword = async () => {
     if (!newPassword.trim()) {
-      setError('Шинэ нууц үг оруулна уу');
+      setError('Please enter a new password');
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой');
+      setError(getTranslation('passwordTooShort', language));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Нууц үгнүүд таарахгүй байна');
+      setError(getTranslation('passwordMismatch', language));
       return;
     }
 
@@ -108,15 +111,15 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
         console.log('✅ Password reset successful');
         
         // Don't auto-login, just show success message and close modal
-        Alert.alert('Амжилттай', 'Нууц үг амжилттай сэргээгдлээ. Шинэ нууц үгээр нэвтэрнэ үү.');
+        Alert.alert(getTranslation('success', language), 'Password has been reset successfully. Please login with your new password.');
         onClose();
       } else {
         console.log('❌ Password reset failed:', response.message);
-        setError(response.message || 'Нууц үг сэргээхэд алдаа гарлаа');
+        setError(response.message || 'Failed to reset password');
       }
     } catch (error) {
       console.error('❌ Password reset error:', error);
-      setError(error.message || 'Нууц үг сэргээхэд алдаа гарлаа');
+      setError(error.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
@@ -143,10 +146,10 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
   const renderStep1 = () => (
     <View style={{ flex: 1 }}>
       <Text style={[styles.title, { color: colors.text }]}>
-        Нууц үг сэргээх
+        Reset Password
       </Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Имэйл хаягаа оруулж, нууц үг сэргээх код хүлээн аваарай
+        Enter your email address to receive a password reset code
       </Text>
       
       <TextInput
@@ -154,7 +157,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           borderBottomColor: colors.border,
           color: colors.text
         }]}
-        placeholder="Имэйл хаяг"
+        placeholder={getTranslation('email', language)}
         placeholderTextColor={colors.textSecondary}
         value={email}
         onChangeText={setEmail}
@@ -175,7 +178,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
         {loading ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={[styles.buttonText, { color: colors.textInverse }]}>Код илгээх</Text>
+          <Text style={[styles.buttonText, { color: colors.textInverse }]}>Send Code</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -184,10 +187,10 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
   const renderStep2 = () => (
     <View style={{ flex: 1 }}>
       <Text style={[styles.title, { color: colors.text }]}>
-        Код баталгаажуулах
+        Verify Code
       </Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Имэйл хаяг руу илгээсэн 5 оронтой кодыг оруулна уу
+        Enter the 5-digit code sent to your email address
       </Text>
       
       <TextInput
@@ -215,7 +218,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           style={[styles.button, styles.secondaryButton, { borderColor: colors.border }]}
           onPress={handleBack}
         >
-          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Буцах</Text>
+          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>{getTranslation('back', language)}</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
@@ -226,7 +229,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           {loading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <Text style={[styles.buttonText, { color: colors.textInverse }]}>Шалгах</Text>
+            <Text style={[styles.buttonText, { color: colors.textInverse }]}>Verify</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -236,10 +239,10 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
   const renderStep3 = () => (
     <View style={{ flex: 1 }}>
       <Text style={[styles.title, { color: colors.text }]}>
-        Шинэ нууц үг
+        New Password
       </Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Шинэ нууц үгээ оруулна уу
+        Enter your new password
       </Text>
       
       <View style={styles.passwordContainer}>
@@ -249,7 +252,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
             color: colors.text,
             flex: 1
           }]}
-          placeholder="Шинэ нууц үг"
+          placeholder={getTranslation('newPassword', language)}
           placeholderTextColor={colors.textSecondary}
           value={newPassword}
           onChangeText={setNewPassword}
@@ -274,7 +277,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
             color: colors.text,
             flex: 1
           }]}
-          placeholder="Нууц үг давтах"
+          placeholder={getTranslation('confirmPassword', language)}
           placeholderTextColor={colors.textSecondary}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -301,7 +304,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           style={[styles.button, styles.secondaryButton, { borderColor: colors.border }]}
           onPress={handleBack}
         >
-          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Буцах</Text>
+          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>{getTranslation('back', language)}</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
@@ -312,7 +315,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
           {loading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <Text style={[styles.buttonText, { color: colors.textInverse }]}>Нууц үг сэргээх</Text>
+            <Text style={[styles.buttonText, { color: colors.textInverse }]}>Reset Password</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -334,7 +337,7 @@ const ForgotPasswordModal = ({ visible, onClose, onSuccess }) => {
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Нууц үг сэргээх
+            Reset Password
           </Text>
           <View style={{ width: 24 }} />
         </View>

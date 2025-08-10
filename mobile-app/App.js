@@ -20,7 +20,7 @@ import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNav
 import apiService from './src/services/api';
 import socketService from './src/services/socket';
 import analyticsService from './src/services/analyticsService';
-import pushNotificationService, { setNavigationStateRef } from './src/services/pushNotificationService';
+import pushNotificationService, { setNavigationStateRef, setCurrentUserId, clearCurrentUserId, testNotificationFiltering, logNotificationFilteringStatus } from './src/services/pushNotificationService';
 import appUpdateService from './src/services/appUpdateService';
 
 // Screens
@@ -390,6 +390,9 @@ export default function App() {
   useEffect(() => {
     async function prepare() {
       try {
+        // Clear any existing user ID to ensure clean state
+        clearCurrentUserId();
+        
         // Initialize analytics
         analyticsService.init();
         
@@ -413,6 +416,45 @@ export default function App() {
     };
   }, []);
 
+  // Set up navigation state reference for notifications after app is ready
+  useEffect(() => {
+    if (appIsReady) {
+      // Set navigation state reference for notifications
+      setNavigationStateRef({
+        shouldShowNotification: (data) => {
+          // Check if user is already in the relevant screen
+          if (data && data.type === 'message' && data.chatId) {
+            // Don't show notification if user is already in the chat
+            return false;
+          }
+          return true;
+        }
+      });
+      
+      // Log initial notification filtering status
+      logNotificationFilteringStatus();
+      
+      console.log('✅ Navigation state reference set up for notifications');
+    }
+  }, [appIsReady]);
+
+  // Monitor user changes and update current user ID for notification filtering
+  useEffect(() => {
+    if (user) {
+      console.log('🔔 User changed, updating current user ID for notifications:', user._id);
+      setCurrentUserId(user._id);
+      
+      // Test notification filtering after a short delay to ensure it's set up
+      setTimeout(() => {
+        console.log('🧪 Testing notification filtering after user change...');
+        testNotificationFiltering();
+      }, 1000);
+    } else {
+      console.log('🔔 User cleared, clearing current user ID for notifications');
+      clearCurrentUserId();
+    }
+  }, [user]);
+
   const checkAuth = async () => {
     try {
       // First, test the connection
@@ -432,6 +474,8 @@ export default function App() {
         if (response.success) {
           console.log('✅ Authentication successful');
           setUser(response.data.user);
+          // Set current user ID for notification filtering
+          setCurrentUserId(response.data.user._id);
           // Connect to socket
           socketService.connect(token);
         } else {
@@ -461,18 +505,18 @@ export default function App() {
     try {
       console.log('🔍 Checking for app updates...');
       
-      // For testing, you can use mock data
-      // In production, this should call the actual API
-      const updateInfo = __DEV__ 
-        ? appUpdateService.getMockUpdateInfo()
-        : await appUpdateService.getUpdateInfo();
+      // Get update info from the service
+      const updateInfo = await appUpdateService.getUpdateInfo();
       
-      if (updateInfo && updateInfo.isUpdateRequired) {
-        console.log('🔍 Update required:', updateInfo);
+      console.log('🔍 Update info received:', updateInfo);
+      
+      if (updateInfo && (updateInfo.isUpdateRequired || updateInfo.isTestFlight)) {
+        console.log('🔍 Update/introduction required:', updateInfo);
         setUpdateInfo(updateInfo);
         
-        // Show update screen immediately for force updates
-        if (updateInfo.isForceUpdate) {
+        // Show update screen immediately for force updates or TestFlight introductions
+        if (updateInfo.isForceUpdate || updateInfo.isTestFlight) {
+          console.log('🔍 Showing update screen for:', updateInfo.isForceUpdate ? 'force update' : 'TestFlight introduction');
           setShowUpdateScreen(true);
         } else {
           // For recommended updates, you might want to show a modal or banner
@@ -504,6 +548,9 @@ export default function App() {
   const handleLogin = async (userData, loginInfo = {}) => {
     try {
       setUser(userData);
+      
+      // Set current user ID for notification filtering
+      setCurrentUserId(userData._id);
       
       // Show welcome modal for new users or on app update
       const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
@@ -612,6 +659,8 @@ export default function App() {
     } finally {
       console.log('🧹 Cleaning up user session...');
       setUser(null);
+      // Clear current user ID for notification filtering
+      clearCurrentUserId();
       socketService.disconnect();
       await AsyncStorage.removeItem('token');
       console.log('✅ Logout cleanup complete');
@@ -623,6 +672,8 @@ export default function App() {
       console.log('🧹 Clearing all stored data...');
       await AsyncStorage.clear();
       setUser(null);
+      // Clear current user ID for notification filtering
+      clearCurrentUserId();
       socketService.disconnect();
       console.log('✅ All data cleared');
     } catch (error) {
@@ -636,6 +687,8 @@ export default function App() {
 
   const handleVerificationSuccess = (verifiedUser) => {
     setUser(verifiedUser);
+    // Set current user ID for notification filtering
+    setCurrentUserId(verifiedUser._id);
     setShowVerificationBanner(false);
     setShowVerificationModal(false);
   };
@@ -723,6 +776,7 @@ function AppContent({
         updateDescription={updateInfo.updateDescription}
         onSkip={updateInfo.canSkip ? onUpdateSkip : null}
         onUpdate={onUpdateComplete}
+        isTestFlight={updateInfo.isTestFlight || false}
       />
     );
   }

@@ -4,13 +4,14 @@ import { Platform } from 'react-native';
 
 class AppUpdateService {
   constructor() {
-    this.currentVersion = Constants.expoConfig?.version || '1.0.9';
+    // Get current version from app.json
+    this.currentVersion = Constants.expoConfig?.version || '1.1.4';
     this.buildNumber = Platform.OS === 'ios' 
-      ? Constants.expoConfig?.ios?.buildNumber || '11'
-      : Constants.expoConfig?.android?.versionCode || '4';
+      ? Constants.expoConfig?.ios?.buildNumber || '16'
+      : Constants.expoConfig?.android?.versionCode || '9';
     
     // App Store URLs (replace with your actual URLs)
-    this.appStoreUrl = 'https://apps.apple.com/app/chatli/id1234567890'; // Replace with your App Store ID
+    this.appStoreUrl = 'https://apps.apple.com/app/chatli/id6749570514'; // Updated with actual App Store ID
     this.playStoreUrl = 'https://play.google.com/store/apps/details?id=com.chatli.mobile';
     
     // Update check settings
@@ -18,6 +19,35 @@ class AppUpdateService {
     this.forceUpdateKey = 'forceUpdateVersion';
     this.lastCheckKey = 'lastUpdateCheck';
     this.skipUpdateKey = 'skipUpdateVersion';
+    this.updateShownKey = 'updateShownForVersion';
+    
+    // TestFlight detection
+    this.isTestFlight = this.detectTestFlight();
+    
+    console.log('🔍 AppUpdateService initialized:', {
+      currentVersion: this.currentVersion,
+      buildNumber: this.buildNumber,
+      platform: Platform.OS,
+      isTestFlight: this.isTestFlight,
+      isDevelopment: __DEV__
+    });
+  }
+
+  // Detect if this is a TestFlight build
+  detectTestFlight() {
+    if (Platform.OS !== 'ios') return false;
+    
+    // Check if this is a TestFlight build
+    // TestFlight builds have specific characteristics
+    const isTestFlightBuild = !__DEV__ && Platform.OS === 'ios';
+    
+    console.log('🔍 TestFlight detection:', {
+      isDev: __DEV__,
+      platform: Platform.OS,
+      isTestFlightBuild
+    });
+    
+    return isTestFlightBuild;
   }
 
   // Get current app version
@@ -25,7 +55,8 @@ class AppUpdateService {
     return {
       version: this.currentVersion,
       buildNumber: this.buildNumber,
-      platform: Platform.OS
+      platform: Platform.OS,
+      isTestFlight: this.isTestFlight
     };
   }
 
@@ -34,6 +65,13 @@ class AppUpdateService {
     try {
       const current = this.parseVersion(currentVersion);
       const latest = this.parseVersion(latestVersion);
+      
+      console.log('🔍 Version comparison:', {
+        current,
+        latest,
+        currentVersion,
+        latestVersion
+      });
       
       // Compare major version
       if (latest.major > current.major) {
@@ -81,6 +119,12 @@ class AppUpdateService {
 
       console.log('🔍 Checking for app updates...');
       
+      // For TestFlight builds, we'll use a different approach
+      if (this.isTestFlight) {
+        console.log('🔍 TestFlight build detected, using TestFlight update logic');
+        return await this.checkTestFlightUpdates();
+      }
+      
       // Make API call to your server to get latest version info
       const response = await fetch('https://chatli-production.up.railway.app/api/app/version', {
         method: 'GET',
@@ -102,6 +146,68 @@ class AppUpdateService {
     } catch (error) {
       console.error('Error checking for updates:', error);
       return null;
+    }
+  }
+
+  // Special update check for TestFlight builds
+  async checkTestFlightUpdates() {
+    try {
+      console.log('🔍 Checking TestFlight updates...');
+      
+      // For TestFlight, we'll check if we should show an update introduction
+      // This could be based on build number, version, or a remote flag
+      
+      // Check if we've already shown the update for this version
+      const updateShown = await this.hasShownUpdateForVersion(this.currentVersion);
+      
+      if (updateShown) {
+        console.log('🔍 Update already shown for version:', this.currentVersion);
+        return null;
+      }
+      
+      // For TestFlight, we'll create a mock update to show the introduction
+      // In a real scenario, you might fetch this from your backend
+      const testFlightUpdateInfo = {
+        currentVersion: this.currentVersion,
+        latestVersion: this.currentVersion, // Same version for introduction
+        updateDescription: 'Welcome to the latest CHATLI update! This version includes bug fixes, performance improvements, and new features to enhance your messaging experience.',
+        isUpdateRequired: false, // Not required, just informational
+        isForceUpdate: false,
+        canSkip: true,
+        updateType: 'introduction',
+        isTestFlight: true
+      };
+      
+      console.log('🔍 TestFlight update info created:', testFlightUpdateInfo);
+      
+      // Mark that we've shown this update
+      await this.markUpdateShownForVersion(this.currentVersion);
+      
+      return testFlightUpdateInfo;
+    } catch (error) {
+      console.error('Error checking TestFlight updates:', error);
+      return null;
+    }
+  }
+
+  // Check if we've shown the update introduction for a specific version
+  async hasShownUpdateForVersion(version) {
+    try {
+      const shownVersion = await AsyncStorage.getItem(this.updateShownKey);
+      return shownVersion === version;
+    } catch (error) {
+      console.error('Error checking shown update version:', error);
+      return false;
+    }
+  }
+
+  // Mark that we've shown the update for a specific version
+  async markUpdateShownForVersion(version) {
+    try {
+      await AsyncStorage.setItem(this.updateShownKey, version);
+      console.log('🔍 Marked update as shown for version:', version);
+    } catch (error) {
+      console.error('Error marking update as shown:', error);
     }
   }
 
@@ -182,7 +288,8 @@ class AppUpdateService {
       await AsyncStorage.multiRemove([
         this.forceUpdateKey,
         this.lastCheckKey,
-        this.skipUpdateKey
+        this.skipUpdateKey,
+        this.updateShownKey
       ]);
       console.log('🔍 Update data cleared');
     } catch (error) {
@@ -193,46 +300,71 @@ class AppUpdateService {
   // Get update info for display
   async getUpdateInfo() {
     try {
-      const versionInfo = await this.checkForUpdates();
+      console.log('🔍 Getting update info...');
+      console.log('🔍 Environment:', {
+        isDev: __DEV__,
+        isTestFlight: this.isTestFlight,
+        platform: Platform.OS
+      });
+      
+      let versionInfo;
+      
+      if (this.isTestFlight) {
+        console.log('🔍 Using TestFlight update logic');
+        versionInfo = await this.checkTestFlightUpdates();
+      } else {
+        console.log('🔍 Using regular update logic');
+        versionInfo = await this.checkForUpdates();
+      }
+      
       if (!versionInfo) {
+        console.log('🔍 No version info available');
         return null;
       }
 
       const { latestVersion, updateDescription, isForceUpdate } = versionInfo;
       const updateCheck = this.isUpdateRequired(latestVersion);
       
-      if (!updateCheck.required) {
+      console.log('🔍 Update check result:', updateCheck);
+      
+      if (!updateCheck.required && !versionInfo.isTestFlight) {
+        console.log('🔍 No update required');
         return null;
       }
 
       // Check if user has skipped this version
       const hasSkipped = await this.hasSkippedVersion(latestVersion);
       
-      return {
+      const updateInfo = {
         currentVersion: this.currentVersion,
         latestVersion,
         updateDescription,
-        isUpdateRequired: updateCheck.required,
+        isUpdateRequired: updateCheck.required || versionInfo.isTestFlight,
         isForceUpdate: isForceUpdate || updateCheck.type === 'force',
-        canSkip: !isForceUpdate && !hasSkipped && updateCheck.type === 'recommended',
-        updateType: updateCheck.type
+        canSkip: !isForceUpdate && !hasSkipped && (updateCheck.type === 'recommended' || versionInfo.isTestFlight),
+        updateType: updateCheck.type || 'introduction',
+        isTestFlight: versionInfo.isTestFlight || false
       };
+      
+      console.log('🔍 Final update info:', updateInfo);
+      return updateInfo;
     } catch (error) {
       console.error('Error getting update info:', error);
       return null;
     }
   }
 
-  // Mock version info for testing (remove in production)
+  // Get mock update info for testing
   getMockUpdateInfo() {
     return {
       currentVersion: this.currentVersion,
-      latestVersion: '1.1.0',
-      updateDescription: 'This update includes bug fixes, performance improvements, and new features to enhance your CHATLI experience.',
+      latestVersion: '1.1.5',
+      updateDescription: 'This is a mock update for testing purposes. In production, this would come from your backend API.',
       isUpdateRequired: true,
       isForceUpdate: false,
       canSkip: true,
-      updateType: 'recommended'
+      updateType: 'recommended',
+      isTestFlight: false
     };
   }
 }

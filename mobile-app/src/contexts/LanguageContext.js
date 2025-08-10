@@ -6,7 +6,7 @@ const LanguageContext = createContext();
 const LANGUAGE_STORAGE_KEY = '@chatli_language';
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguage] = useState('mn'); // Default to Mongolian
+  const [language, setLanguage] = useState('en'); // Default to English
   const [isLoading, setIsLoading] = useState(true);
 
   // Load language from storage on app start
@@ -20,13 +20,13 @@ export const LanguageProvider = ({ children }) => {
       if (storedLanguage) {
         setLanguage(storedLanguage);
       } else {
-        // Default to Mongolian if no stored language
-        setLanguage('mn');
+        // Default to English if no stored language
+        setLanguage('en');
       }
     } catch (error) {
       console.error('Error loading language from storage:', error);
-      // Fallback to Mongolian
-      setLanguage('mn');
+      // Fallback to English
+      setLanguage('en');
     } finally {
       setIsLoading(false);
     }

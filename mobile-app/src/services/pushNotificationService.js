@@ -7,8 +7,84 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Navigation state tracking
 let navigationStateRef = null;
 
+// Current user tracking for notification filtering
+let currentUserId = null;
+
 export const setNavigationStateRef = (ref) => {
   navigationStateRef = ref;
+};
+
+// Set current user ID for notification filtering
+export const setCurrentUserId = (userId) => {
+  console.log('🔔 setCurrentUserId called with:', userId);
+  currentUserId = userId;
+  console.log('🔔 Current user ID set for notifications:', currentUserId);
+};
+
+// Get current user ID for debugging
+export const getCurrentUserId = () => {
+  return currentUserId;
+};
+
+// Check notification filtering status
+export const getNotificationFilteringStatus = () => {
+  return {
+    currentUserId,
+    isFilteringEnabled: currentUserId !== null,
+    timestamp: new Date().toISOString()
+  };
+};
+
+// Test notification filtering with sample data
+export const testNotificationFiltering = () => {
+  const testNotifications = [
+    {
+      type: 'message',
+      senderId: 'user1',
+      recipientId: 'user2',
+      title: 'New message from user1'
+    },
+    {
+      type: 'message', 
+      senderId: 'user2',
+      recipientId: 'user1',
+      title: 'New message from user2'
+    },
+    {
+      type: 'like',
+      userId: 'user1',
+      recipientId: 'user2'
+    }
+  ];
+
+  console.log('🧪 Testing notification filtering...');
+  console.log('🔔 Current user ID:', currentUserId);
+  
+  testNotifications.forEach((notification, index) => {
+    const shouldShow = new PushNotificationService().shouldShowNotificationForCurrentUser(notification);
+    console.log(`🧪 Test ${index + 1}:`, {
+      notification,
+      shouldShow,
+      result: shouldShow ? '✅ ALLOWED' : '❌ SUPPRESSED'
+    });
+  });
+};
+
+// Log current notification filtering status
+export const logNotificationFilteringStatus = () => {
+  console.log('🔔 📊 Current notification filtering status:', {
+    currentUserId,
+    isFilteringEnabled: currentUserId !== null,
+    timestamp: new Date().toISOString(),
+    serviceInstance: !!new PushNotificationService()
+  });
+};
+
+// Clear current user ID (for logout)
+export const clearCurrentUserId = () => {
+  console.log('🔔 clearCurrentUserId called, clearing current user ID');
+  currentUserId = null;
+  console.log('🔔 Current user ID cleared, notification filtering disabled');
 };
 
 // Configure notification behavior with custom sounds
@@ -277,30 +353,10 @@ class PushNotificationService {
       const { title, body, data } = notification.request.content;
       console.log('🔔 Handling notification:', { title, body, data });
       
-      // Enhanced filtering for sender notifications
-      if (data && data.type === 'message' && data.senderId) {
-        // Get current user ID from storage
-        const currentUserId = await this.getCurrentUserId();
-        console.log('🔔 Checking sender filter:', {
-          senderId: data.senderId,
-          currentUserId: currentUserId,
-          isMatch: currentUserId && data.senderId === currentUserId
-        });
-        
-        if (currentUserId && data.senderId === currentUserId) {
-          console.log('🔔 Notification suppressed - sender is current user');
-          return; // Don't show notification to sender
-        }
-      }
-      
-      // Additional check for message notifications without explicit senderId
-      if (data && (data.type === 'message' || data.type === 'chat')) {
-        const currentUserId = await this.getCurrentUserId();
-        // If the notification title contains the current user's name, suppress it
-        if (currentUserId && title && title.includes('from')) {
-          // This is a fallback check for cases where senderId might not be available
-          console.log('🔔 Additional sender check for message notification');
-        }
+      // Check if we should suppress this notification based on current user
+      if (!this.shouldShowNotificationForCurrentUser(data)) {
+        console.log('🔔 Notification suppressed - not for current user');
+        return;
       }
       
       // Check if we should suppress this notification based on navigation state
@@ -322,7 +378,8 @@ class PushNotificationService {
             chatId: data.chatId,
             senderName: data.senderName,
             messageContent: data.messageContent,
-            senderId: data.senderId
+            senderId: data.senderId,
+            recipientId: data.recipientId
           });
         }
       }
@@ -502,37 +559,98 @@ class PushNotificationService {
         this.responseListener = null;
       }
       
+      // Clear current user ID when cleaning up
+      currentUserId = null;
+      
       console.log('🔔 Push notification listeners cleaned up');
     } catch (error) {
       console.log('⚠️ Error cleaning up notification listeners:', error.message);
     }
   }
 
-  // Get current user ID from storage
-  async getCurrentUserId() {
-    try {
-      // Try to get user ID from AsyncStorage
-      const userData = await AsyncStorage.getItem('user');
-      if (userData) {
-        const user = JSON.parse(userData);
-        const userId = user._id || user.id;
-        console.log('🔔 Retrieved current user ID:', userId);
-        return userId;
-      }
-      
-      // Fallback: try to get from token if user data is not available
-      const token = await AsyncStorage.getItem('token');
-      if (token) {
-        console.log('🔔 User data not found, but token exists');
-        // You could decode the token to get user ID if needed
-      }
-      
-      console.log('🔔 No user ID found in storage');
-      return null;
-    } catch (error) {
-      console.log('⚠️ Error getting current user ID:', error.message);
-      return null;
+  // Check if notification should be shown for current user
+  shouldShowNotificationForCurrentUser(data) {
+    console.log('🔔 🔍 Notification filtering check started:', {
+      currentUserId,
+      notificationData: data,
+      notificationType: data?.type,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!currentUserId) {
+      console.log('🔔 ⚠️ No current user ID, allowing notification (filtering disabled)');
+      return true; // Allow notification if no user context
     }
+
+    // For message notifications, check if current user is the recipient
+    if (data && (data.type === 'message' || data.type === 'chat')) {
+      console.log('🔔 💬 Processing message/chat notification:', {
+        senderId: data.senderId,
+        recipientId: data.recipientId,
+        chatId: data.chatId,
+        title: data.title
+      });
+      
+      // Check if the notification is for the current user
+      if (data.recipientId && data.recipientId === currentUserId) {
+        console.log('🔔 ✅ Message notification allowed - current user is recipient');
+        return true;
+      }
+      
+      // Check if the notification is from the current user (suppress)
+      if (data.senderId && data.senderId === currentUserId) {
+        console.log('🔔 ❌ Message notification suppressed - current user is sender');
+        return false;
+      }
+      
+      // If no recipientId but has senderId, and sender is current user, suppress
+      if (data.senderId && data.senderId === currentUserId) {
+        console.log('🔔 ❌ Message notification suppressed - current user is sender (fallback)');
+        return false;
+      }
+      
+      // For chat notifications without explicit recipient, check if title indicates it's for current user
+      if (data.chatId && data.title && data.title.includes('from')) {
+        // This is a message notification, allow it if not from current user
+        console.log('🔔 ✅ Message notification allowed (not from current user)');
+        return true;
+      }
+      
+      // If we can't determine the recipient, allow the notification
+      console.log('🔔 ✅ Message notification allowed - unable to determine recipient/sender relationship');
+      return true;
+    }
+
+    // For other notification types (likes, comments, follows), check if they're for current user
+    if (data && (data.type === 'like' || data.type === 'comment' || data.type === 'follow')) {
+      console.log('🔔 ❤️ Processing social notification:', {
+        recipientId: data.recipientId,
+        userId: data.userId,
+        type: data.type
+      });
+      
+      if (data.recipientId && data.recipientId === currentUserId) {
+        console.log('🔔 ✅ Social notification allowed - current user is recipient');
+        return true;
+      }
+      
+      if (data.userId && data.userId === currentUserId) {
+        console.log('🔔 ❌ Social notification suppressed - current user is target');
+        return false;
+      }
+      
+      console.log('🔔 ✅ Social notification allowed - unable to determine recipient relationship');
+      return true;
+    }
+
+    // Default: allow notification if we can't determine it should be suppressed
+    console.log('🔔 ✅ Notification allowed - no specific filtering rules apply');
+    return true;
+  }
+
+  // Get current user ID (updated to use the tracked value)
+  async getCurrentUserId() {
+    return currentUserId;
   }
 }
 
