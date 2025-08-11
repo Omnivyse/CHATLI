@@ -487,8 +487,8 @@ const Sidebar = ({ user, selectedChat, onChatSelect, onLogout, isMobile, onProfi
                                   className="w-8 h-8 rounded-full object-cover"
                                 />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center">
-                                  <UserIcon className="w-4 h-4 text-secondary dark:text-secondary-dark" />
+                                <div className="w-8 h-8 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center overflow-hidden">
+                                  <img src="/img/logo.png" alt="CHATLI" className="w-4 h-4 object-contain" />
                                 </div>
                               )}
                               {/* Online status indicator */}

@@ -73,8 +73,8 @@ const UserSearchModal = ({ onClose, currentUser, onStartChat }) => {
                 {u.avatar ? (
                   <img src={u.avatar} alt={u.name} className="w-8 h-8 rounded-full object-cover" />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                    <UserIcon className="w-5 h-5 text-secondary" />
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                    <img src="/img/logo.png" alt="CHATLI" className="w-4 h-4 object-contain" />
                   </div>
                 )}
                 <span className="font-medium">{u.name}</span>

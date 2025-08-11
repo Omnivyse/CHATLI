@@ -139,8 +139,8 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           {localPost.author.avatar ? (
             <img src={localPost.author.avatar} alt={localPost.author.name} className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-secondary dark:text-secondary-dark" />
+            <div className="w-10 h-10 rounded-full bg-muted dark:bg-muted-dark flex items-center justify-center overflow-hidden">
+              <img src="/img/logo.png" alt="CHATLI" className="w-6 h-6 object-contain" />
             </div>
           )}
         </div>
