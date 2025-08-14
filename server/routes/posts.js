@@ -17,7 +17,8 @@ router.post('/', auth, [
   body('media.*.type').optional().isIn(['image', 'video']),
   body('media.*.url').optional().isString(),
   body('isSecret').optional().isBoolean(),
-  body('secretPassword').optional().isLength({ min: 4, max: 4 }).withMessage('Password must be exactly 4 digits')
+  body('secretPassword').optional().isLength({ min: 4, max: 4 }).withMessage('Password must be exactly 4 digits'),
+  body('showDescription').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -25,7 +26,16 @@ router.post('/', auth, [
       return res.status(400).json({ success: false, message: 'Оролтын алдаа', errors: errors.array() });
     }
     
-    const { content, media, isSecret, secretPassword } = req.body;
+    const { content, media, isSecret, secretPassword, showDescription } = req.body;
+    
+    console.log('📥 Received post creation request:', {
+      contentLength: content?.length || 0,
+      mediaCount: media?.length || 0,
+      isSecret,
+      showDescription,
+      showDescriptionType: typeof showDescription,
+      hasPassword: !!secretPassword
+    });
     
     // Validate secret post requirements
     if (isSecret && !secretPassword) {
@@ -47,10 +57,30 @@ router.post('/', auth, [
       content,
       media: Array.isArray(media) ? media : [],
       isSecret: isSecret || false,
-      secretPassword: isSecret ? secretPassword : undefined
+      secretPassword: isSecret ? secretPassword : undefined,
+      showDescription: isSecret ? Boolean(showDescription) : false
+    });
+    
+    console.log('💾 Saving post to database:', {
+      isSecret: post.isSecret,
+      showDescription: post.showDescription,
+      showDescriptionType: typeof post.showDescription,
+      contentLength: post.content.length
     });
     
     await post.save();
+    
+    // Log what was actually saved
+    console.log('💾 Post saved successfully. Retrieved from database:', {
+      isSecret: post.isSecret,
+      showDescription: post.showDescription,
+      showDescriptionType: typeof post.showDescription,
+      contentLength: post.content.length
+    });
+    
+    // Also log the raw document to see all fields
+    console.log('💾 Raw post document after save:', JSON.stringify(post.toObject(), null, 2));
+    
     await post.populate('author', 'name avatar isVerified');
     
     res.status(201).json({ 
@@ -107,15 +137,45 @@ router.get('/', auth, async (req, res) => {
           return true;
         }
         
-        // For secret posts, show only basic info (no content) to unverified users
-        // But keep the passwordVerifiedUsers array so frontend can check verification status
-        post.content = '🔒 This is a secret post. Enter the password to view content.';
-        post.media = []; // Hide media for unverified users
+        // For secret posts, handle content visibility based on showDescription setting
+        console.log(`🔒 Secret post ${post._id} - showDescription: ${post.showDescription}, showDescription type: ${typeof post.showDescription}, original content length: ${post.content.length}`);
+        
+        // Convert showDescription to boolean to handle different data types
+        const shouldShowDescription = Boolean(post.showDescription);
+        console.log(`🔍 Converted showDescription to boolean: ${shouldShowDescription}`);
+        console.log(`🔍 Post data before modification:`, {
+          _id: post._id,
+          content: post.content.substring(0, 100) + '...',
+          mediaCount: post.media?.length || 0,
+          showDescription: post.showDescription,
+          shouldShowDescription
+        });
+        
+        if (shouldShowDescription) {
+          // If showDescription is true, keep the original content visible
+          // Only hide the media
+          console.log(`✅ Keeping content visible for post ${post._id} (showDescription: ${post.showDescription} -> ${shouldShowDescription})`);
+          post.media = []; // Hide media for unverified users
+        } else {
+          // If showDescription is false, hide both content and media
+          console.log(`❌ Hiding content for post ${post._id} (showDescription: ${post.showDescription} -> ${shouldShowDescription})`);
+          post.content = '🔒 This is a secret post. Enter the password to view content.';
+          post.media = []; // Hide media for unverified users
+        }
+        
+        console.log(`🔍 Post data after modification:`, {
+          _id: post._id,
+          content: post.content.substring(0, 100) + '...',
+          mediaCount: post.media?.length || 0,
+          showDescription: post.showDescription,
+          shouldShowDescription
+        });
+        
         // Ensure passwordVerifiedUsers array is preserved for frontend verification checks
         if (!post.passwordVerifiedUsers) {
           post.passwordVerifiedUsers = [];
         }
-        return true; // Show the post but with hidden content
+        return true; // Show the post but with hidden content/media based on showDescription
       }
       
       // Check privacy settings for the author

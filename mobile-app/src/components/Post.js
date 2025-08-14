@@ -8,6 +8,7 @@ import {
   Modal,
   Alert,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
@@ -25,6 +26,8 @@ import SecretPostPasswordModal from './SecretPostPasswordModal';
 const { width: screenWidth } = Dimensions.get('window');
 
 const Post = ({ post, user, onPostUpdate, navigation }) => {
+  const isWeb = Platform.OS === 'web';
+  
   // Debug: Validate props
   if (!post || typeof post !== 'object') {
     console.warn('Post component: Invalid post prop:', post);
@@ -564,13 +567,33 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
               </View>
             )}
             <Text style={[styles.content, { color: colors.text }]}>
-              {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id 
-                ? 'Content hidden' 
-                : localPost.content
-              }
+              {(() => {
+                // Convert showDescription to boolean to handle different data types
+                const shouldShowDescription = Boolean(localPost.showDescription);
+                const shouldHideContent = localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !shouldShowDescription;
+                
+                // Enhanced debugging
+                console.log(`🔍 DEBUG Post ${localPost._id} (${isWeb ? 'WEB' : 'MOBILE'}):`, {
+                  platform: isWeb ? 'WEB' : 'MOBILE',
+                  isSecret: localPost.isSecret,
+                  isSecretPostUnlocked,
+                  authorId: localPost.author?._id,
+                  userId: user?._id,
+                  isAuthor: localPost.author._id === user?._id,
+                  showDescription: localPost.showDescription,
+                  showDescriptionType: typeof localPost.showDescription,
+                  shouldShowDescription,
+                  shouldHideContent,
+                  originalContent: localPost.content?.substring(0, 50) + '...',
+                  finalContent: shouldHideContent ? 'Content hidden' : localPost.content
+                });
+                
+                return shouldHideContent ? 'Content hidden' : localPost.content;
+              })()}
             </Text>
           </View>
-          {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && (
+          {/* Only show secret overlay if description should be hidden */}
+          {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) && (
             <View style={styles.secretOverlay}>
               <View style={styles.secretOverlayContent}>
                 <Ionicons name="lock-closed" size={24} color="#ffffff" />
@@ -581,7 +604,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         </TouchableOpacity>
       )}
 
-      {/* Post Media - Simple Multi-Image Recognition */}
+      {/* Post Media - Always hidden when secret post is locked (regardless of showDescription) */}
       {localPost.isSecret && !isSecretPostUnlocked && mediaArray.length > 0 ? (
         <TouchableOpacity
           onPress={handleSecretPostPress}
@@ -722,6 +745,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         onClose={() => setSecretPasswordModalVisible(false)}
         onPasswordSubmit={handleSecretPostPassword}
         postAuthor={localPost.author?.name}
+        showDescription={localPost.showDescription}
       />
     </View>
   );

@@ -12,10 +12,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { getThemeColors } from '../utils/themeUtils';
+import { getTranslation } from '../utils/translations';
 
-const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAuthor }) => {
+const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAuthor, showDescription }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,12 +32,12 @@ const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAutho
 
   const handleSubmit = async () => {
     if (password.length !== 4) {
-      Alert.alert('Error', 'Password must be exactly 4 digits');
+      Alert.alert(getTranslation('error', language), getTranslation('passwordMustBe4Digits', language));
       return;
     }
 
     if (!/^\d{4}$/.test(password)) {
-      Alert.alert('Error', 'Password must contain only digits');
+      Alert.alert(getTranslation('error', language), getTranslation('passwordMustBeDigits', language));
       return;
     }
 
@@ -43,7 +46,7 @@ const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAutho
       await onPasswordSubmit(password);
       setPassword('');
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to verify password');
+      Alert.alert(getTranslation('error', language), error.message || getTranslation('passwordVerificationFailed', language));
     } finally {
       setIsSubmitting(false);
     }
@@ -69,7 +72,7 @@ const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAutho
       >
         <View style={[styles.modal, { backgroundColor: colors.surface }]}>
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Secret Post</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{getTranslation('secretPost', language)}</Text>
             <TouchableOpacity onPress={handleClose} disabled={isSubmitting}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
@@ -82,19 +85,23 @@ const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAutho
               </View>
             </View>
             
-            <Text style={[styles.description, { color: colors.textSecondary }]}>
-              This post is protected with a password
-            </Text>
-            
-            {postAuthor && (
-              <Text style={[styles.author, { color: colors.textSecondary }]}>
-                Posted by {postAuthor}
-              </Text>
+            {showDescription && (
+              <>
+                <Text style={[styles.description, { color: colors.textSecondary }]}>
+                  {getTranslation('secretPostDescription', language)}
+                </Text>
+                
+                {postAuthor && (
+                  <Text style={[styles.author, { color: colors.textSecondary }]}>
+                    {getTranslation('postedBy', language)} {postAuthor}
+                  </Text>
+                )}
+              </>
             )}
 
             <View style={styles.passwordContainer}>
               <Text style={[styles.label, { color: colors.text }]}>
-                Enter 4-digit password:
+                {getTranslation('enterPassword', language)}:
               </Text>
               <TextInput
                 style={[
@@ -129,7 +136,7 @@ const SecretPostPasswordModal = ({ visible, onClose, onPasswordSubmit, postAutho
               disabled={isSubmitting || password.length !== 4}
             >
               <Text style={[styles.submitButtonText, { color: colors.primaryText }]}>
-                {isSubmitting ? 'Verifying...' : 'View Post'}
+                {isSubmitting ? getTranslation('verifying', language) : getTranslation('viewPost', language)}
               </Text>
             </TouchableOpacity>
           </View>

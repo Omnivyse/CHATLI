@@ -41,6 +41,11 @@ const postSchema = new mongoose.Schema({
     minlength: [4, 'Password must be at least 4 digits'],
     maxlength: [4, 'Password must be exactly 4 digits']
   },
+  // Control whether description is visible when post is locked
+  showDescription: {
+    type: Boolean,
+    default: false
+  },
   // Track users who have successfully entered the password
   passwordVerifiedUsers: [{
     type: mongoose.Schema.Types.ObjectId,

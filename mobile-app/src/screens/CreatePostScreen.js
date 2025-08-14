@@ -22,12 +22,16 @@ import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 import ImageViewerModal from '../components/ImageViewerModal';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getTranslation } from '../utils/translations';
 
 const { width } = Dimensions.get('window');
+const isWeb = Platform.OS === 'web';
 
 const CreatePostScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const { language } = useLanguage();
   const [content, setContent] = useState('');
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -38,6 +42,8 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [isSecretPost, setIsSecretPost] = useState(false);
   const [secretPassword, setSecretPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
+  const [testCounter, setTestCounter] = useState(0);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -58,6 +64,16 @@ const CreatePostScreen = ({ navigation, user }) => {
       keyboardDidHideListener?.remove();
     };
   }, []);
+
+  // Monitor showDescription state changes
+  useEffect(() => {
+    console.log('showDescription state changed to:', showDescription);
+  }, [showDescription]);
+
+  // Monitor test counter state changes
+  useEffect(() => {
+    console.log('testCounter state changed to:', testCounter);
+  }, [testCounter]);
 
   const handleSelectMedia = async () => {
     try {
@@ -213,8 +229,17 @@ const CreatePostScreen = ({ navigation, user }) => {
         content: content.trim(),
         media: uploadedMedia,
         isSecret: isSecretPost,
-        secretPassword: isSecretPost ? secretPassword : undefined
+        secretPassword: isSecretPost ? secretPassword : undefined,
+        showDescription: isSecretPost ? showDescription : undefined
       };
+      
+      console.log('📤 Creating post with data:', {
+        content: postData.content.substring(0, 50) + '...',
+        isSecret: postData.isSecret,
+        showDescription: postData.showDescription,
+        showDescriptionType: typeof postData.showDescription,
+        hasPassword: !!postData.secretPassword
+      });
 
       const response = await api.createPost(postData);
       
@@ -231,6 +256,7 @@ const CreatePostScreen = ({ navigation, user }) => {
                 setIsSecretPost(false);
                 setSecretPassword('');
                 setShowPasswordInput(false);
+                setShowDescription(false);
                 navigation.goBack();
               }
             }
@@ -417,6 +443,128 @@ const CreatePostScreen = ({ navigation, user }) => {
                 </View>
               </TouchableOpacity>
             </View>
+
+            {/* Show Description Toggle - Only visible when secret post is enabled */}
+            {isSecretPost && (
+              <View style={[styles.showDescriptionSection, { backgroundColor: colors.surfaceVariant }]}>
+                {/* State indicator */}
+                <View style={styles.stateIndicator}>
+                  <Text style={[styles.stateIndicatorText, { color: colors.textSecondary }]}>
+                    State: {showDescription ? 'ON' : 'OFF'}
+                  </Text>
+                </View>
+                
+                {isWeb ? (
+                  // Web-specific toggle button
+                  <View style={styles.webToggleContainer}>
+                    <TouchableOpacity
+                      style={[styles.webToggleButton, { 
+                        backgroundColor: showDescription ? colors.primary : colors.surfaceVariant,
+                        borderColor: colors.border 
+                      }]}
+                      onPress={() => {
+                        const newValue = !showDescription;
+                        console.log('Web toggle pressed - showDescription:', showDescription, '->', newValue);
+                        setShowDescription(newValue);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.webToggleButtonText, { 
+                        color: showDescription ? colors.textInverse : colors.text 
+                      }]}>
+                        {showDescription ? 'ON' : 'OFF'}
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    {/* Alternative HTML button for web */}
+                    <button
+                      style={{
+                        backgroundColor: showDescription ? colors.primary : colors.surfaceVariant,
+                        color: showDescription ? colors.textInverse : colors.text,
+                        border: `2px solid ${colors.border}`,
+                        borderRadius: 20,
+                        padding: '8px 16px',
+                        fontSize: 14,
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        marginLeft: 8,
+                        minWidth: 60,
+                      }}
+                      onClick={() => {
+                        const newValue = !showDescription;
+                        console.log('HTML button clicked - showDescription:', showDescription, '->', newValue);
+                        setShowDescription(newValue);
+                      }}
+                    >
+                      {showDescription ? 'ON' : 'OFF'}
+                    </button>
+                    
+                    {/* Test counter button */}
+                    <button
+                      style={{
+                        backgroundColor: colors.accent,
+                        color: colors.textInverse,
+                        border: 'none',
+                        borderRadius: 20,
+                        padding: '8px 16px',
+                        fontSize: 14,
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        marginLeft: 8,
+                        minWidth: 60,
+                      }}
+                      onClick={() => {
+                        console.log('Counter button clicked - current:', testCounter);
+                        setTestCounter(prev => prev + 1);
+                      }}
+                    >
+                      Count: {testCounter}
+                    </button>
+                  </View>
+                ) : (
+                  // Mobile toggle with icon and text
+                  <TouchableOpacity
+                    style={styles.showDescriptionToggle}
+                    onPress={() => {
+                      const newValue = !showDescription;
+                      console.log('Mobile toggle pressed - showDescription:', showDescription, '->', newValue);
+                      setShowDescription(newValue);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.showDescriptionToggleContent}>
+                      <View style={[styles.showDescriptionIconContainer, { backgroundColor: colors.surface }]}>
+                        <Ionicons 
+                          name={showDescription ? "eye" : "eye-off"} 
+                          size={20} 
+                          color={showDescription ? colors.primary : colors.textSecondary} 
+                        />
+                      </View>
+                      <View style={styles.showDescriptionTextContainer}>
+                        <Text style={[styles.showDescriptionText, { color: colors.text }]}>
+                          {getTranslation('showDescription', language)}
+                        </Text>
+                        <Text style={[styles.showDescriptionSubtext, { color: colors.textSecondary }]}>
+                          {showDescription ? getTranslation('descriptionVisibleWhenLocked', language) : getTranslation('descriptionHiddenWhenLocked', language)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.toggleSwitch,
+                      { backgroundColor: showDescription ? colors.primary : colors.border }
+                    ]}>
+                      <View style={[
+                        styles.toggleKnob,
+                        { 
+                          backgroundColor: colors.surface,
+                          transform: [{ translateX: showDescription ? 16 : 0 }]
+                        }
+                      ]} />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {/* Secret Post Password Input */}
             {showPasswordInput && isSecretPost && (
@@ -804,6 +952,87 @@ const styles = StyleSheet.create({
   passwordHint: {
     fontSize: 12,
     marginTop: 8,
+  },
+  showDescriptionSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    marginTop: 8,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  showDescriptionToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  showDescriptionToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+    flex: 1,
+  },
+  showDescriptionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  showDescriptionTextContainer: {
+    flex: 1,
+  },
+  showDescriptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  showDescriptionSubtext: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
+  webToggleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  webToggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  webToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stateIndicator: {
+    position: 'absolute',
+    top: -20, // Adjust as needed to position it above the toggle
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  stateIndicatorText: {
+    fontSize: 12,
   },
 });
 
