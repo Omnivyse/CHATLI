@@ -5,7 +5,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const PrivacySettings = require('../models/PrivacySettings');
 const Notification = require('../models/Notification');
-const { auth, optionalAuth } = require('../middleware/auth');
+const { auth, optionalAuth, generateSecureToken, generateRefreshToken } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
 const emailService = require('../services/emailService');
@@ -21,9 +21,26 @@ router.get('/test', (req, res) => {
   });
 });
 
-// Generate JWT Token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// Enhanced JWT Token generation with device info
+const generateToken = (userId, req) => {
+  const deviceInfo = {
+    fingerprint: req.headers['x-device-fingerprint'] || 'unknown',
+    userAgent: req.get('User-Agent') || 'unknown',
+    ip: req.ip || 'unknown'
+  };
+  
+  return generateSecureToken(userId, deviceInfo);
+};
+
+// Generate refresh token with device info
+const generateRefreshTokenForUser = (userId, req) => {
+  const deviceInfo = {
+    fingerprint: req.headers['x-device-fingerprint'] || 'unknown',
+    userAgent: req.get('User-Agent') || 'unknown',
+    ip: req.ip || 'unknown'
+  };
+  
+  return generateRefreshToken(userId, deviceInfo);
 };
 
 // Utility to escape regex special characters
@@ -38,6 +55,15 @@ router.get('/users/search', auth, async (req, res) => {
   try {
     const q = req.query.q || '';
     if (!q.trim()) return res.json({ success: true, data: { users: [] } });
+    
+    // Enhanced input validation
+    if (q.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query too long'
+      });
+    }
+    
     const safeQ = escapeRegex(q);
     const regex = new RegExp(`^${safeQ}$`, 'i'); // exact match for uniqueness
     console.log('[UserSearch] Query:', q, '| safeQ:', safeQ, '| regex:', regex);
@@ -87,6 +113,14 @@ router.get('/users/search', auth, async (req, res) => {
 // @access  Private
 router.get('/users/:id', auth, async (req, res) => {
   try {
+    // Validate user ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
     const user = await User.findById(req.params.id).select('-password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
@@ -124,7 +158,7 @@ router.post('/register', [
     .withMessage('Нэр 2-50 тэмдэгт байх ёстой'),
   body('username')
     .trim()
-    .isLength({ min: 3, max: 30 })
+    .isLength({ min: 3, max: 20 })
     .matches(/^[a-zA-Z0-9_]+$/)
     .withMessage('Хэрэглэгчийн нэр зөвхөн үсэг, тоо, _ агуулж болно'),
   body('email')
@@ -132,8 +166,9 @@ router.post('/register', [
     .normalizeEmail()
     .withMessage('Зөв имэйл оруулна уу'),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой')
+    .isLength({ min: 12, max: 128 })
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/)
+    .withMessage('Нууц үг хамгийн багадаа 12 тэмдэгт байх ёстой бөгөөд том үсэг, жижиг үсэг, тоо, тусгай тэмдэгт агуулсан байх ёстой')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -153,50 +188,32 @@ router.post('/register', [
     });
 
     if (existingUser) {
-      if (existingUser.email === email) {
-        return res.status(400).json({
-          success: false,
-          message: 'Энэ имэйл хаяг аль хэдийн бүртгэлтэй байна'
-        });
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: 'Энэ хэрэглэгчийн нэр аль хэдийн ашиглагдаж байна'
-        });
-      }
+      return res.status(400).json({
+        success: false,
+        message: existingUser.email === email ? 'Имэйл хаяг бүртгэлтэй байна' : 'Хэрэглэгчийн нэр бүртгэлтэй байна'
+      });
     }
 
-    // Generate verification code
-    const verificationCode = emailService.generateVerificationCode();
-    const verificationExpires = new Date(Date.now() + 60 * 1000); // 1 minute
-
-    // Create new user (not verified yet)
+    // Create user
     const user = new User({
       name,
       username,
       email,
-      password,
-      emailVerified: false,
-      verificationCode,
-      verificationExpires
+      password
     });
 
     await user.save();
 
-    // Send verification email
-    const emailResult = await emailService.sendVerificationEmail(email, name, verificationCode);
-    
-    if (!emailResult.success) {
-      console.error('Failed to send verification email:', emailResult.error);
-      // Don't fail registration, just log the error
-    }
+    // Generate secure tokens
+    const token = generateToken(user._id, req);
+    const refreshToken = generateRefreshTokenForUser(user._id, req);
 
-    // Generate JWT token for the new user
-    const token = generateToken(user._id);
+    // Send verification email
+    const emailResult = await emailService.sendVerificationEmail(user.email, user.verificationCode);
 
     res.status(201).json({
       success: true,
-      message: 'Бүртгэл амжилттай үүслээ. Имэйл хаягаа шалгаж баталгаажуулна уу.',
+      message: 'Бүртгэл амжилттай үүслээ',
       data: {
         user: {
           _id: user._id,
@@ -214,6 +231,7 @@ router.post('/register', [
           createdAt: user.createdAt
         },
         token,
+        refreshToken,
         emailSent: emailResult.success
       }
     });
@@ -298,15 +316,17 @@ router.post('/login', [
     user.status = 'online';
     await user.save();
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Generate secure tokens
+    const token = generateToken(user._id, req);
+    const refreshToken = generateRefreshTokenForUser(user._id, req);
 
     res.json({
       success: true,
       message: 'Амжилттай нэвтэрлээ',
       data: {
         user,
-        token
+        token,
+        refreshToken
       }
     });
   } catch (error) {
@@ -314,6 +334,65 @@ router.post('/login', [
     res.status(500).json({
       success: false,
       message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/auth/refresh
+// @desc    Refresh access token
+// @access  Public
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token required'
+      });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+    
+    if (decoded.type !== 'refresh' || decoded.aud !== 'chatli-refresh') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid refresh token'
+      });
+    }
+
+    // Check if user still exists
+    const user = await User.findById(decoded.userId).select('-password');
+    if (!user || user.deletedAt || user.status === 'banned' || user.status === 'suspended') {
+      return res.status(400).json({
+        success: false,
+        message: 'User account invalid'
+      });
+    }
+
+    // Generate new access token
+    const newToken = generateToken(user._id, req);
+
+    res.json({
+      success: true,
+      message: 'Token refreshed successfully',
+      data: {
+        token: newToken,
+        user
+      }
+    });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token expired'
+      });
+    }
+    
+    res.status(400).json({
+      success: false,
+      message: 'Invalid refresh token'
     });
   }
 });
@@ -865,7 +944,7 @@ router.post('/verify-email', [
     await user.save();
 
     // Generate token for automatic login
-    const loginToken = generateToken(user._id);
+    const loginToken = generateToken(user._id, req);
 
     res.json({
       success: true,
@@ -1085,7 +1164,7 @@ router.post('/verify-reset-code', [
     }
 
     // Code is valid - generate temporary token for password reset
-    const resetToken = generateToken(user._id);
+    const resetToken = generateToken(user._id, req);
     
     res.json({
       success: true,
@@ -1172,7 +1251,7 @@ router.post('/reset-password', [
     console.log('✅ Password reset - Updated user fetched');
 
     // Generate new JWT token for automatic login
-    const token = generateToken(updatedUser._id);
+    const token = generateToken(updatedUser._id, req);
 
     res.json({
       success: true,

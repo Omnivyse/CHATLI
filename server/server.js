@@ -7,6 +7,17 @@ const http = require('http');
 const socketIo = require('socket.io');
 require('dotenv').config({ path: require('path').join(__dirname, 'config.env') });
 
+// Import security middleware
+const { 
+  sanitizeInput, 
+  securityLogger, 
+  authLimiter, 
+  sensitiveOperationLimiter, 
+  fileUploadLimiter, 
+  apiLimiter,
+  cspMiddleware 
+} = require('./middleware/security');
+
 // Debug environment loading
 console.log('Environment variables loaded:');
 console.log('NODE_ENV:', process.env.NODE_ENV);
@@ -26,10 +37,12 @@ const appRoutes = require('./routes/app');
 
 // Import models
 const User = require('./models/User');
-const Notification = require('./models/Notification'); // Added Notification model import
+const Notification = require('./models/Notification');
 
 const app = express();
 const server = http.createServer(app);
+
+// Enhanced Socket.IO configuration with security
 const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
@@ -37,19 +50,30 @@ const io = socketIo(server, {
       : ["http://localhost:3000", "http://localhost:3001", "http://localhost:19006"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-Device-Fingerprint"]
   },
   transports: ['websocket', 'polling'],
   allowEIO3: true,
   pingTimeout: 60000,
   pingInterval: 25000,
   upgradeTimeout: 10000,
-  maxHttpBufferSize: 1e8,
+  maxHttpBufferSize: 1e6, // Reduced from 1e8 to 1MB for security
   allowRequest: (req, callback) => {
-    // Allow all requests for Railway
-    callback(null, true);
+    // Enhanced request validation
+    const origin = req.headers.origin;
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+      ? [process.env.FRONTEND_URL, 'https://chatli.vercel.app', 'https://chatli-mobile.vercel.app', 'https://www.chatli.mn', 'https://chatli.mn'].filter(Boolean)
+      : ["http://localhost:3000", "http://localhost:3001", "http://localhost:19006"];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`🚫 Socket.IO blocked origin: ${origin}`);
+      callback(new Error('Origin not allowed'), false);
+    }
   }
 });
+
 app.set('io', io);
 
 // Enhanced Security Middleware
@@ -59,10 +83,14 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
-      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      mediaSrc: ["'self'", "https:", "blob:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -70,8 +98,14 @@ app.use(helmet({
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true
-  }
+  },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
+
+// Apply security middleware early
+app.use(securityLogger);
+app.use(cspMiddleware);
 
 // Additional security headers
 app.use((req, res, next) => {
@@ -79,6 +113,8 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
   
   if (process.env.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
@@ -86,6 +122,7 @@ app.use((req, res, next) => {
   
   next();
 });
+
 // Enhanced CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
@@ -104,8 +141,8 @@ const corsOptions = {
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.log('CORS blocked origin:', origin);
-        console.log('Allowed origins:', allowedOrigins);
+        console.log('🚫 CORS blocked origin:', origin);
+        console.log('✅ Allowed origins:', allowedOrigins);
         callback(new Error('Not allowed by CORS'), false);
       }
     } else {
@@ -115,43 +152,26 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Device-Fingerprint', 'X-CSRF-Token'],
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // Cache preflight for 24 hours
 };
 
 app.use(cors(corsOptions));
 
-// Rate limiting - Relaxed for production
-const isProduction = process.env.NODE_ENV === 'production';
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 1000 : 10000, // Increased from 100 to 1000 for production
-  message: {
-    success: false,
-    message: 'Хэт олон хүсэлт илгээгдлээ. Дахин оролдоно уу.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Skip rate limiting for health checks and analytics
-  skip: (req) => req.path === '/api/health' || req.path.includes('/analytics')
-});
+// Apply input sanitization to all routes
+app.use(sanitizeInput);
 
-// Apply rate limiting to all API routes except analytics
-app.use('/api/', limiter);
+// Enhanced rate limiting with different limits for different operations
+app.use('/api/', apiLimiter);
 
-// Stricter rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 50 : 100, // Increased from 5 to 50 for production
-  message: {
-    success: false,
-    message: 'Хэт олон нэвтрэх оролдлого. 15 минутын дараа дахин оролдоно уу.'
-  }
-});
-
+// Stricter rate limiting for sensitive endpoints
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
-app.use('/api/admin/login', authLimiter);
+app.use('/api/auth/forgot-password', sensitiveOperationLimiter);
+app.use('/api/auth/reset-password', sensitiveOperationLimiter);
+app.use('/api/admin/login', sensitiveOperationLimiter);
+app.use('/api/upload', fileUploadLimiter);
 
 // Performance monitoring middleware
 const performanceLogger = (req, res, next) => {
@@ -166,10 +186,12 @@ const performanceLogger = (req, res, next) => {
 };
 
 app.use(performanceLogger);
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Routes
+// Body parsing with size limits
+app.use(express.json({ limit: '10mb' })); // Reduced from 20mb
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Routes with enhanced security
 app.use('/api/auth', authRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/posts', postRoutes);
@@ -182,25 +204,26 @@ app.use('/api/events', eventRoutes);
 app.use('/api/event-chats', eventChatRoutes);
 app.use('/api/app', appRoutes);
 
-// Health check
+// Health check with security
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Сервер ажиллаж байна',
+    message: 'Server is running',
     timestamp: new Date().toISOString(),
     socketConnections: connectionCount,
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    version: process.env.APP_VERSION || '1.0.0'
   });
 });
 
-// WebSocket health check
+// WebSocket health check with security
 app.get('/api/socket-health', (req, res) => {
   res.json({
     success: true,
-    message: 'WebSocket сервер ажиллаж байна',
+    message: 'WebSocket server is running',
     timestamp: new Date().toISOString(),
     socketConnections: connectionCount,
-    connectedUsers: Array.from(connectedUsers.keys()),
+    connectedUsers: Array.from(connectedUsers.keys()).length, // Don't expose actual user IDs
     environment: process.env.NODE_ENV,
     railway: !!process.env.RAILWAY_ENVIRONMENT
   });
@@ -218,7 +241,7 @@ app.get('/api/socket-test', (req, res) => {
   });
 });
 
-// Socket.IO connection handling
+// Socket.IO connection handling with enhanced security
 const connectedUsers = new Map();
 let connectionCount = 0;
 
@@ -263,16 +286,39 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Authenticate user
+  // Enhanced user authentication with security checks
   socket.on('authenticate', async (token) => {
     try {
       const jwt = require('jsonwebtoken');
+      
+      // Validate token structure first
+      if (!token || typeof token !== 'string' || !token.includes('.')) {
+        console.warn(`🚫 Invalid token format from socket ${socket.id}`);
+        socket.emit('authentication_failed', { message: 'Invalid token format' });
+        return;
+      }
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      // Enhanced token validation
+      if (!decoded.userId || !decoded.jti || !decoded.aud || !decoded.iss) {
+        console.warn(`🚫 Token missing required claims from socket ${socket.id}`);
+        socket.emit('authentication_failed', { message: 'Invalid token claims' });
+        return;
+      }
+
+      if (decoded.aud !== 'chatli-app' || decoded.iss !== 'chatli-server') {
+        console.warn(`🚫 Invalid token audience/issuer from socket ${socket.id}`);
+        socket.emit('authentication_failed', { message: 'Invalid token' });
+        return;
+      }
+
       const user = await User.findById(decoded.userId).select('-password');
       
-      if (user) {
+      if (user && !user.deletedAt && user.status !== 'banned' && user.status !== 'suspended') {
         socket.userId = user._id.toString();
         socket.user = user;
+        socket.tokenId = decoded.jti;
         connectedUsers.set(user._id.toString(), socket.id);
         
         // Update user status to online
@@ -290,22 +336,84 @@ io.on('connection', (socket) => {
           status: 'online'
         });
 
-        console.log('User authenticated:', user.name);
+        // Emit authentication success
+        socket.emit('authenticated', { 
+          userId: user._id, 
+          username: user.username,
+          tokenId: decoded.jti 
+        });
+
+        console.log(`🔐 Socket authenticated: ${user.name} (${user._id}) - Token: ${decoded.jti}`);
+      } else {
+        console.warn(`🚫 User not found or restricted: ${decoded.userId}`);
+        socket.emit('authentication_failed', { message: 'User not found or restricted' });
       }
     } catch (error) {
       console.error('Socket authentication error:', error);
+      socket.emit('authentication_failed', { message: 'Authentication failed' });
     }
   });
 
-  // Join chat room
-  socket.on('join_chat', (chatId) => {
-    socket.join(`chat_${chatId}`);
-    console.log(`🎯 User joined chat: ${chatId}`);
+  // Enhanced chat room joining with authorization
+  socket.on('join_chat', async (chatId) => {
+    try {
+      if (!socket.userId) {
+        console.warn(`🚫 Unauthenticated socket ${socket.id} trying to join chat`);
+        return;
+      }
+
+      // Validate chatId format
+      if (!chatId || typeof chatId !== 'string' || !require('mongoose').Types.ObjectId.isValid(chatId)) {
+        console.warn(`🚫 Invalid chat ID format: ${chatId}`);
+        return;
+      }
+
+      // TODO: Add authorization check here to verify user can access this chat
+      // For now, we'll just join the room
+      socket.join(`chat_${chatId}`);
+      console.log(`🎯 User joined chat: ${chatId}`);
+      
+      // Send confirmation back to the user
+      socket.emit('chat_joined', {
+        chatId,
+        userId: socket.userId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Notify other users in the chat that someone joined
+      socket.to(`chat_${chatId}`).emit('user_joined_chat', {
+        chatId,
+        userId: socket.userId,
+        userName: socket.user?.name,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error joining chat:', error);
+    }
+  });
+
+  // Test chat join event with validation
+  socket.on('test_chat_join', (data) => {
+    if (!socket.userId) {
+      console.warn(`🚫 Unauthenticated socket ${socket.id} trying to test chat join`);
+      return;
+    }
+
+    console.log('🧪 Test chat join received:', data);
+    const { chatId, userId } = data;
     
-    // Send confirmation back to the user
-    socket.emit('chat_joined', {
+    // Validate data
+    if (!chatId || !userId || userId !== socket.userId) {
+      console.warn(`🚫 Invalid test chat join data from socket ${socket.id}`);
+      return;
+    }
+    
+    // Send test response back
+    socket.emit('test_chat_join_response', {
+      success: true,
       chatId,
-      userId: socket.userId,
+      userId,
+      message: 'Chat join test successful',
       timestamp: new Date().toISOString()
     });
     
@@ -318,54 +426,37 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Test chat join event
-  socket.on('test_chat_join', (data) => {
-    console.log('🧪 Test chat join received:', data);
-    const { chatId, userId } = data;
-    
-    // Send test response back
-    socket.emit('test_chat_join_response', {
-      success: true,
-      chatId,
-      userId,
-      message: 'Chat join test successful',
-      timestamp: new Date().toISOString()
-    });
-  });
-
-  // Test message event for debugging
-  socket.on('test_message', (data) => {
-    console.log('🧪 Test message received:', data);
-    const { chatId, userId, timestamp } = data;
-    
-    // Broadcast test message to chat room
-    socket.to(`chat_${chatId}`).emit('test_message_received', {
-      chatId,
-      userId,
-      timestamp,
-      message: 'Test message from server',
-      serverTimestamp: new Date().toISOString()
-    });
-    
-    // Send confirmation back to sender
-    socket.emit('test_message_sent', {
-      success: true,
-      chatId,
-      timestamp,
-      message: 'Test message sent successfully'
-    });
-  });
-
   // Leave chat room
   socket.on('leave_chat', (chatId) => {
+    if (!socket.userId) return;
+    
     socket.leave(`chat_${chatId}`);
     console.log(`User left chat: ${chatId}`);
   });
 
-  // Send message
+  // Enhanced message sending with validation
   socket.on('send_message', async (data) => {
     try {
+      if (!socket.userId) {
+        console.warn(`🚫 Unauthenticated socket ${socket.id} trying to send message`);
+        return;
+      }
+
       const { chatId, message } = data;
+      
+      // Validate data
+      if (!chatId || !message || typeof message !== 'object') {
+        console.warn(`🚫 Invalid message data from socket ${socket.id}`);
+        return;
+      }
+
+      // Validate chatId format
+      if (!require('mongoose').Types.ObjectId.isValid(chatId)) {
+        console.warn(`🚫 Invalid chat ID format: ${chatId}`);
+        return;
+      }
+
+      // TODO: Add authorization check here to verify user can send to this chat
       
       // Broadcast message to chat room
       socket.to(`chat_${chatId}`).emit('new_message', {
@@ -377,8 +468,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Typing indicator
+  // Typing indicator with validation
   socket.on('typing_start', (chatId) => {
+    if (!socket.userId || !chatId) return;
+    
     socket.to(`chat_${chatId}`).emit('user_typing', {
       chatId,
       userId: socket.userId,
@@ -387,6 +480,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('typing_stop', (chatId) => {
+    if (!socket.userId || !chatId) return;
+    
     socket.to(`chat_${chatId}`).emit('user_typing', {
       chatId,
       userId: socket.userId,
@@ -394,25 +489,29 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Add reaction
+  // Enhanced reaction handling with validation
   socket.on('add_reaction', (data) => {
     try {
+      if (!socket.userId) {
+        console.warn(`🚫 Unauthenticated socket ${socket.id} trying to add reaction`);
+        return;
+      }
+
       const { chatId, messageId, userId, emoji, userName } = data;
+      
+      // Validate data
+      if (!chatId || !messageId || !userId || !emoji || userId !== socket.userId) {
+        console.warn(`🚫 Invalid reaction data from socket ${socket.id}`);
+        return;
+      }
+
       console.log(`🔥 REACTION ADDED: ${emoji} to message ${messageId} in chat ${chatId} by user ${userName} (${userId})`);
-      console.log(`📡 Broadcasting to chat room: chat_${chatId}`);
       
       // Get the number of users in the chat room
       const chatRoom = io.sockets.adapter.rooms.get(`chat_${chatId}`);
       const userCount = chatRoom ? chatRoom.size : 0;
-      console.log(`👥 Users in chat room: ${userCount}`);
       
-      // Log all users in the room for debugging
-      if (chatRoom) {
-        const userIds = Array.from(chatRoom);
-        console.log(`👥 User IDs in chat room:`, userIds);
-      }
-      
-      // Broadcast reaction to ALL users in the chat room (including sender for confirmation)
+      // Broadcast reaction to ALL users in the chat room
       io.to(`chat_${chatId}`).emit('reaction_added', {
         chatId,
         messageId,
@@ -441,17 +540,27 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Remove reaction
+  // Remove reaction with validation
   socket.on('remove_reaction', (data) => {
     try {
+      if (!socket.userId) {
+        console.warn(`🚫 Unauthenticated socket ${socket.id} trying to remove reaction`);
+        return;
+      }
+
       const { chatId, messageId, userId, emoji } = data;
+      
+      // Validate data
+      if (!chatId || !messageId || !userId || !emoji || userId !== socket.userId) {
+        console.warn(`🚫 Invalid reaction removal data from socket ${socket.id}`);
+        return;
+      }
+
       console.log(`🗑️ REACTION REMOVED: ${emoji} from message ${messageId} in chat ${chatId} by user ${userId}`);
-      console.log(`📡 Broadcasting to chat room: chat_${chatId}`);
       
       // Get the number of users in the chat room
       const chatRoom = io.sockets.adapter.rooms.get(`chat_${chatId}`);
       const userCount = chatRoom ? chatRoom.size : 0;
-      console.log(`👥 Users in chat room: ${userCount}`);
       
       // Broadcast reaction removal to ALL users in the chat room
       io.to(`chat_${chatId}`).emit('reaction_removed', {
@@ -481,17 +590,27 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Delete message
+  // Delete message with validation
   socket.on('delete_message', (data) => {
     try {
+      if (!socket.userId) {
+        console.warn(`🚫 Unauthenticated socket ${socket.id} trying to delete message`);
+        return;
+      }
+
       const { chatId, messageId, userId } = data;
+      
+      // Validate data
+      if (!chatId || !messageId || !userId || userId !== socket.userId) {
+        console.warn(`🚫 Invalid message deletion data from socket ${socket.id}`);
+        return;
+      }
+
       console.log(`🗑️ MESSAGE DELETED: message ${messageId} in chat ${chatId} by user ${userId}`);
-      console.log(`📡 Broadcasting to chat room: chat_${chatId}`);
       
       // Get the number of users in the chat room
       const chatRoom = io.sockets.adapter.rooms.get(`chat_${chatId}`);
       const userCount = chatRoom ? chatRoom.size : 0;
-      console.log(`👥 Users in chat room: ${userCount}`);
       
       // Broadcast message deletion to ALL users in the chat room
       io.to(`chat_${chatId}`).emit('message_deleted', {
@@ -519,8 +638,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Test reaction event
+  // Test reaction event with validation
   socket.on('test_reaction', (data) => {
+    if (!socket.userId) {
+      console.warn(`🚫 Unauthenticated socket ${socket.id} trying to test reaction`);
+      return;
+    }
+
     console.log(`🧪 TEST REACTION EVENT RECEIVED:`, data);
     socket.to(`chat_${data.chatId}`).emit('test_reaction_received', {
       message: 'Test reaction event received and broadcasted',
@@ -529,9 +653,21 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Real-time notification for like post
+  // Real-time notification for like post with validation
   socket.on('like_post', async (data) => {
+    if (!socket.userId) {
+      console.warn(`🚫 Unauthenticated socket ${socket.id} trying to like post`);
+      return;
+    }
+
     const { postId, likedBy, postOwner } = data;
+    
+    // Validate data
+    if (!postId || !likedBy || !postOwner || likedBy !== socket.userId) {
+      console.warn(`🚫 Invalid like post data from socket ${socket.id}`);
+      return;
+    }
+
     try {
       // Don't send notification if user is liking their own post
       if (likedBy === postOwner) {
@@ -545,7 +681,7 @@ io.on('connection', (socket) => {
         type: 'like',
         from: likedBy,
         post: postId,
-        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Last 5 minutes
+        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
       });
       
       if (existingNotification) {
@@ -562,7 +698,7 @@ io.on('connection', (socket) => {
         createdAt: new Date(),
       });
       
-      // Emit real-time notification to post owner with _id
+      // Emit real-time notification to post owner
       io.to(`user_${postOwner}`).emit('notification', {
         _id: notification._id,
         type: 'like',
@@ -577,9 +713,21 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Real-time notification for comment post
+  // Real-time notification for comment post with validation
   socket.on('comment_post', async (data) => {
+    if (!socket.userId) {
+      console.warn(`🚫 Unauthenticated socket ${socket.id} trying to comment post`);
+      return;
+    }
+
     const { postId, commentBy, postOwner, commentText } = data;
+    
+    // Validate data
+    if (!postId || !commentBy || !postOwner || !commentText || commentBy !== socket.userId) {
+      console.warn(`🚫 Invalid comment post data from socket ${socket.id}`);
+      return;
+    }
+
     try {
       // Check if notification already exists (within last 5 minutes)
       const existingNotification = await Notification.findOne({
@@ -587,7 +735,7 @@ io.on('connection', (socket) => {
         type: 'comment',
         from: commentBy,
         post: postId,
-        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Last 5 minutes
+        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
       });
       
       if (existingNotification) {
@@ -619,16 +767,28 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Real-time notification for follow user
+  // Real-time notification for follow user with validation
   socket.on('follow_user', async (data) => {
+    if (!socket.userId) {
+      console.warn(`🚫 Unauthenticated socket ${socket.id} trying to follow user`);
+      return;
+    }
+
     const { followedUserId, followedBy } = data;
+    
+    // Validate data
+    if (!followedUserId || !followedBy || followedBy !== socket.userId) {
+      console.warn(`🚫 Invalid follow user data from socket ${socket.id}`);
+      return;
+    }
+
     try {
       // Check if notification already exists (within last 5 minutes)
       const existingNotification = await Notification.findOne({
         user: followedUserId,
         type: 'follow',
         from: followedBy,
-        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Last 5 minutes
+        createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
       });
       
       if (existingNotification) {
@@ -657,13 +817,21 @@ io.on('connection', (socket) => {
   });
 });
 
-// MongoDB connection with simplified settings for Railway
+// MongoDB connection with enhanced security settings
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      maxPoolSize: 10, // Maintain up to 10 socket connections
-      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      // Enhanced security options
+      ssl: process.env.NODE_ENV === 'production',
+      sslValidate: process.env.NODE_ENV === 'production',
+      // Connection monitoring
+      monitorCommands: true,
+      // Connection event handling
+      bufferCommands: false,
+      bufferMaxEntries: 0
     });
     
     console.log('MongoDB холбогдлоо');
@@ -676,6 +844,14 @@ const connectDB = async () => {
     
     mongoose.connection.on('disconnected', () => {
       console.log('MongoDB disconnected');
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      console.log('MongoDB reconnected');
+    });
+
+    mongoose.connection.on('close', () => {
+      console.log('MongoDB connection closed');
     });
     
     return conn;
@@ -699,12 +875,19 @@ const connectDB = async () => {
 // Connect to MongoDB
 connectDB();
 
-// Error handling middleware
+// Enhanced error handling middleware
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
+  
+  // Don't expose internal error details in production
+  const message = process.env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : error.message;
+  
   res.status(500).json({
     success: false,
-    message: 'Серверийн алдаа'
+    message: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
   });
 });
 
@@ -712,7 +895,7 @@ app.use((error, req, res, next) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: 'API endpoint олдсонгүй'
+    message: 'API endpoint not found'
   });
 });
 
@@ -721,24 +904,38 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Сервер ${PORT} порт дээр ажиллаж байна`);
   console.log(`Орчны горим: ${process.env.NODE_ENV}`);
+  console.log(`🔒 Security features enabled: Input sanitization, Rate limiting, Enhanced JWT, Socket validation`);
 });
 
-// Graceful shutdown
+// Graceful shutdown with enhanced cleanup
 process.on('SIGTERM', () => {
   console.log('SIGTERM хүлээн авлаа. Серверийг унтрааж байна...');
-  server.close(() => {
-    console.log('Сервер унтрагдлаа');
-    mongoose.connection.close(() => {
-      console.log('MongoDB холболт тасарлаа');
-      process.exit(0);
+  
+  // Close all socket connections
+  io.close(() => {
+    console.log('Socket.IO server closed');
+    
+    // Close HTTP server
+    server.close(() => {
+      console.log('HTTP server closed');
+      
+      // Close MongoDB connection
+      mongoose.connection.close(() => {
+        console.log('MongoDB холболт тасарлаа');
+        process.exit(0);
+      });
     });
   });
 });
 
 // Add global error handlers to prevent server from crashing
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  console.error('🚨 Uncaught Exception:', err);
+  // Log to external monitoring service
+  process.exit(1);
 });
+
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection:', reason);
+  console.error('🚨 Unhandled Rejection:', reason);
+  // Log to external monitoring service
 }); 
