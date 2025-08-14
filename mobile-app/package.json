@@ -1,13 +1,17 @@
 {
   "name": "chatli-mobile",
-  "version": "1.1.4",
-  "description": "CHATLI Mobile App - React Native",
+  "version": "1.2.0",
+  "description": "CHATLI Mobile App - React Native with Enhanced Security & JWT Compatibility",
   "main": "expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:android": "eas build --platform android",
+    "build:ios": "eas build --platform ios",
+    "build:preview": "eas build --profile preview",
+    "build:production": "eas build --profile production"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",
