@@ -28,6 +28,9 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
   const isPostAuthor = localPost.author._id === user._id;
   const shouldShowSecretContent = isPostAuthor || isUserVerified || isSecretPostUnlocked;
   
+  // Check if description should be visible based on showDescription setting
+  const shouldShowDescription = isPostAuthor || isUserVerified || isSecretPostUnlocked || Boolean(localPost.showDescription);
+  
   // Debug logging for secret posts
   if (localPost.isSecret) {
     console.log('🔒 Secret post debug:', {
@@ -36,6 +39,8 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       isUserVerified,
       isSecretPostUnlocked,
       shouldShowSecretContent,
+      shouldShowDescription,
+      showDescription: localPost.showDescription,
       passwordVerifiedUsers: localPost.passwordVerifiedUsers,
       userId: user._id
     });
@@ -46,6 +51,8 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
     console.log('🔄 Post prop changed:', {
       postId: post._id,
       isSecret: post.isSecret,
+      showDescription: post.showDescription,
+      showDescriptionType: typeof post.showDescription,
       passwordVerifiedUsers: post.passwordVerifiedUsers,
       content: post.content
     });
@@ -183,11 +190,11 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       </div>
       <div
         className={`mb-2 whitespace-pre-line cursor-pointer hover:bg-muted/50 dark:hover:bg-muted-dark/50 rounded transition text-foreground dark:text-foreground-dark ${
-          localPost.isSecret && !shouldShowSecretContent ? 'relative' : ''
+          localPost.isSecret && !shouldShowDescription ? 'relative' : ''
         }`}
         onClick={() => {
           // Check if post is secret and user hasn't unlocked it
-          if (localPost.isSecret && !shouldShowSecretContent) {
+          if (localPost.isSecret && !shouldShowDescription) {
             handleSecretPostPress();
           } else {
             setShowModal(true);
@@ -198,17 +205,17 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
           {localPost.isSecret && !isPostAuthor && (
             <div className="flex-shrink-0 mt-1">
               <svg className={`w-4 h-4 ${
-                shouldShowSecretContent ? 'text-primary dark:text-primary-dark' : 'text-secondary dark:text-secondary-dark'
+                shouldShowDescription ? 'text-primary dark:text-primary-dark' : 'text-secondary dark:text-secondary-dark'
               }`} fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
               </svg>
             </div>
           )}
           <div className="flex-1">
-            {localPost.content}
+            {shouldShowDescription ? localPost.content : 'Content hidden'}
           </div>
         </div>
-        {localPost.isSecret && !shouldShowSecretContent && (
+        {localPost.isSecret && !shouldShowDescription && (
           <div className="absolute inset-0 bg-black/60 rounded flex items-center justify-center backdrop-blur-sm">
             <div className="text-center text-white bg-black/40 rounded-lg p-4 backdrop-blur-sm">
               <svg className="w-8 h-8 mx-auto mb-3 text-white" fill="currentColor" viewBox="0 0 20 20">
