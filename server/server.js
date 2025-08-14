@@ -22,6 +22,10 @@ const {
 console.log('Environment variables loaded:');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('PORT:', process.env.PORT);
+console.log('RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT || 'Not Railway');
+console.log('RAILWAY_DOMAIN:', process.env.RAILWAY_DOMAIN || 'Not set');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Set (hidden for security)' : 'Not set');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Set (hidden for security)' : 'Not set');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -59,17 +63,33 @@ const io = socketIo(server, {
   upgradeTimeout: 10000,
   maxHttpBufferSize: 1e6, // Reduced from 1e8 to 1MB for security
   allowRequest: (req, callback) => {
-    // Enhanced request validation
-    const origin = req.headers.origin;
-    const allowedOrigins = process.env.NODE_ENV === 'production' 
-      ? [process.env.FRONTEND_URL, 'https://chatli.vercel.app', 'https://chatli-mobile.vercel.app', 'https://www.chatli.mn', 'https://chatli.mn'].filter(Boolean)
-      : ["http://localhost:3000", "http://localhost:3001", "http://localhost:19006"];
-    
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn(`🚫 Socket.IO blocked origin: ${origin}`);
-      callback(new Error('Origin not allowed'), false);
+    try {
+      // Enhanced request validation with better error handling
+      const origin = req.headers.origin;
+      const allowedOrigins = process.env.NODE_ENV === 'production' 
+        ? [process.env.FRONTEND_URL, 'https://chatli.vercel.app', 'https://chatli-mobile.vercel.app', 'https://www.chatli.mn', 'https://chatli.mn'].filter(Boolean)
+        : ["http://localhost:3000", "http://localhost:3001", "http://localhost:19006"];
+      
+      // Always allow requests with no origin (mobile apps, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Log blocked origins for debugging
+      console.log(`🚫 Socket.IO blocked origin: ${origin}`);
+      console.log(`✅ Allowed origins:`, allowedOrigins);
+      
+      // Block the request
+      return callback(new Error('Origin not allowed'), false);
+    } catch (error) {
+      console.error('Socket.IO allowRequest error:', error);
+      // In case of error, allow the request to prevent crashes
+      return callback(null, true);
     }
   }
 });
@@ -245,152 +265,170 @@ app.get('/api/socket-test', (req, res) => {
 const connectedUsers = new Map();
 let connectionCount = 0;
 
+// Add error handling for Socket.IO server
+io.on('error', (error) => {
+  console.error('🚨 Socket.IO server error:', error);
+});
+
+io.on('connect_error', (error) => {
+  console.error('🚨 Socket.IO connection error:', error);
+});
+
+io.engine.on('connection_error', (error) => {
+  console.error('🚨 Engine.IO connection error:', error);
+});
+
 io.on('connection', (socket) => {
-  connectionCount++;
-  console.log(`🔌 User connected: ${socket.id} (Total: ${connectionCount})`);
-  console.log(`🚂 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'Not Railway'}`);
-  
-  // Log memory usage every 50 connections
-  if (connectionCount % 50 === 0) {
-    const memUsage = process.memoryUsage();
-    console.log(`📊 Memory usage with ${connectionCount} connections:`, {
-      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
-      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
-      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`
-    });
-  }
-
-  // Handle connection errors
-  socket.on('connect_error', (error) => {
-    console.error('❌ Socket connection error:', error);
-  });
-
-  socket.on('disconnect', (reason) => {
-    connectionCount--;
-    console.log(`🔌 User disconnected: ${socket.id} (Reason: ${reason}, Total: ${connectionCount})`);
+  try {
+    connectionCount++;
+    console.log(`🔌 User connected: ${socket.id} (Total: ${connectionCount})`);
+    console.log(`🚂 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'Not Railway'}`);
     
-    if (socket.userId) {
-      connectedUsers.delete(socket.userId);
-      
-      // Update user status to offline
-      User.findByIdAndUpdate(socket.userId, {
-        status: 'offline',
-        lastSeen: new Date()
-      }).catch(err => console.error('Error updating user status:', err));
-      
-      // Notify other users about offline status
-      socket.broadcast.emit('user_status_change', {
-        userId: socket.userId,
-        status: 'offline'
+    // Log memory usage every 50 connections
+    if (connectionCount % 50 === 0) {
+      const memUsage = process.memoryUsage();
+      console.log(`📊 Memory usage with ${connectionCount} connections:`, {
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`
       });
     }
-  });
 
-  // Enhanced user authentication with security checks
-  socket.on('authenticate', async (token) => {
-    try {
-      const jwt = require('jsonwebtoken');
+    // Handle connection errors
+    socket.on('connect_error', (error) => {
+      console.error('❌ Socket connection error:', error);
+    });
+
+    socket.on('error', (error) => {
+      console.error('❌ Socket error:', error);
+    });
+
+    socket.on('disconnect', (reason) => {
+      connectionCount--;
+      console.log(`🔌 User disconnected: ${socket.id} (Reason: ${reason}, Total: ${connectionCount})`);
       
-      // Validate token structure first
-      if (!token || typeof token !== 'string' || !token.includes('.')) {
-        console.warn(`🚫 Invalid token format from socket ${socket.id}`);
-        socket.emit('authentication_failed', { message: 'Invalid token format' });
-        return;
-      }
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      // Enhanced token validation
-      if (!decoded.userId || !decoded.jti || !decoded.aud || !decoded.iss) {
-        console.warn(`🚫 Token missing required claims from socket ${socket.id}`);
-        socket.emit('authentication_failed', { message: 'Invalid token claims' });
-        return;
-      }
-
-      if (decoded.aud !== 'chatli-app' || decoded.iss !== 'chatli-server') {
-        console.warn(`🚫 Invalid token audience/issuer from socket ${socket.id}`);
-        socket.emit('authentication_failed', { message: 'Invalid token' });
-        return;
-      }
-
-      const user = await User.findById(decoded.userId).select('-password');
-      
-      if (user && !user.deletedAt && user.status !== 'banned' && user.status !== 'suspended') {
-        socket.userId = user._id.toString();
-        socket.user = user;
-        socket.tokenId = decoded.jti;
-        connectedUsers.set(user._id.toString(), socket.id);
+      if (socket.userId) {
+        connectedUsers.delete(socket.userId);
         
-        // Update user status to online
-        await User.findByIdAndUpdate(user._id, {
-          status: 'online',
+        // Update user status to offline
+        User.findByIdAndUpdate(socket.userId, {
+          status: 'offline',
           lastSeen: new Date()
-        });
-
-        // Join user to their personal room
-        socket.join(`user_${user._id}`);
+        }).catch(err => console.error('Error updating user status:', err));
         
-        // Notify other users about online status
+        // Notify other users about offline status
         socket.broadcast.emit('user_status_change', {
-          userId: user._id,
-          status: 'online'
+          userId: socket.userId,
+          status: 'offline'
         });
+      }
+    });
 
-        // Emit authentication success
-        socket.emit('authenticated', { 
-          userId: user._id, 
-          username: user.username,
-          tokenId: decoded.jti 
+    // Enhanced user authentication with security checks
+    socket.on('authenticate', async (token) => {
+      try {
+        const jwt = require('jsonwebtoken');
+        
+        // Validate token structure first
+        if (!token || typeof token !== 'string' || !token.includes('.')) {
+          console.warn(`🚫 Invalid token format from socket ${socket.id}`);
+          socket.emit('authentication_failed', { message: 'Invalid token format' });
+          return;
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Enhanced token validation
+        if (!decoded.userId || !decoded.jti || !decoded.aud || !decoded.iss) {
+          console.warn(`🚫 Token missing required claims from socket ${socket.id}`);
+          socket.emit('authentication_failed', { message: 'Invalid token claims' });
+          return;
+        }
+
+        if (decoded.aud !== 'chatli-app' || decoded.iss !== 'chatli-server') {
+          console.warn(`🚫 Invalid token audience/issuer from socket ${socket.id}`);
+          socket.emit('authentication_failed', { message: 'Invalid token' });
+          return;
+        }
+
+        const user = await User.findById(decoded.userId).select('-password');
+        
+        if (user && !user.deletedAt && user.status !== 'banned' && user.status !== 'suspended') {
+          socket.userId = user._id.toString();
+          socket.user = user;
+          socket.tokenId = decoded.jti;
+          connectedUsers.set(user._id.toString(), socket.id);
+          
+          // Update user status to online
+          await User.findByIdAndUpdate(user._id, {
+            status: 'online',
+            lastSeen: new Date()
+          });
+
+          // Join user to their personal room
+          socket.join(`user_${user._id}`);
+          
+          // Notify other users about online status
+          socket.broadcast.emit('user_status_change', {
+            userId: user._id,
+            status: 'online'
+          });
+
+          // Emit authentication success
+          socket.emit('authenticated', { 
+            userId: user._id, 
+            username: user.username,
+            tokenId: decoded.jti 
+          });
+
+          console.log(`🔐 Socket authenticated: ${user.name} (${user._id}) - Token: ${decoded.jti}`);
+        } else {
+          console.warn(`🚫 User not found or restricted: ${decoded.userId}`);
+          socket.emit('authentication_failed', { message: 'User not found or restricted' });
+        }
+      } catch (error) {
+        console.error('Socket authentication error:', error);
+        socket.emit('authentication_failed', { message: 'Authentication failed' });
+      }
+    });
+
+    // Enhanced chat room joining with authorization
+    socket.on('join_chat', async (chatId) => {
+      try {
+        if (!socket.userId) {
+          console.warn(`🚫 Unauthenticated socket ${socket.id} trying to join chat`);
+          return;
+        }
+
+        // Validate chatId format
+        if (!chatId || typeof chatId !== 'string' || !require('mongoose').Types.ObjectId.isValid(chatId)) {
+          console.warn(`🚫 Invalid chat ID format: ${chatId}`);
+          return;
+        }
+
+        // TODO: Add authorization check here to verify user can access this chat
+        // For now, we'll just join the room
+        socket.join(`chat_${chatId}`);
+        console.log(`🎯 User joined chat: ${chatId}`);
+        
+        // Send confirmation back to the user
+        socket.emit('chat_joined', {
+          chatId,
+          userId: socket.userId,
+          timestamp: new Date().toISOString()
         });
-
-        console.log(`🔐 Socket authenticated: ${user.name} (${user._id}) - Token: ${decoded.jti}`);
-      } else {
-        console.warn(`🚫 User not found or restricted: ${decoded.userId}`);
-        socket.emit('authentication_failed', { message: 'User not found or restricted' });
+        
+        // Notify other users in the chat that someone joined
+        socket.to(`chat_${chatId}`).emit('user_joined_chat', {
+          chatId,
+          userId: socket.userId,
+          userName: socket.user?.name,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error joining chat:', error);
       }
-    } catch (error) {
-      console.error('Socket authentication error:', error);
-      socket.emit('authentication_failed', { message: 'Authentication failed' });
-    }
-  });
-
-  // Enhanced chat room joining with authorization
-  socket.on('join_chat', async (chatId) => {
-    try {
-      if (!socket.userId) {
-        console.warn(`🚫 Unauthenticated socket ${socket.id} trying to join chat`);
-        return;
-      }
-
-      // Validate chatId format
-      if (!chatId || typeof chatId !== 'string' || !require('mongoose').Types.ObjectId.isValid(chatId)) {
-        console.warn(`🚫 Invalid chat ID format: ${chatId}`);
-        return;
-      }
-
-      // TODO: Add authorization check here to verify user can access this chat
-      // For now, we'll just join the room
-      socket.join(`chat_${chatId}`);
-      console.log(`🎯 User joined chat: ${chatId}`);
-      
-      // Send confirmation back to the user
-      socket.emit('chat_joined', {
-        chatId,
-        userId: socket.userId,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Notify other users in the chat that someone joined
-      socket.to(`chat_${chatId}`).emit('user_joined_chat', {
-        chatId,
-        userId: socket.userId,
-        userName: socket.user?.name,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Error joining chat:', error);
-    }
-  });
+    });
 
   // Test chat join event with validation
   socket.on('test_chat_join', (data) => {
@@ -815,6 +853,11 @@ io.on('connection', (socket) => {
       console.error('Error sending follow notification:', err);
     }
   });
+
+  } catch (error) {
+    console.error('🚨 Socket connection setup error:', error);
+    // Don't crash the server, just log the error
+  }
 });
 
 // MongoDB connection with enhanced security settings
@@ -829,9 +872,9 @@ const connectDB = async () => {
       sslValidate: process.env.NODE_ENV === 'production',
       // Connection monitoring
       monitorCommands: true,
-      // Connection event handling
-      bufferCommands: false,
-      bufferMaxEntries: 0
+      // Connection event handling - removed unsupported options
+      bufferCommands: false
+      // Removed: bufferMaxEntries: 0 (not supported in newer MongoDB versions)
     });
     
     console.log('MongoDB холбогдлоо');
@@ -862,7 +905,12 @@ const connectDB = async () => {
     // Try fallback connection with minimal options
     try {
       console.log('Trying fallback connection...');
-      const fallbackConn = await mongoose.connect(process.env.MONGODB_URI);
+      const fallbackConn = await mongoose.connect(process.env.MONGODB_URI, {
+        // Minimal options for compatibility
+        maxPoolSize: 5,
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 30000
+      });
       console.log('MongoDB connected with fallback settings');
       return fallbackConn;
     } catch (fallbackError) {
@@ -905,6 +953,8 @@ server.listen(PORT, () => {
   console.log(`Сервер ${PORT} порт дээр ажиллаж байна`);
   console.log(`Орчны горим: ${process.env.NODE_ENV}`);
   console.log(`🔒 Security features enabled: Input sanitization, Rate limiting, Enhanced JWT, Socket validation`);
+  console.log(`🚂 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'Not Railway'}`);
+  console.log(`🌐 Server URL: ${process.env.NODE_ENV === 'production' ? 'https://' + process.env.RAILWAY_DOMAIN : 'http://localhost:' + PORT}`);
 });
 
 // Graceful shutdown with enhanced cleanup
