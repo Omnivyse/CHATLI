@@ -71,7 +71,51 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   // Update local post when post prop changes
   React.useEffect(() => {
     if (post) {
-      setLocalPost(post);
+      console.log(`🔄 Post ${post._id} data received (${isWeb ? 'WEB' : 'MOBILE'}):`, {
+        platform: isWeb ? 'WEB' : 'MOBILE',
+        isSecret: post.isSecret,
+        showDescription: post.showDescription,
+        showDescriptionType: typeof post.showDescription,
+        content: post.content?.substring(0, 50) + '...',
+        mediaCount: post.media?.length || 0,
+        // Add more detailed data for debugging
+        rawPostData: {
+          _id: post._id,
+          isSecret: post.isSecret,
+          showDescription: post.showDescription,
+          content: post.content,
+          media: post.media
+        }
+      });
+      
+      // Check if this is different from current localPost
+      if (localPost && localPost._id === post._id) {
+        const hasChanges = (
+          localPost.isSecret !== post.isSecret ||
+          localPost.showDescription !== post.showDescription ||
+          localPost.content !== post.content ||
+          JSON.stringify(localPost.media) !== JSON.stringify(post.media)
+        );
+        
+        if (hasChanges) {
+          console.log(`🔄 Post ${post._id} has changes (${isWeb ? 'WEB' : 'MOBILE'}):`, {
+            isSecret: { old: localPost.isSecret, new: post.isSecret },
+            showDescription: { old: localPost.showDescription, new: post.showDescription },
+            content: { old: localPost.content?.substring(0, 30), new: post.content?.substring(0, 30) }
+          });
+        }
+      }
+      
+      // Force update for web to ensure data consistency
+      if (isWeb) {
+        console.log(`🌐 WEB: Force updating post data for post ${post._id}`);
+        // Small delay to ensure React has processed the update
+        setTimeout(() => {
+          setLocalPost(post);
+        }, 0);
+      } else {
+        setLocalPost(post);
+      }
       
       // Check if this is a secret post and user is already verified
       if (post.isSecret && post.author._id !== user?._id) {
@@ -82,7 +126,21 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         }
       }
     }
-  }, [post, user?._id]);
+  }, [post, user?._id, isWeb, localPost]);
+
+  // Monitor localPost state changes for debugging
+  React.useEffect(() => {
+    if (localPost) {
+      console.log(`📊 Post ${localPost._id} local state updated (${isWeb ? 'WEB' : 'MOBILE'}):`, {
+        platform: isWeb ? 'WEB' : 'MOBILE',
+        isSecret: localPost.isSecret,
+        showDescription: localPost.showDescription,
+        showDescriptionType: typeof localPost.showDescription,
+        content: localPost.content?.substring(0, 50) + '...',
+        mediaCount: localPost.media?.length || 0
+      });
+    }
+  }, [localPost, isWeb]);
 
   // Real-time socket listeners - optimized to prevent excessive re-renders
   useEffect(() => {
@@ -556,6 +614,15 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           activeOpacity={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? 0.7 : 1}
           style={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? styles.secretContentContainer : null}
         >
+          {/* Temporary debug display for web */}
+          {isWeb && localPost.isSecret && (
+            <View style={{ padding: 8, backgroundColor: '#f0f0f0', marginBottom: 8, borderRadius: 4 }}>
+              <Text style={{ fontSize: 12, color: '#666' }}>
+                🔍 WEB DEBUG: isSecret={String(localPost.isSecret)}, showDescription={String(localPost.showDescription)}, type={typeof localPost.showDescription}
+              </Text>
+            </View>
+          )}
+          
           <View style={styles.contentContainer}>
             {localPost.isSecret && localPost.author._id !== user?._id && (
               <View style={styles.lockIconContainer}>
@@ -572,8 +639,8 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                 const shouldShowDescription = Boolean(localPost.showDescription);
                 const shouldHideContent = localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !shouldShowDescription;
                 
-                // Enhanced debugging
-                console.log(`🔍 DEBUG Post ${localPost._id} (${isWeb ? 'WEB' : 'MOBILE'}):`, {
+                // Enhanced debugging with platform info
+                console.log(`🔍 DEBUG Post ${localPost._id} (${isWeb ? 'WEB' : 'MOBILE'}) - Content Rendering:`, {
                   platform: isWeb ? 'WEB' : 'MOBILE',
                   isSecret: localPost.isSecret,
                   isSecretPostUnlocked,
@@ -585,7 +652,15 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                   shouldShowDescription,
                   shouldHideContent,
                   originalContent: localPost.content?.substring(0, 50) + '...',
-                  finalContent: shouldHideContent ? 'Content hidden' : localPost.content
+                  finalContent: shouldHideContent ? 'Content hidden' : localPost.content,
+                  // Add condition breakdown
+                  conditionBreakdown: {
+                    isSecret: localPost.isSecret,
+                    notUnlocked: !isSecretPostUnlocked,
+                    notAuthor: localPost.author._id !== user?._id,
+                    notShowDescription: !shouldShowDescription,
+                    allConditions: localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !shouldShowDescription
+                  }
                 });
                 
                 return shouldHideContent ? 'Content hidden' : localPost.content;
@@ -604,8 +679,9 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         </TouchableOpacity>
       )}
 
-      {/* Post Media - Always hidden when secret post is locked (regardless of showDescription) */}
-      {localPost.isSecret && !isSecretPostUnlocked && mediaArray.length > 0 ? (
+      {/* Post Media - Always show media for secret posts, but with different states */}
+      {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? (
+        // Show locked media placeholder for secret posts
         <TouchableOpacity
           onPress={handleSecretPostPress}
           activeOpacity={0.7}
@@ -620,6 +696,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           </View>
         </TouchableOpacity>
       ) : (
+        // Show actual media for non-secret posts or unlocked secret posts
         renderMedia()
       )}
 
