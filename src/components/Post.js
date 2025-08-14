@@ -229,6 +229,7 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       {/* Media carousel for new posts */}
       {Array.isArray(localPost.media) && localPost.media.length > 0 && !settingsModalOpen && (
         localPost.isSecret && !shouldShowSecretContent ? (
+          // Show locked media placeholder for secret posts
           <div 
             className="relative w-full h-48 bg-muted dark:bg-muted-dark rounded-lg border-2 border-dashed border-border dark:border-border-dark flex items-center justify-center cursor-pointer hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-all duration-200"
             onClick={handleSecretPostPress}
@@ -330,41 +331,77 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       )}
       {/* Fallback for legacy posts with image/video fields */}
       {(!localPost.media || localPost.media.length === 0) && localPost.image && !settingsModalOpen && (
-        <img
-          src={localPost.image}
-          alt="post"
-          className="max-h-80 w-auto mx-auto rounded mb-2 object-contain cursor-pointer hover:opacity-80 transition"
-          onClick={() => {
-            // Check if post is secret and user hasn't unlocked it
-            if (localPost.isSecret && !shouldShowSecretContent) {
-              handleSecretPostPress();
-            } else {
-              setShowModal(true);
-            }
-          }}
-          style={{ maxWidth: '100%' }}
-        />
-      )}
-      {(!localPost.media || localPost.media.length === 0) && localPost.video && !settingsModalOpen && (
-        <div className="post-video-container mb-2">
-          <CustomVideoPlayer
-            ref={videoRef}
-            src={localPost.video}
-            className="rounded cursor-pointer hover:opacity-80 transition"
+        localPost.isSecret && !shouldShowSecretContent ? (
+          // Show locked image placeholder for secret posts
+          <div 
+            className="relative w-full h-48 bg-muted dark:bg-muted-dark rounded-lg border-2 border-dashed border-border dark:border-border-dark flex items-center justify-center cursor-pointer hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-all duration-200"
+            onClick={handleSecretPostPress}
+          >
+            <div className="text-center">
+              <div className="w-16 h-16 bg-background dark:bg-background-dark rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <svg className="w-8 h-8 text-secondary dark:text-secondary-dark" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-foreground dark:text-foreground-dark">Image hidden</p>
+              <p className="text-xs text-secondary dark:text-secondary-dark mt-1">Enter password to view</p>
+            </div>
+          </div>
+        ) : (
+          <img
+            src={localPost.image}
+            alt="post"
+            className="max-h-80 w-auto mx-auto rounded mb-2 object-contain cursor-pointer hover:opacity-80 transition"
             onClick={() => {
               // Check if post is secret and user hasn't unlocked it
               if (localPost.isSecret && !shouldShowSecretContent) {
                 handleSecretPostPress();
               } else {
-                handleOpenModal();
+                setShowModal(true);
               }
             }}
-            muted={true}
-            hideControls={true}
-            autoPlayOnView={true}
-            playPauseOnly={true}
+            style={{ maxWidth: '100%' }}
           />
-        </div>
+        )
+      )}
+      {(!localPost.media || localPost.media.length === 0) && localPost.video && !settingsModalOpen && (
+        localPost.isSecret && !shouldShowSecretContent ? (
+          // Show locked video placeholder for secret posts
+          <div 
+            className="relative w-full h-48 bg-muted dark:bg-muted-dark rounded-lg border-2 border-dashed border-border dark:border-border-dark flex items-center justify-center cursor-pointer hover:bg-muted/80 dark:hover:bg-muted-dark/80 transition-all duration-200"
+            onClick={handleSecretPostPress}
+          >
+            <div className="text-center">
+              <div className="w-16 h-16 bg-background dark:bg-background-dark rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <svg className="w-8 h-8 text-secondary dark:text-secondary-dark" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-foreground dark:text-foreground-dark">Video hidden</p>
+              <p className="text-xs text-secondary dark:text-secondary-dark mt-1">Enter password to view</p>
+            </div>
+          </div>
+        ) : (
+          <div className="post-video-container mb-2">
+            <CustomVideoPlayer
+              ref={videoRef}
+              src={localPost.video}
+              className="rounded cursor-pointer hover:opacity-80 transition"
+              onClick={() => {
+                // Check if post is secret and user hasn't unlocked it
+                if (localPost.isSecret && !shouldShowSecretContent) {
+                  handleSecretPostPress();
+                } else {
+                  handleOpenModal();
+                }
+              }}
+              muted={true}
+              hideControls={true}
+              autoPlayOnView={true}
+              playPauseOnly={true}
+            />
+          </div>
+        )
       )}
       <div className="flex items-center gap-4 mb-2">
         <button onClick={handleLike} disabled={liking} className={`flex items-center gap-1 ${isLiked ? 'text-red-500' : 'text-secondary dark:text-secondary-dark'}`}>
