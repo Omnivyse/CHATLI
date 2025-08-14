@@ -13,6 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './src/contexts/LanguageContext';
 import { NavigationProvider, useNavigationState } from './src/contexts/NavigationContext';
+import { BottomTabProvider, useBottomTab } from './src/contexts/BottomTabContext';
 import { getTranslation } from './src/utils/translations';
 import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors, getThemeColors } from './src/utils/themeUtils';
 
@@ -36,7 +37,7 @@ import UserSearchScreen from './src/screens/UserSearchScreen';
 import CreatePostScreen from './src/screens/CreatePostScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
-import ClipsScreen from './src/screens/ClipsScreen';
+// import ClipsScreen from './src/screens/ClipsScreen'; // Temporarily hidden
 import HelpCenterScreen from './src/screens/HelpCenterScreen';
 import AppUpdateScreen from './src/screens/AppUpdateScreen';
 
@@ -63,6 +64,7 @@ SplashScreen.preventAutoHideAsync();
 function MainTabNavigator({ user, onLogout, onGoToVerification }) {
   const { theme } = useTheme();
   const { language } = useLanguage();
+  const { translateY } = useBottomTab();
   const tabBarColors = getTabBarColors(theme);
   
   return (
@@ -74,7 +76,7 @@ function MainTabNavigator({ user, onLogout, onGoToVerification }) {
           if (route.name === 'Feed') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Clips') {
-            iconName = focused ? 'film' : 'film-outline';
+            // Temporarily hidden - iconName = focused ? 'film' : 'film-outline';
           } else if (route.name === 'Chats') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Notifications') {
@@ -173,6 +175,19 @@ function MainTabNavigator({ user, onLogout, onGoToVerification }) {
             paddingHorizontal: 8,
             paddingVertical: 8,
           }),
+          // Smooth animated hide/show based on scroll direction
+          opacity: translateY.interpolate({
+            inputRange: [0, 120],
+            outputRange: [1, 0],
+            extrapolate: 'clamp',
+          }),
+          transform: [{ translateY: translateY }],
+          // Ensure background is properly handled when hidden
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
         },
         tabBarLabelStyle: {
           display: 'none',
@@ -196,6 +211,7 @@ function MainTabNavigator({ user, onLogout, onGoToVerification }) {
       >
         {(props) => <PostFeedScreen {...props} user={user} onGoToVerification={onGoToVerification} />}
       </Tab.Screen>
+      {/* Temporarily hidden Clips tab
       <Tab.Screen 
         name="Clips"
         options={{
@@ -204,6 +220,7 @@ function MainTabNavigator({ user, onLogout, onGoToVerification }) {
       >
         {(props) => <ClipsScreen {...props} user={user} />}
       </Tab.Screen>
+      */}
       <Tab.Screen 
         name="Chats"
         options={{
@@ -709,25 +726,27 @@ export default function App() {
     <ThemeProvider>
       <LanguageProvider>
         <NavigationProvider>
-          <SafeAreaProvider>
-            <AppContent 
-              user={user} 
-              onLogout={handleLogout} 
-              onLogin={handleLogin}
-              showSplash={showSplash}
-              onSplashComplete={handleSplashComplete}
-              showVerificationBanner={showVerificationBanner}
-              showVerificationModal={showVerificationModal}
-              setShowVerificationModal={setShowVerificationModal}
-              onVerificationSuccess={handleVerificationSuccess}
-              onGoToVerification={handleGoToVerification}
-              onCancelVerification={handleCancelVerification}
-              showUpdateScreen={showUpdateScreen}
-              updateInfo={updateInfo}
-              onUpdateSkip={handleUpdateSkip}
-              onUpdateComplete={handleUpdateComplete}
-            />
-          </SafeAreaProvider>
+          <BottomTabProvider>
+            <SafeAreaProvider>
+              <AppContent 
+                user={user} 
+                onLogout={handleLogout} 
+                onLogin={handleLogin}
+                showSplash={showSplash}
+                onSplashComplete={handleSplashComplete}
+                showVerificationBanner={showVerificationBanner}
+                showVerificationModal={showVerificationModal}
+                setShowVerificationModal={setShowVerificationModal}
+                onVerificationSuccess={handleVerificationSuccess}
+                onGoToVerification={handleGoToVerification}
+                onCancelVerification={handleCancelVerification}
+                showUpdateScreen={showUpdateScreen}
+                updateInfo={updateInfo}
+                onUpdateSkip={handleUpdateSkip}
+                onUpdateComplete={handleUpdateComplete}
+              />
+            </SafeAreaProvider>
+          </BottomTabProvider>
         </NavigationProvider>
       </LanguageProvider>
     </ThemeProvider>
@@ -756,6 +775,7 @@ function AppContent({
   const navigationState = useNavigationState();
   const statusBarStyle = getStatusBarStyle(theme);
   const statusBarBackgroundColor = getStatusBarBackgroundColor(theme);
+  const colors = getThemeColors(theme); // Added this line
 
   // Set navigation state reference for push notification service
   useEffect(() => {
@@ -783,19 +803,21 @@ function AppContent({
 
   return (
     <>
-      <NavigationContainer key={language}>
-        <StatusBar 
-          style={statusBarStyle} 
-          backgroundColor={statusBarBackgroundColor}
-          translucent={RNPlatform.OS === 'android'}
-          barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
-        />
-        {user ? (
-          <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />
-        ) : (
-          <AuthStackNavigator onLogin={onLogin} />
-        )}
-      </NavigationContainer>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <NavigationContainer key={language}>
+          <StatusBar 
+            style={statusBarStyle} 
+            backgroundColor={statusBarBackgroundColor}
+            translucent={RNPlatform.OS === 'android'}
+            barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
+          />
+          {user ? (
+            <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />
+          ) : (
+            <AuthStackNavigator onLogin={onLogin} />
+          )}
+        </NavigationContainer>
+      </View>
       
       {/* Email Verification Banner */}
       <EmailVerificationBanner

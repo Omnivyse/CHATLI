@@ -8,6 +8,7 @@ import {
   Modal,
   Alert,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
@@ -19,7 +20,7 @@ import socketService from '../services/socket';
 import apiService from '../services/api';
 import CommentSection from './CommentSection';
 import ImageViewerModal from './ImageViewerModal';
-import TempClipsModal from './TempClipsModal';
+// import TempClipsModal from './TempClipsModal'; // Temporarily hidden
 import SecretPostPasswordModal from './SecretPostPasswordModal';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -47,12 +48,24 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
-  const [tempClipsModalVisible, setTempClipsModalVisible] = useState(false);
+  // const [tempClipsModalVisible, setTempClipsModalVisible] = useState(false); // Temporarily hidden
   const [profileImageViewerVisible, setProfileImageViewerVisible] = useState(false);
   const [secretPasswordModalVisible, setSecretPasswordModalVisible] = useState(false);
   const [isSecretPostUnlocked, setIsSecretPostUnlocked] = useState(false);
+  
+  // Video state management
+  const [videoPlaying, setVideoPlaying] = useState({});
+  const [videoProgress, setVideoProgress] = useState({});
+  const [videoDuration, setVideoDuration] = useState({});
+  const [videoLoading, setVideoLoading] = useState({});
+  
+  // Video view modal state
+  const [videoViewModalVisible, setVideoViewModalVisible] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  
   const videoRef = useRef(null);
   const likeTimeoutRef = useRef(null);
+  const progressUpdateTimeoutRef = useRef(null);
   
   // Check for invalid post data after hooks are declared
   if (
@@ -77,6 +90,12 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
           setIsSecretPostUnlocked(true);
         }
       }
+      
+      // Reset video states when post changes
+      setVideoPlaying({});
+      setVideoProgress({});
+      setVideoDuration({});
+      setVideoLoading({});
     }
   }, [post, user?._id]);
 
@@ -169,8 +188,25 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         clearTimeout(likeTimeoutRef.current);
         likeTimeoutRef.current = null;
       }
+      if (progressUpdateTimeoutRef.current) {
+        clearTimeout(progressUpdateTimeoutRef.current);
+        progressUpdateTimeoutRef.current = null;
+      }
     };
   }, []);
+
+  // Pause all videos when component unmounts
+  React.useEffect(() => {
+    return () => {
+      // Pause all videos when component unmounts
+      setVideoPlaying({});
+      // Close video view modal
+      setVideoViewModalVisible(false);
+      setSelectedVideo(null);
+    };
+  }, []);
+
+  // Removed problematic useEffect that was causing infinite loops
   
   const isOwner = localPost.author?._id === user?._id;
   const isLiked = Array.isArray(localPost.likes) && user?._id && localPost.likes.includes(user._id);
@@ -317,8 +353,91 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
     setImageViewerVisible(true);
   };
 
-  const handleVideoPress = () => {
-    setTempClipsModalVisible(true);
+  const handleVideoPress = (videoId) => {
+    // Open video view modal
+    setSelectedVideo({
+      url: videoId,
+      title: localPost.content || 'Untitled Video',
+      author: localPost.author
+    });
+    setVideoViewModalVisible(true);
+  };
+
+  const handleVideoViewComment = () => {
+    // Close video view modal and open comment modal
+    setVideoViewModalVisible(false);
+    // Small delay to ensure smooth transition
+    setTimeout(() => {
+      setCommentModalVisible(true);
+    }, 100);
+  };
+
+  const handleVideoLoad = (videoId, status) => {
+    if (status.isLoaded) {
+      setVideoDuration(prev => ({
+        ...prev,
+        [videoId]: status.durationMillis
+      }));
+      setVideoLoading(prev => ({
+        ...prev,
+        [videoId]: false
+      }));
+    }
+  };
+
+  // Initialize loading state for videos
+  React.useEffect(() => {
+    const videos = mediaArray.filter(item => item.type === 'video');
+    const loadingState = {};
+    videos.forEach(video => {
+      loadingState[video.url] = true;
+    });
+    setVideoLoading(loadingState);
+  }, [mediaArray.length]); // Only depend on length to prevent unnecessary re-runs
+
+  const handleVideoProgress = (videoId, status) => {
+    if (status.isLoaded && status.positionMillis !== undefined) {
+      // Clear existing timeout
+      if (progressUpdateTimeoutRef.current) {
+        clearTimeout(progressUpdateTimeoutRef.current);
+      }
+      
+      // Debounce progress updates to reduce re-renders
+      progressUpdateTimeoutRef.current = setTimeout(() => {
+        setVideoProgress(prev => {
+          // Only update if the position actually changed
+          if (prev[videoId] !== status.positionMillis) {
+            return {
+              ...prev,
+              [videoId]: status.positionMillis
+            };
+          }
+          return prev;
+        });
+      }, 100); // Update every 100ms instead of every frame
+    }
+  };
+
+  const handleVideoError = (videoId, error) => {
+    console.error('Video error:', error);
+    setVideoLoading(prev => ({
+      ...prev,
+      [videoId]: false
+    }));
+  };
+
+  const formatVideoTime = (milliseconds) => {
+    if (!milliseconds) return '0:00';
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const getVideoProgressPercentage = (videoId) => {
+    const progress = videoProgress[videoId] || 0;
+    const duration = videoDuration[videoId] || 1;
+    return (progress / duration) * 100;
   };
 
   const renderMedia = () => {
@@ -353,25 +472,37 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
               />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity 
-              onPress={handleVideoPress}
-              activeOpacity={0.9}
-              style={[styles.videoContainer, { borderColor: colors.border }]}
-            >
+            <View style={[styles.videoContainer, { borderColor: colors.border }]}>
               <Video
+                ref={videoRef}
                 source={{ uri: mediaItem.url }}
                 style={styles.videoPlayer}
                 useNativeControls={false}
                 resizeMode="cover"
-                shouldPlay={false}
+                shouldPlay={videoPlaying[mediaItem.url] || false}
                 isLooping={false}
                 isMuted={true}
                 shouldCorrectPitch={false}
+                onLoad={(status) => handleVideoLoad(mediaItem.url, status)}
+                onPlaybackStatusUpdate={(status) => handleVideoProgress(mediaItem.url, status)}
+                onError={(error) => handleVideoError(mediaItem.url, error)}
               />
-              <View style={styles.videoPlayOverlay}>
-                <Ionicons name="play-circle" size={48} color="#ffffff" />
-              </View>
-            </TouchableOpacity>
+              
+              {/* Video Controls Overlay */}
+              <TouchableOpacity 
+                onPress={() => handleVideoPress(mediaItem.url)}
+                activeOpacity={0.9}
+                style={styles.videoControlsOverlay}
+              >
+                <View style={styles.videoPlayButton}>
+                  <Ionicons 
+                    name="play-circle" 
+                    size={48} 
+                    color="#ffffff" 
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       );
@@ -449,26 +580,38 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
                   resizeMode="cover"
                 />
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
-                onPress={handleVideoPress}
-                activeOpacity={0.9}
-                style={[styles.videoContainer, { borderColor: colors.border }]}
-              >
-                <Video
-                  source={{ uri: firstItem.url }}
-                  style={styles.videoPlayer}
-                  useNativeControls={false}
-                  resizeMode="cover"
-                  shouldPlay={false}
-                  isLooping={false}
-                  isMuted={true}
-                />
-                <View style={styles.videoPlayOverlay}>
-                  <Ionicons name="play-circle" size={48} color="#ffffff" />
-                </View>
-              </TouchableOpacity>
-            )}
+                         ) : (
+               <View style={[styles.videoContainer, { borderColor: colors.border }]}>
+                 <Video
+                   ref={videoRef}
+                   source={{ uri: firstItem.url }}
+                   style={styles.videoPlayer}
+                   useNativeControls={false}
+                   resizeMode="cover"
+                   shouldPlay={videoPlaying[firstItem.url] || false}
+                   isLooping={false}
+                   isMuted={true}
+                   onLoad={(status) => handleVideoLoad(firstItem.url, status)}
+                   onPlaybackStatusUpdate={(status) => handleVideoProgress(firstItem.url, status)}
+                   onError={(error) => handleVideoError(firstItem.url, error)}
+                 />
+                 
+                 {/* Video Controls Overlay */}
+                 <TouchableOpacity 
+                   onPress={() => handleVideoPress(firstItem.url)}
+                   activeOpacity={0.9}
+                   style={styles.videoControlsOverlay}
+                 >
+                   <View style={styles.videoPlayButton}>
+                     <Ionicons 
+                       name="play-circle" 
+                       size={48} 
+                       color="#ffffff" 
+                     />
+                   </View>
+                 </TouchableOpacity>
+               </View>
+             )}
             {/* Show dots for multiple media */}
             <View style={styles.mediaIndicators}>
               {mediaArray.map((_, index) => (
@@ -670,7 +813,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         />
       </Modal>
 
-      {/* Temporary Clips Modal */}
+      {/* Temporary Clips Modal - Temporarily hidden
       <TempClipsModal
         visible={tempClipsModalVisible}
         onClose={() => setTempClipsModalVisible(false)}
@@ -684,6 +827,7 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         user={user}
         post={localPost}
       />
+      */}
 
       {/* Profile Image Viewer Modal */}
       <Modal
@@ -731,6 +875,89 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
         postAuthor={localPost.author?.name}
         showDescription={localPost.showDescription}
       />
+
+      {/* Video View Modal */}
+      <Modal
+        visible={videoViewModalVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setVideoViewModalVisible(false)}
+      >
+        <View style={styles.videoViewModalContainer}>
+          {/* Video View Header */}
+          <View style={styles.videoViewHeader}>
+            <TouchableOpacity
+              style={styles.videoViewCloseButton}
+              onPress={() => setVideoViewModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            {selectedVideo && (
+              <View style={styles.videoViewInfo}>
+                <Text style={styles.videoViewTitle} numberOfLines={1}>
+                  {selectedVideo.title}
+                </Text>
+                <Text style={styles.videoViewAuthor}>
+                  {selectedVideo.author?.name || 'Unknown User'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Full Screen Video Player */}
+          {selectedVideo && (
+            <View style={styles.videoViewPlayerContainer}>
+              <Video
+                source={{ uri: selectedVideo.url }}
+                style={styles.videoViewPlayer}
+                useNativeControls={true}
+                resizeMode="contain"
+                shouldPlay={true}
+                isLooping={false}
+                isMuted={false}
+                shouldCorrectPitch={false}
+                onLoad={(status) => {
+                  if (status.isLoaded) {
+                    console.log('Video loaded in view modal:', status);
+                  }
+                }}
+                onError={(error) => {
+                  console.error('Video error in view modal:', error);
+                }}
+              />
+            </View>
+          )}
+
+          {/* Video View Actions */}
+          <View style={styles.videoViewActions}>
+            <TouchableOpacity 
+              style={styles.videoViewActionButton}
+              onPress={handleLike}
+              disabled={liking}
+            >
+              <Ionicons 
+                name={isLiked ? "heart" : "heart-outline"} 
+                size={24} 
+                color={isLiked ? "#ff4757" : "#ffffff"} 
+                style={liking ? { opacity: 0.5 } : {}}
+              />
+              <Text style={[styles.videoViewActionText, liking ? { opacity: 0.5 } : {}]}>
+                {Array.isArray(localPost.likes) ? String(localPost.likes.length) : '0'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.videoViewActionButton}
+              onPress={handleVideoViewComment}
+            >
+              <Ionicons name="chatbubble-outline" size={24} color="#ffffff" />
+              <Text style={styles.videoViewActionText}>
+                {Array.isArray(localPost.comments) ? String(localPost.comments.length) : '0'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -971,6 +1198,64 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 8,
   },
+  videoControlsOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 8,
+  },
+  videoPlayButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 24,
+    padding: 8,
+  },
+  videoLoadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 24,
+    padding: 16,
+  },
+  videoProgressContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  videoProgressBar: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  videoProgressFill: {
+    height: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 2,
+  },
+  videoTimeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  videoTimeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
   secretContentContainer: {
     position: 'relative',
   },
@@ -1030,6 +1315,72 @@ const styles = StyleSheet.create({
   lockIconContainer: {
     marginRight: 8,
     marginTop: 2,
+  },
+  videoViewModalContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoViewHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 40,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  videoViewCloseButton: {
+    padding: 10,
+  },
+  videoViewInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  videoViewTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  videoViewAuthor: {
+    color: '#888',
+    fontSize: 14,
+  },
+  videoViewPlayerContainer: {
+    width: '100%',
+    height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoViewPlayer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000',
+  },
+  videoViewActions: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    zIndex: 10,
+  },
+  videoViewActionButton: {
+    alignItems: 'center',
+    flex: 1,
+    paddingVertical: 8,
+  },
+  videoViewActionText: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
 });
 

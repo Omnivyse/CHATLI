@@ -316,37 +316,61 @@ const NotificationScreen = ({ navigation, user }) => {
       <TouchableOpacity
         style={[
           styles.notificationItem,
-          { backgroundColor: colors.surface, borderBottomColor: colors.border },
-          !notification.isRead && { backgroundColor: colors.surfaceVariant }
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          !notification.isRead && { 
+            backgroundColor: colors.surfaceVariant,
+            shadowOpacity: 0.08,
+            shadowRadius: 12,
+            elevation: 4,
+          }
         ]}
         onPress={() => handleMarkAsRead(notification._id)}
+        activeOpacity={0.7}
       >
-      <View style={styles.notificationIcon}>
-        <Ionicons
-          name={getNotificationIcon(notification.type)}
-          size={20}
-          color={getNotificationColor(notification.type)}
-        />
-      </View>
-      
-      <View style={styles.notificationContent}>
-        <Text style={[styles.notificationTitle, { color: colors.text }]}>
-          {notification.title || 'New notification'}
-        </Text>
-        {notification.message && (
-          <Text style={[styles.notificationMessage, { color: colors.textSecondary }]}>
-            {notification.message}
+        <View style={[
+          styles.notificationIcon,
+          { backgroundColor: !notification.isRead ? colors.surfaceVariant : colors.surface }
+        ]}>
+          <Ionicons
+            name={getNotificationIcon(notification.type)}
+            size={22}
+            color={getNotificationColor(notification.type)}
+          />
+        </View>
+        
+        <View style={styles.notificationContent}>
+          <Text style={[
+            styles.notificationTitle, 
+            { color: colors.text },
+            !notification.isRead && { fontWeight: '800' }
+          ]}>
+            {notification.title || 'New notification'}
           </Text>
-        )}
-        <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>
-          {formatNotificationTime(notification.createdAt)}
-        </Text>
-      </View>
+          {notification.message && (
+            <Text style={[
+              styles.notificationMessage, 
+              { color: colors.textSecondary },
+              !notification.isRead && { fontWeight: '500' }
+            ]}>
+              {notification.message}
+            </Text>
+          )}
+          <Text style={[
+            styles.notificationTime, 
+            { color: colors.textTertiary },
+            !notification.isRead && { fontWeight: '600' }
+          ]}>
+            {formatNotificationTime(notification.createdAt)}
+          </Text>
+        </View>
 
-      {!notification.isRead && (
-        <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
-      )}
-    </TouchableOpacity>
+        {!notification.isRead && (
+          <View style={[
+            styles.unreadDot, 
+            { backgroundColor: colors.primary }
+          ]} />
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -369,13 +393,27 @@ const NotificationScreen = ({ navigation, user }) => {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {getTranslation('notifications', language) || 'Notifications'}
+          </Text>
+          {notifications.some(n => !n.isRead) && (
+            <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.unreadBadgeText, { color: colors.textInverse }]}>
+                {notifications.filter(n => !n.isRead).length}
+              </Text>
+            </View>
+          )}
+        </View>
         {notifications.some(n => !n.isRead) && (
           <TouchableOpacity
             style={[styles.markAllButton, { backgroundColor: colors.primary }]}
             onPress={handleMarkAllAsRead}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.markAllText, { color: colors.textInverse }]}>Mark all as read</Text>
+            <Text style={[styles.markAllText, { color: colors.textInverse }]}>
+              {getTranslation('markAllAsRead', language) || 'Mark all as read'}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -435,25 +473,47 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#000',
+    letterSpacing: -0.5,
   },
   markAllButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     backgroundColor: '#f0f0f0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   markAllText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#000',
+    letterSpacing: 0.2,
   },
   loadingContainer: {
     flex: 1,
@@ -461,17 +521,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingSpinner: {
-    padding: 20,
+    padding: 24,
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderRadius: 20,
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   errorContainer: {
     flex: 1,
@@ -483,17 +543,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ef4444',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    fontWeight: '500',
   },
   retryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
   },
   retryButtonText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   emptyContainer: {
     flex: 1,
@@ -502,67 +572,120 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#000',
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 10,
+    letterSpacing: -0.3,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+    fontWeight: '400',
   },
   notificationsList: {
     flex: 1,
+    paddingHorizontal: 16,
   },
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8f8f8',
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    marginVertical: 4,
+    borderRadius: 16,
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   unreadNotification: {
     backgroundColor: '#f8f9fa',
   },
   notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   notificationContent: {
     flex: 1,
+    paddingRight: 8,
   },
   notificationTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#000',
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
   notificationMessage: {
     fontSize: 14,
     color: '#666',
     lineHeight: 18,
-    marginBottom: 4,
+    marginBottom: 8,
+    fontWeight: '400',
   },
   notificationTime: {
     fontSize: 12,
     color: '#999',
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#007aff',
-    marginLeft: 8,
+    marginLeft: 12,
+    shadowColor: '#007aff',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  unreadBadge: {
+    marginLeft: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  unreadBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });
 
