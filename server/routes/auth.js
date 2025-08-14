@@ -339,7 +339,7 @@ router.post('/login', [
 });
 
 // @route   POST /api/auth/refresh
-// @desc    Refresh access token
+// @desc    Refresh access token using refresh token
 // @access  Public
 router.post('/refresh', async (req, res) => {
   try {
@@ -348,51 +348,155 @@ router.post('/refresh', async (req, res) => {
     if (!refreshToken) {
       return res.status(400).json({
         success: false,
-        message: 'Refresh token required'
+        message: 'Refresh token is required'
       });
     }
 
     // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
-    
-    if (decoded.type !== 'refresh' || decoded.aud !== 'chatli-refresh') {
-      return res.status(400).json({
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(401).json({
         success: false,
         message: 'Invalid refresh token'
       });
     }
 
-    // Check if user still exists
-    const user = await User.findById(decoded.userId).select('-password');
-    if (!user || user.deletedAt || user.status === 'banned' || user.status === 'suspended') {
-      return res.status(400).json({
+    // Check if it's a refresh token
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
         success: false,
-        message: 'User account invalid'
+        message: 'Invalid token type'
       });
     }
 
-    // Generate new access token
+    // Check audience
+    if (decoded.aud !== 'chatli-refresh') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid refresh token audience'
+      });
+    }
+
+    // Find user
+    const user = await User.findById(decoded.userId).select('-password');
+    if (!user || user.deletedAt || user.status === 'banned' || user.status === 'suspended') {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or account restricted'
+      });
+    }
+
+    // Generate new access token with all required claims
     const newToken = generateToken(user._id, req);
+    
+    // Optionally generate new refresh token
+    const newRefreshToken = generateRefreshTokenForUser(user._id, req);
 
     res.json({
       success: true,
       message: 'Token refreshed successfully',
       data: {
         token: newToken,
-        user
+        refreshToken: newRefreshToken,
+        user: {
+          _id: user._id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar
+        }
       }
     });
+
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
+    console.error('Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// @route   POST /api/auth/validate
+// @desc    Validate existing token and return new one if needed
+// @access  Public
+router.post('/validate', async (req, res) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
       return res.status(400).json({
         success: false,
-        message: 'Refresh token expired'
+        message: 'Token is required'
       });
     }
-    
-    res.status(400).json({
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      // Check if token has all required claims
+      if (decoded.userId && decoded.aud && decoded.iss && decoded.jti) {
+        // Token is valid and has all claims
+        return res.json({
+          success: true,
+          message: 'Token is valid',
+          data: {
+            isValid: true,
+            needsRefresh: false,
+            user: {
+              _id: decoded.userId
+            }
+          }
+        });
+      } else {
+        // Token is valid but missing claims - generate new one
+        const user = await User.findById(decoded.userId || decoded.id).select('-password');
+        if (!user || user.deletedAt || user.status === 'banned' || user.status === 'suspended') {
+          return res.status(401).json({
+            success: false,
+            message: 'User not found or account restricted'
+          });
+        }
+
+        const newToken = generateToken(user._id, req);
+        const refreshToken = generateRefreshTokenForUser(user._id, req);
+
+        return res.json({
+          success: true,
+          message: 'Token refreshed due to missing claims',
+          data: {
+            isValid: true,
+            needsRefresh: true,
+            token: newToken,
+            refreshToken: refreshToken,
+            user: {
+              _id: user._id,
+              name: user.name,
+              username: user.username,
+              email: user.email,
+              avatar: user.avatar
+            }
+          }
+        });
+      }
+    } catch (error) {
+      return res.json({
+        success: false,
+        message: 'Token is invalid',
+        data: {
+          isValid: false,
+          needsRefresh: false
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Token validation error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Invalid refresh token'
+      message: 'Server error'
     });
   }
 });

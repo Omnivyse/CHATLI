@@ -53,7 +53,7 @@ const generateRefreshToken = (userId, deviceInfo = {}) => {
   });
 };
 
-// Enhanced authentication middleware
+// Enhanced authentication middleware with backward compatibility
 const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -119,30 +119,54 @@ const auth = async (req, res, next) => {
       throw error;
     }
 
-    // Validate token claims
-    if (!decoded.userId || !decoded.jti || !decoded.aud || !decoded.iss) {
+    // Backward compatibility: Handle both old and new token formats
+    let isValidToken = true;
+    let missingClaims = [];
+
+    // Check for required claims with backward compatibility
+    if (!decoded.userId) {
+      // Old token format might use 'id' instead of 'userId'
+      if (decoded.id) {
+        decoded.userId = decoded.id;
+      } else {
+        isValidToken = false;
+        missingClaims.push('userId');
+      }
+    }
+
+    // For new tokens, require all claims; for old tokens, be more lenient
+    if (decoded.aud && decoded.iss && decoded.jti) {
+      // New token format - validate all claims
+      if (decoded.aud !== 'chatli-app') {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid token audience',
+          code: 'TOKEN_INVALID_AUDIENCE'
+        });
+      }
+
+      if (decoded.iss !== 'chatli-server') {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid token issuer',
+          code: 'TOKEN_INVALID_ISSUER'
+        });
+      }
+    } else {
+      // Old token format - log warning but allow
+      console.log(`⚠️ Old token format detected for user ${decoded.userId}. Token will be accepted but should be refreshed.`);
+      
+      // Add missing claims for consistency
+      if (!decoded.jti) decoded.jti = 'legacy-' + Date.now();
+      if (!decoded.aud) decoded.aud = 'chatli-app';
+      if (!decoded.iss) decoded.iss = 'chatli-server';
+    }
+
+    if (!isValidToken) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Token missing required claims',
+        message: `Token missing required claims: ${missingClaims.join(', ')}`,
         code: 'TOKEN_INVALID_CLAIMS'
-      });
-    }
-
-    // Check audience
-    if (decoded.aud !== 'chatli-app') {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid token audience',
-        code: 'TOKEN_INVALID_AUDIENCE'
-      });
-    }
-
-    // Check issuer
-    if (decoded.iss !== 'chatli-server') {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid token issuer',
-        code: 'TOKEN_INVALID_ISSUER'
       });
     }
 
@@ -193,11 +217,12 @@ const auth = async (req, res, next) => {
       id: decoded.jti,
       issuedAt: decoded.iat,
       expiresAt: decoded.exp,
-      device: decoded.device
+      device: decoded.device || { fingerprint: 'unknown', userAgent: 'unknown', ip: 'unknown' },
+      isLegacy: !decoded.aud || !decoded.iss || !decoded.jti
     };
 
     // Log successful authentication for security monitoring
-    console.log(`🔐 User authenticated: ${user.username} (${user._id}) - Token: ${decoded.jti} - IP: ${req.ip}`);
+    console.log(`🔐 User authenticated: ${user.username} (${user._id}) - Token: ${decoded.jti} - IP: ${req.ip} - Legacy: ${req.token.isLegacy}`);
 
     next();
   } catch (error) {
@@ -217,21 +242,25 @@ const optionalAuth = async (req, res, next) => {
     
     if (token) {
       try {
-        // Use the same validation logic as required auth
+        // Use the same validation logic as required auth with backward compatibility
         const decoded = jwt.decode(token);
         
         if (decoded && decoded.exp && decoded.exp >= Math.floor(Date.now() / 1000)) {
           const verified = jwt.verify(token, process.env.JWT_SECRET);
           
-          if (verified && verified.userId && verified.aud === 'chatli-app') {
-            const user = await User.findById(verified.userId).select('-password');
+          // Backward compatibility: Handle both old and new token formats
+          if (verified && (verified.userId || verified.id)) {
+            const userId = verified.userId || verified.id;
+            const user = await User.findById(userId).select('-password');
+            
             if (user && !user.deletedAt && user.status !== 'banned' && user.status !== 'suspended') {
               req.user = user;
               req.token = {
-                id: verified.jti,
+                id: verified.jti || 'legacy-' + Date.now(),
                 issuedAt: verified.iat,
                 expiresAt: verified.exp,
-                device: verified.device
+                device: verified.device || { fingerprint: 'unknown', userAgent: 'unknown', ip: 'unknown' },
+                isLegacy: !verified.aud || !verified.iss || !verified.jti
               };
             }
           }
