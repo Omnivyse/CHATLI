@@ -9,8 +9,8 @@ import {
   Image,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigationState } from '../contexts/NavigationContext';
 import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ChatListScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
@@ -33,6 +34,7 @@ const ChatListScreen = ({ navigation, user }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
+  const [socketConnected, setSocketConnected] = useState(false);
   const currentOpenChatId = useRef(null); // Track the currently open chat
 
   const loadChats = useCallback(async () => {
@@ -104,62 +106,178 @@ const ChatListScreen = ({ navigation, user }) => {
     updateNavigationState('ChatList', null);
   }, [loadChats, updateNavigationState]);
 
+  // Check socket connection status
+  useEffect(() => {
+    const checkSocketConnection = () => {
+      const isConnected = socketService.isConnected;
+      const wasConnected = socketConnected;
+      
+      setSocketConnected(isConnected);
+      
+      if (!isConnected && wasConnected) {
+        console.warn('⚠️ Socket disconnected, attempting to reconnect...');
+        // Try to reconnect if not connected
+        const token = AsyncStorage.getItem('token');
+        if (token) {
+          socketService.connect(token);
+        }
+      } else if (isConnected && !wasConnected) {
+        console.log('✅ Socket reconnected, real-time updates restored');
+        // Refresh chats when connection is restored
+        loadChats();
+      } else if (!isConnected) {
+        console.warn('⚠️ Socket not connected, attempting to reconnect...');
+        // Try to reconnect if not connected
+        const token = AsyncStorage.getItem('token');
+        if (token) {
+          socketService.connect(token);
+        }
+      } else {
+        console.log('✅ Socket is connected and ready for real-time updates');
+      }
+    };
+
+    // Check immediately
+    checkSocketConnection();
+    
+    // Check periodically
+    const connectionCheckInterval = setInterval(checkSocketConnection, 5000);
+    
+    return () => clearInterval(connectionCheckInterval);
+  }, [socketConnected, loadChats]);
+
   useFocusEffect(
     useCallback(() => {
       loadChats();
-      // Run cleanup when screen is focused
-      cleanupDeletedUserChats();
     }, [])
   );
-
-  // Run cleanup periodically (every 5 minutes)
-  useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      cleanupDeletedUserChats();
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(cleanupInterval);
-  }, [cleanupDeletedUserChats]);
 
   // Listen for new messages to update chat list
   useEffect(() => {
     const handleIncomingMessage = (data) => {
+      console.log('📨 Received new message:', data);
       const { chatId, message } = data;
+      
+      if (!chatId || !message) {
+        console.warn('⚠️ Invalid message data received:', data);
+        return;
+      }
+
       setChats(prevChats => {
         let found = false;
         const updatedChats = prevChats.map(chat => {
           if (chat._id === chatId) {
             found = true;
             const isChatOpen = currentOpenChatId.current === chatId;
-            return {
+            
+            // Create updated chat with new message
+            const updatedChat = {
               ...chat,
               lastMessage: {
                 id: message._id,
-                text: message.content?.text || '',
+                text: message.content?.text || message.text || '',
                 sender: message.sender,
-                timestamp: message.createdAt,
+                timestamp: message.createdAt || message.timestamp,
                 isRead: false
               },
-              unreadCount: (!isChatOpen && message.sender._id !== user._id) ? chat.unreadCount + 1 : chat.unreadCount
+              unreadCount: (!isChatOpen && message.sender._id !== user._id) ? 
+                (chat.unreadCount || 0) + 1 : 
+                (chat.unreadCount || 0)
             };
+            
+            console.log('🔄 Updated chat:', {
+              chatId,
+              newUnreadCount: updatedChat.unreadCount,
+              messageText: updatedChat.lastMessage.text,
+              sender: message.sender._id,
+              currentUser: user._id
+            });
+            
+            return updatedChat;
           }
           return chat;
         });
+        
         // Move updated chat to top if found
         if (found) {
           const chatIndex = updatedChats.findIndex(chat => chat._id === chatId);
           const [chatToTop] = updatedChats.splice(chatIndex, 1);
           return [chatToTop, ...updatedChats];
         }
-        // Optionally: fetch chats if not found (new chat started)
+        
+        // If chat not found, it might be a new chat - fetch updated list
+        console.log('🆕 New chat detected, fetching updated chat list...');
+        setTimeout(() => {
+          loadChats();
+        }, 1000);
+        
         return updatedChats;
       });
     };
-    socketService.on('new_message', handleIncomingMessage);
-    return () => {
-      socketService.off('new_message', handleIncomingMessage);
+
+    const handleChatUpdate = (data) => {
+      console.log('🔄 Chat update received:', data);
+      const { chatId, updates } = data;
+      
+      if (chatId && updates) {
+        setChats(prevChats => 
+          prevChats.map(chat => 
+            chat._id === chatId ? { ...chat, ...updates } : chat
+          )
+        );
+      }
     };
-  }, []);
+
+    const handleUserStatusUpdate = (data) => {
+      console.log('👤 User status update:', data);
+      const { userId, status } = data;
+      
+      if (userId && status) {
+        setChats(prevChats => 
+          prevChats.map(chat => {
+            if (chat.type === 'direct' && chat.participants) {
+              const updatedParticipants = chat.participants.map(participant => 
+                participant._id === userId ? { ...participant, status } : participant
+              );
+              return { ...chat, participants: updatedParticipants };
+            }
+            return chat;
+          })
+        );
+      }
+    };
+
+    const handleChatDeleted = (data) => {
+      console.log('🗑️ Chat deleted:', data);
+      const { chatId } = data;
+      
+      if (chatId) {
+        setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
+      }
+    };
+
+    // Set up socket event listeners
+    console.log('🔌 Setting up socket event listeners for ChatListScreen');
+    
+    socketService.on('new_message', handleIncomingMessage);
+    socketService.on('chat_updated', handleChatUpdate);
+    socketService.on('user_status_update', handleUserStatusUpdate);
+    socketService.on('chat_deleted', handleChatDeleted);
+    
+    // Also listen for message events with different names that might be used
+    socketService.on('message', handleIncomingMessage);
+    socketService.on('chat_message', handleIncomingMessage);
+
+    return () => {
+      console.log('🧹 Cleaning up socket event listeners for ChatListScreen');
+      socketService.off('new_message', handleIncomingMessage);
+      socketService.off('chat_updated', handleChatUpdate);
+      socketService.off('user_status_update', handleUserStatusUpdate);
+      socketService.off('chat_deleted', handleChatDeleted);
+      socketService.off('message', handleIncomingMessage);
+      socketService.off('chat_message', handleIncomingMessage);
+    };
+  }, [user._id, loadChats]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -219,7 +337,7 @@ const ChatListScreen = ({ navigation, user }) => {
     const sender = chat.lastMessage.sender;
     const isOwnMessage = sender?._id === user._id;
     
-          return isOwnMessage ? 'You: ' + (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '') : (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '');
+    return isOwnMessage ? 'You: ' + (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '') : (chat.lastMessage.text && typeof chat.lastMessage.text === 'string' ? chat.lastMessage.text : '');
   };
 
   const getDisplayDate = (timestamp) => {
@@ -255,7 +373,6 @@ const ChatListScreen = ({ navigation, user }) => {
       // Validate chat object
       if (!chat || !chat._id) {
         console.error('❌ Invalid chat object:', chat);
-        Alert.alert('Error', 'Invalid chat information');
         return;
       }
 
@@ -283,53 +400,40 @@ const ChatListScreen = ({ navigation, user }) => {
       });
     } catch (error) {
       console.error('❌ Error opening chat:', error);
-      Alert.alert('Error', 'Failed to open chat. Please try again.');
+      // Continue anyway, don't block chat opening
     }
   };
 
-  const handleDeleteChat = async (chatId) => {
-    try {
-      await api.deleteChat(chatId);
-      setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
-    } catch (error) {
-      Alert.alert('Error', 'Failed to delete chat');
-    }
+  const handleChatDelete = async (chatId) => {
+    Alert.alert(
+      getTranslation('confirmDeleteChatTitle', language),
+      getTranslation('confirmDeleteChatMessage', language),
+      [
+        {
+          text: getTranslation('cancel', language),
+          style: 'cancel',
+        },
+        {
+          text: getTranslation('delete', language),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteChat(chatId);
+              setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
+              console.log(`✅ Chat ${chatId} deleted successfully.`);
+            } catch (deleteError) {
+              console.error('❌ Failed to delete chat:', deleteError);
+              Alert.alert(
+                getTranslation('deleteErrorTitle', language),
+                getTranslation('deleteErrorMessage', language),
+                [{ text: getTranslation('ok', language) }]
+              );
+            }
+          },
+        },
+      ],
+    );
   };
-
-  const cleanupDeletedUserChats = useCallback(async () => {
-    try {
-      console.log('🧹 Starting cleanup of deleted user chats...');
-      const chatsToRemove = [];
-      
-      // Check each chat for deleted users
-      for (const chat of chats) {
-        if (chat.type === 'direct' && chat.participants) {
-          const otherParticipant = chat.participants.find(p => p && p._id && p._id !== user._id);
-          if (!otherParticipant || !otherParticipant.name || otherParticipant.name === 'Unknown User') {
-            console.log(`🗑️ Marking chat for deletion (deleted user): ${chat._id}`);
-            chatsToRemove.push(chat._id);
-          }
-        }
-      }
-      
-      // Remove chats with deleted users from the UI
-      if (chatsToRemove.length > 0) {
-        setChats(prevChats => prevChats.filter(chat => !chatsToRemove.includes(chat._id)));
-        console.log(`✅ Cleaned up ${chatsToRemove.length} chats with deleted users`);
-        
-        // Optionally, you can also delete them from the server
-        // for (const chatId of chatsToRemove) {
-        //   try {
-        //     await api.deleteChat(chatId);
-        //   } catch (error) {
-        //     console.error(`Failed to delete chat ${chatId} from server:`, error);
-        //   }
-        // }
-      }
-    } catch (error) {
-      console.error('❌ Error during chat cleanup:', error);
-    }
-  }, [chats, user._id]);
 
   const filteredChats = chats.filter(chat => {
     if (!searchQuery) return true;
@@ -347,78 +451,70 @@ const ChatListScreen = ({ navigation, user }) => {
     
     return (
       <TouchableOpacity
-        style={[styles.chatItem, { borderBottomColor: colors.borderLight }]}
+        style={[styles.chatItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() => handleChatPress(chat)}
-        onLongPress={() => {
-          Alert.alert(
-            'Delete Chat',
-            'Delete this chat?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Delete', style: 'destructive', onPress: () => handleDeleteChat(chat._id) }
-            ]
-          );
-        }}
+        onLongPress={() => handleChatDelete(chat._id)}
         activeOpacity={0.7}
+        delayLongPress={500}
       >
-      <View style={styles.avatarContainer}>
-        {(() => {
-          const avatarUrl = getChatAvatar(chat);
-          // Add proper validation to prevent undefined.startsWith error
-          if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
+        <View style={styles.avatarContainer}>
+          {(() => {
+            const avatarUrl = getChatAvatar(chat);
+            // Add proper validation to prevent undefined.startsWith error
+            if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
+              return (
+                <Image 
+                  source={{ uri: avatarUrl }}
+                  style={[styles.avatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
+                />
+              );
+            } else {
+              return (
+                <View style={[styles.avatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }]}>
+                  <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
+                </View>
+              );
+            }
+          })()}
+          {chat.type === 'direct' && (() => {
+            const otherParticipant = chat.participants.find(p => p._id !== user._id);
+            const isOnline = otherParticipant?.status === 'online';
             return (
-              <Image 
-                source={{ uri: avatarUrl }}
-                style={[styles.avatar, { backgroundColor: colors.surfaceVariant }]}
-              />
+              <View style={[
+                styles.onlineIndicator,
+                { 
+                  backgroundColor: isOnline ? colors.success : colors.textTertiary,
+                  borderColor: colors.background 
+                }
+              ]} />
             );
-          } else {
-            return (
-              <View style={[styles.avatar, { backgroundColor: colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' }]}>
-                <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
-              </View>
-            );
-          }
-        })()}
-        {chat.type === 'direct' && (() => {
-          const otherParticipant = chat.participants.find(p => p._id !== user._id);
-          const isOnline = otherParticipant?.status === 'online';
-          return (
-            <View style={[
-              styles.onlineIndicator,
-              { 
-                backgroundColor: isOnline ? colors.success : colors.textTertiary,
-                borderColor: colors.background 
-              }
-            ]} />
-          );
-        })()}
-      </View>
-      
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <Text style={[styles.chatTitle, { color: colors.text }]} numberOfLines={1}>
-            {getChatTitle(chat)}
-          </Text>
-          <Text style={[styles.chatTime, { color: colors.textSecondary }]}>
-            {getDisplayDate(chat.lastMessage?.timestamp)}
-          </Text>
+          })()}
         </View>
         
-        <View style={styles.chatFooter}>
-          <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
-            {getLastMessageText(chat)}
-          </Text>
-          {chat.unreadCount > 0 && (
-            <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.unreadCount, { color: colors.textInverse }]}>
-                {chat.unreadCount > 9 ? '9+' : String(chat.unreadCount)}
-              </Text>
-            </View>
-          )}
+        <View style={styles.chatInfo}>
+          <View style={styles.chatHeader}>
+            <Text style={[styles.chatTitle, { color: colors.text }]} numberOfLines={1}>
+              {getChatTitle(chat)}
+            </Text>
+            <Text style={[styles.chatTime, { color: colors.textSecondary }]}>
+              {getDisplayDate(chat.lastMessage?.timestamp)}
+            </Text>
+          </View>
+          
+          <View style={styles.chatFooter}>
+            <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
+              {getLastMessageText(chat)}
+            </Text>
+            {chat.unreadCount > 0 && (
+              <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.unreadCount, { color: colors.textInverse }]}>
+                  {chat.unreadCount > 9 ? '9+' : String(chat.unreadCount)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
     );
   };
 
@@ -429,17 +525,29 @@ const ChatListScreen = ({ navigation, user }) => {
     >
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
+          <View style={styles.connectionStatus}>
+            <View style={[
+              styles.connectionDot, 
+              { backgroundColor: socketConnected ? colors.success : colors.error || '#ef4444' }
+            ]} />
+            <Text style={[styles.connectionText, { color: colors.textSecondary }]}>
+              {socketConnected ? 'Live' : 'Offline'}
+            </Text>
+          </View>
+        </View>
         <View style={styles.headerButtons}>
+          {!socketConnected && (
+            <TouchableOpacity 
+              style={[styles.refreshButton, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
+              onPress={loadChats}
+            >
+              <Ionicons name="refresh" size={20} color={colors.text} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={cleanupDeletedUserChats}
-            title="Cleanup"
-          >
-            <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.searchButton}
+            style={[styles.searchButton, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
             onPress={() => navigation.navigate('UserSearch')}
           >
             <Ionicons name="search" size={24} color={colors.text} />
@@ -467,13 +575,15 @@ const ChatListScreen = ({ navigation, user }) => {
       {/* Chat List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <View style={[styles.loadingSpinner, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-          {error && typeof error === 'string' ? error : 'Error occurred'}
-        </Text>
+          <Text style={[styles.errorText, { color: colors.error || '#ef4444' }]}>
+            {error && typeof error === 'string' ? error : 'Error occurred'}
+          </Text>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={loadChats}
@@ -484,6 +594,9 @@ const ChatListScreen = ({ navigation, user }) => {
       ) : filteredChats.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="chatbubbles-outline" size={64} color={colors.textTertiary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            {searchQuery ? 'No Results' : 'No Chats Yet'}
+          </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {searchQuery ? 'No chats found matching your search' : 'No chats yet'}
           </Text>
@@ -497,21 +610,28 @@ const ChatListScreen = ({ navigation, user }) => {
           )}
         </View>
       ) : (
-        <FlatList
-          data={filteredChats}
-          keyExtractor={(item) => item._id}
-          renderItem={renderChatItem}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
-          contentContainerStyle={styles.chatList}
-          showsVerticalScrollIndicator={false}
-        />
+        <>
+          <FlatList
+            data={filteredChats}
+            keyExtractor={(item) => item._id}
+            renderItem={renderChatItem}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+              />
+            }
+            contentContainerStyle={styles.chatList}
+            showsVerticalScrollIndicator={false}
+          />
+          <View style={styles.helpTextContainer}>
+            <Text style={[styles.helpText, { color: colors.textTertiary }]}>
+              💡 Long-press on any chat to delete it
+            </Text>
+          </View>
+        </>
       )}
     </SafeAreaView>
   );
@@ -520,80 +640,119 @@ const ChatListScreen = ({ navigation, user }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  headerButtons: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  connectionStatus: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+  },
+  connectionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  connectionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   searchButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+  },
+  refreshButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
   },
   newChatButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
+    borderRadius: 16,
     marginHorizontal: 20,
-    marginVertical: 8,
+    marginVertical: 12,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
+    opacity: 0.6,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#0f172a',
+    fontWeight: '500',
   },
   clearSearch: {
     marginLeft: 8,
@@ -601,25 +760,36 @@ const styles = StyleSheet.create({
   },
   chatList: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 20 : 0, // Extra padding for Android
+    paddingBottom: Platform.OS === 'android' ? 20 : 0,
+    paddingHorizontal: 4,
   },
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8fafc',
+    paddingVertical: 18,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   avatarContainer: {
     position: 'relative',
     marginRight: 16,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f8fafc',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
   },
   avatarLogo: {
     width: '100%',
@@ -629,31 +799,39 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ffffff',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 3,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   chatInfo: {
     flex: 1,
+    marginRight: 8,
   },
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   chatTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
+    fontSize: 17,
+    fontWeight: '700',
     flex: 1,
     marginRight: 8,
+    letterSpacing: -0.2,
   },
   chatTime: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 13,
+    fontWeight: '500',
   },
   chatFooter: {
     flexDirection: 'row',
@@ -661,33 +839,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lastMessage: {
-    fontSize: 14,
-    color: '#64748b',
+    fontSize: 15,
     flex: 1,
     marginRight: 8,
+    fontWeight: '500',
+    lineHeight: 20,
   },
   unreadBadge: {
-    backgroundColor: '#000000',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   unreadCount: {
-    color: '#ffffff',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40,
   },
   loadingSpinner: {
     padding: 20,
-    backgroundColor: '#ffffff',
     borderRadius: 16,
     shadowColor: '#000000',
     shadowOffset: {
@@ -703,55 +888,72 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    paddingVertical: 40,
   },
   errorText: {
     fontSize: 16,
-    color: '#ef4444',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    fontWeight: '600',
+    lineHeight: 24,
   },
   retryButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   retryButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    paddingVertical: 60,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
   emptyText: {
     fontSize: 16,
-    color: '#64748b',
     textAlign: 'center',
     marginTop: 16,
-    marginBottom: 16,
+    marginBottom: 24,
+    fontWeight: '500',
+    lineHeight: 24,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#666',
     textAlign: 'center',
     lineHeight: 20,
   },
   newChatButtonText: {
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  helpTextContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  helpText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

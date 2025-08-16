@@ -189,6 +189,10 @@ export const translations = {
     noChats: 'Чат байхгүй байна',
     startChat: 'Чат эхлүүлэх',
     searchUsers: 'Хэрэглэгч хайх',
+    confirmDeleteChatTitle: 'Чат устгах',
+    confirmDeleteChatMessage: 'Энэ чатыг устгахдаа итгэлтэй байна уу?',
+    deleteErrorTitle: 'Чат устгах алдаа',
+    deleteErrorMessage: 'Чат устгахдаа алдаа гарлаа. Дахин оролдоно уу.',
 
     // Verification
     emailVerification: 'И-мэйл баталгаажуулалт',
@@ -262,6 +266,7 @@ export const translations = {
     updateCheckFailed: 'Шинэчлэлт шалгахад алдаа гарлаа',
     noUpdateAvailable: 'Шинэчлэлт байхгүй байна',
     checkingForUpdates: 'Шинэчлэлт шалгаж байна...',
+    deleteChatConfirm: 'Чатыг устгахдаа итгэлтэй байна уу?',
   },
   en: {
     // Common
@@ -453,6 +458,10 @@ export const translations = {
     noChats: 'No chats',
     startChat: 'Start Chat',
     searchUsers: 'Search Users',
+    confirmDeleteChatTitle: 'Delete Chat',
+    confirmDeleteChatMessage: 'Are you sure you want to delete this chat? This action cannot be undone.',
+    deleteErrorTitle: 'Delete Failed',
+    deleteErrorMessage: 'Failed to delete chat. Please try again.',
 
     // Verification
     emailVerification: 'Email Verification',
@@ -526,6 +535,7 @@ export const translations = {
     updateCheckFailed: 'Failed to check for updates',
     noUpdateAvailable: 'No update available',
     checkingForUpdates: 'Checking for updates...',
+    deleteChatConfirm: 'Are you sure you want to delete this chat?',
   }
 };
 

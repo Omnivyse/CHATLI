@@ -71,6 +71,8 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
     loadUserPosts();
   }, [user._id]);
 
+
+
   // Only menu items left: EditProfile and Settings are now header icons
   const menuItems = [];
 
@@ -202,7 +204,13 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
             <FlatList
               data={posts}
               keyExtractor={item => item._id}
-              renderItem={({ item }) => <Post post={item} user={user} navigation={navigation} />}
+              renderItem={({ item }) => (
+                <Post 
+                  post={item} 
+                  user={user} 
+                  navigation={navigation}
+                />
+              )}
               contentContainerStyle={styles.postsList}
               scrollEnabled={false}
             />
@@ -500,6 +508,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+
   postsList: {
     paddingHorizontal: 20,
   },

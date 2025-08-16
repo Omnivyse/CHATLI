@@ -28,7 +28,7 @@ import Toast from 'react-native-toast-message';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
+const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { updateNavigationState } = useNavigationState();
@@ -49,6 +49,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
   const [topPostsLastUpdated, setTopPostsLastUpdated] = useState(null);
   const flatListRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
+  const [highlightedPostId, setHighlightedPostId] = useState(null);
 
   const safeScrollHandler = (event) => {
     try {
@@ -286,6 +287,10 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
       fetchTopWeeklyPosts();
     }
   }, [user, user?.emailVerified]);
+
+
+
+
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -622,6 +627,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
         user={user}
         onPostUpdate={() => handleRefresh()}
         navigation={navigation}
+        isHighlighted={post._id === highlightedPostId}
       />
     );
   };
@@ -786,6 +792,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification }) => {
                     user={user}
                     onPostUpdate={() => handleRefresh()}
                     isTopPost={true}
+                    isHighlighted={item._id === highlightedPostId}
                   />
                 )}
                 keyExtractor={(item, index) => `top-${item._id}-${index}`}

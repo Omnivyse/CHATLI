@@ -21,19 +21,52 @@ class ApiService {
   constructor() {
     this.baseURL = API_URL;
     this.token = null;
+    this.onTokenExpiration = null; // Callback for token expiration
     this.initializeToken();
+  }
+
+  // Set global token expiration handler
+  setTokenExpirationHandler(handler) {
+    this.onTokenExpiration = handler;
   }
 
   async initializeToken() {
     try {
       this.token = await AsyncStorage.getItem('token');
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      
       if (this.token) {
-        if (__DEV__) console.log('🔍 Token found in storage');
+        // Validate the token immediately
+        if (this.isTokenExpired(this.token)) {
+          if (__DEV__) {
+            console.log('🔐 Stored token is expired, attempting refresh...');
+          }
+          
+          // Try to refresh the token
+          if (refreshToken) {
+            const refreshed = await this.refreshAccessToken();
+            if (!refreshed) {
+              if (__DEV__) {
+                console.log('🔐 Token refresh failed, clearing all tokens');
+              }
+              await this.clearToken();
+            }
+          } else {
+            if (__DEV__) {
+              console.log('🔐 No refresh token available, clearing expired token');
+            }
+            await this.clearToken();
+          }
+        } else {
+          if (__DEV__) console.log('🔍 Valid token found in storage');
+        }
       } else {
         if (__DEV__) console.log('ℹ️ No token found in storage');
       }
     } catch (error) {
       if (__DEV__) console.error('Error initializing token:', error);
+      // Clear token on error
+      await this.clearToken();
     }
   }
 
@@ -49,6 +82,152 @@ class ApiService {
   async clearToken() {
     this.token = null;
     await AsyncStorage.removeItem('token');
+    await AsyncStorage.removeItem('refreshToken');
+    
+    // Call global token expiration handler if set
+    if (this.onTokenExpiration) {
+      this.onTokenExpiration();
+    }
+  }
+
+  // Store both access and refresh tokens
+  async storeTokens(accessToken, refreshToken) {
+    this.token = accessToken;
+    if (accessToken) {
+      await AsyncStorage.setItem('token', accessToken);
+    } else {
+      await AsyncStorage.removeItem('token');
+    }
+    
+    if (refreshToken) {
+      await AsyncStorage.setItem('refreshToken', refreshToken);
+    } else {
+      await AsyncStorage.removeItem('refreshToken');
+    }
+  }
+
+  // Get refresh token from storage
+  async getRefreshToken() {
+    return await AsyncStorage.getItem('refreshToken');
+  }
+
+  // Refresh access token using refresh token
+  async refreshAccessToken() {
+    try {
+      const refreshToken = await this.getRefreshToken();
+      if (!refreshToken) {
+        if (__DEV__) console.log('🔐 No refresh token available');
+        return false;
+      }
+
+      if (__DEV__) console.log('🔄 Refreshing access token...');
+      
+      const response = await fetch(`${this.baseURL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Refresh-Token': refreshToken
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success && data.data.token) {
+        if (__DEV__) console.log('✅ Access token refreshed successfully');
+        await this.storeTokens(data.data.token, data.data.refreshToken || refreshToken);
+        return true;
+      } else {
+        if (__DEV__) console.log('❌ Failed to refresh token:', data.message);
+        await this.clearToken();
+        return false;
+      }
+    } catch (error) {
+      if (__DEV__) console.error('❌ Token refresh error:', error);
+      await this.clearToken();
+      return false;
+    }
+  }
+
+  // Check if token is expired (basic JWT expiration check)
+  isTokenExpired(token) {
+    if (!token) return true;
+    
+    try {
+      // JWT tokens have 3 parts separated by dots
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        if (__DEV__) console.log('🔐 Invalid token format');
+        return true;
+      }
+      
+      // Decode the payload (second part)
+      const payload = JSON.parse(atob(parts[1]));
+      
+      if (__DEV__) {
+        console.log('🔐 Token payload:', {
+          exp: payload.exp,
+          iat: payload.iat,
+          currentTime: Math.floor(Date.now() / 1000),
+          expiresAt: new Date(payload.exp * 1000).toISOString(),
+          issuedAt: new Date(payload.iat * 1000).toISOString()
+        });
+      }
+      
+      // Check if token has expired
+      if (payload.exp && payload.exp < Date.now() / 1000) {
+        if (__DEV__) {
+          console.log('🔐 Token expired at:', new Date(payload.exp * 1000));
+        }
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Error checking token expiration:', error);
+      }
+      return true; // Consider invalid tokens as expired
+    }
+  }
+
+  // Validate and clean token before use
+  async validateToken() {
+    if (this.token && this.isTokenExpired(this.token)) {
+      if (__DEV__) {
+        console.log('🔐 Stored token is expired, clearing it');
+      }
+      await this.clearToken();
+      return false;
+    }
+    return !!this.token;
+  }
+
+  // Proactively refresh token if it's close to expiring
+  async ensureValidToken() {
+    if (!this.token) return false;
+    
+    try {
+      // Check if token expires in the next 5 minutes
+      const parts = this.token.split('.');
+      if (parts.length !== 3) return false;
+      
+      const payload = JSON.parse(atob(parts[1]));
+      const expiresIn = payload.exp - (Date.now() / 1000);
+      
+      if (expiresIn < 300) { // Less than 5 minutes
+        if (__DEV__) {
+          console.log('🔄 Token expires soon, refreshing proactively...');
+        }
+        return await this.refreshAccessToken();
+      }
+      
+      return true;
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Error checking token expiration:', error);
+      }
+      return false;
+    }
   }
 
   getHeaders() {
@@ -56,7 +235,25 @@ class ApiService {
       'Content-Type': 'application/json',
     };
     
-    if (this.token) {
+    // Validate token before using it
+    if (this.token && !this.isTokenExpired(this.token)) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    } else if (this.token) {
+      // Token is expired, clear it
+      this.clearToken();
+    }
+    
+    return headers;
+  }
+
+  // Get headers with proactive token validation
+  async getValidHeaders() {
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Ensure token is valid before using it
+    if (await this.ensureValidToken()) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
     
@@ -65,9 +262,13 @@ class ApiService {
 
   async request(endpoint, options = {}, retryCount = 3) {
     const url = `${this.baseURL}${endpoint}`;
+    
+    // Get valid headers with proactive token validation
+    const headers = await this.getValidHeaders();
+    
     const config = {
       method: 'GET',
-      headers: this.getHeaders(),
+      headers: { ...headers, ...options.headers },
       ...options,
     };
 
@@ -85,6 +286,38 @@ class ApiService {
         const data = await response.json();
 
         if (!response.ok) {
+          // Handle token expiration immediately - don't retry
+          if (response.status === 401) {
+            if (__DEV__) {
+              console.log('🔐 Token expired or invalid, attempting refresh...');
+            }
+            
+            // Try to refresh the token
+            const refreshed = await this.refreshAccessToken();
+            if (refreshed) {
+              if (__DEV__) {
+                console.log('🔄 Token refreshed, retrying request...');
+              }
+              // Update headers with new token and retry once
+              const newHeaders = await this.getValidHeaders();
+              config.headers = { ...newHeaders, ...options.headers };
+              const retryResponse = await fetch(url, config);
+              const retryData = await retryResponse.json();
+              
+              if (!retryResponse.ok) {
+                throw new Error(retryData.message || `HTTP ${retryResponse.status}`);
+              }
+              
+              return retryData;
+            } else {
+              if (__DEV__) {
+                console.log('🔐 Token refresh failed, clearing token');
+              }
+              await this.clearToken();
+              throw new Error('Token has expired');
+            }
+          }
+          
           throw new Error(data.message || `HTTP ${response.status}`);
         }
 
@@ -96,6 +329,11 @@ class ApiService {
             error: error.message,
             status: error.status
           });
+        }
+
+        // Don't retry on token expiration or auth errors
+        if (error.message.includes('Token has expired') || error.message.includes('401')) {
+          throw error;
         }
 
         if (attempt === retryCount - 1) {
@@ -120,7 +358,7 @@ class ApiService {
     });
 
     if (response.success && response.data.token) {
-      await this.setToken(response.data.token);
+      await this.storeTokens(response.data.token, response.data.refreshToken);
     }
 
     return response;
@@ -133,7 +371,7 @@ class ApiService {
     });
 
     if (response.success && response.data.token) {
-      await this.setToken(response.data.token);
+      await this.storeTokens(response.data.token, response.data.refreshToken);
     }
 
     return response;
@@ -169,7 +407,7 @@ class ApiService {
     // If verification successful, set the token for automatic login
     if (response.success && response.data.token) {
       if (__DEV__) console.log('✅ Setting token after successful verification');
-      await this.setToken(response.data.token);
+      await this.storeTokens(response.data.token, response.data.refreshToken);
     } else {
       if (__DEV__) console.log('❌ No token in verification response');
     }

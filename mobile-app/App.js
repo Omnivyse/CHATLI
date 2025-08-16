@@ -410,6 +410,9 @@ export default function App() {
         // Clear any existing user ID to ensure clean state
         clearCurrentUserId();
         
+        // Set up global token expiration handler
+        apiService.setTokenExpirationHandler(handleTokenExpiration);
+        
         // Initialize analytics
         analyticsService.init();
         
@@ -472,6 +475,31 @@ export default function App() {
     }
   }, [user]);
 
+  // Set up periodic token refresh for authenticated users
+  useEffect(() => {
+    if (!user) return;
+
+    // Refresh token every 10 minutes to keep it fresh
+    const tokenRefreshInterval = setInterval(async () => {
+      try {
+        if (__DEV__) {
+          console.log('🔄 Periodic token refresh check...');
+        }
+        
+        // This will automatically refresh the token if needed
+        await apiService.ensureValidToken();
+      } catch (error) {
+        if (__DEV__) {
+          console.error('Periodic token refresh error:', error);
+        }
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => {
+      clearInterval(tokenRefreshInterval);
+    };
+  }, [user]);
+
   const checkAuth = async () => {
     try {
       // First, test the connection
@@ -487,17 +515,30 @@ export default function App() {
       const token = await AsyncStorage.getItem('token');
       if (token) {
         console.log('🔍 Checking authentication with stored token...');
-        const response = await apiService.getCurrentUser();
-        if (response.success) {
-          console.log('✅ Authentication successful');
-          setUser(response.data.user);
-          // Set current user ID for notification filtering
-          setCurrentUserId(response.data.user._id);
-          // Connect to socket
-          socketService.connect(token);
-        } else {
-          console.log('❌ Authentication failed, removing token');
+        try {
+          const response = await apiService.getCurrentUser();
+          if (response.success) {
+            console.log('✅ Authentication successful');
+            setUser(response.data.user);
+            // Set current user ID for notification filtering
+            setCurrentUserId(response.data.user._id);
+            // Connect to socket
+            socketService.connect(token);
+          } else {
+            console.log('❌ Authentication failed, removing token');
+            await AsyncStorage.removeItem('token');
+            await apiService.clearToken();
+          }
+        } catch (authError) {
+          console.log('❌ Authentication error:', authError.message);
+          // Clear token for any auth-related errors
           await AsyncStorage.removeItem('token');
+          await apiService.clearToken();
+          
+          // If it's a token expiration, log it specifically
+          if (authError.message.includes('Token has expired')) {
+            console.log('🔐 Expired token cleared, user needs to login again');
+          }
         }
       } else {
         console.log('ℹ️ No stored token found');
@@ -508,13 +549,40 @@ export default function App() {
       if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
         console.log('🌐 Network error detected, clearing data...');
         await clearAllData();
-      } else {
-        // Just clear token for auth errors
+      } else if (error.message.includes('Token has expired')) {
+        console.log('🔐 Token expired, clearing authentication data');
         await AsyncStorage.removeItem('token');
+        await apiService.clearToken();
+      } else {
+        // Just clear token for other auth errors
+        await AsyncStorage.removeItem('token');
+        await apiService.clearToken();
       }
       // Don't show error to user for auth check failures
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle token expiration globally
+  const handleTokenExpiration = async () => {
+    console.log('🔐 Global token expiration handler triggered');
+    try {
+      // Clear all authentication data
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('refreshToken');
+      await apiService.clearToken();
+      
+      // Clear user state
+      setUser(null);
+      clearCurrentUserId();
+      
+      // Disconnect socket
+      socketService.disconnect();
+      
+      console.log('✅ Token expiration handled, user redirected to login');
+    } catch (error) {
+      console.error('Error handling token expiration:', error);
     }
   };
 

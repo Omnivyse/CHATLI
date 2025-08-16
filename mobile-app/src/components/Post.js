@@ -25,7 +25,7 @@ import SecretPostPasswordModal from './SecretPostPasswordModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const Post = ({ post, user, onPostUpdate, navigation }) => {
+const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }) => {
   // Debug: Validate props
   if (!post || typeof post !== 'object') {
     console.warn('Post component: Invalid post prop:', post);
@@ -635,7 +635,20 @@ const Post = ({ post, user, onPostUpdate, navigation }) => {
       backgroundColor: colors.surface, 
       borderColor: colors.border,
       shadowColor: colors.shadow 
+    }, isHighlighted && {
+      borderWidth: 3,
+      borderColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     }]}>
+      {/* Highlight Bar */}
+      {isHighlighted && (
+        <View style={[styles.highlightBar, { backgroundColor: colors.primary }]} />
+      )}
+      
       {/* Post Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -1381,6 +1394,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
+  },
+  highlightBar: {
+    height: 4,
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
   },
 });
 

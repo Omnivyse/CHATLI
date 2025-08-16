@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  Modal,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +30,8 @@ const NotificationScreen = ({ navigation, user }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [postModalVisible, setPostModalVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
 
   useEffect(() => {
     loadNotifications();
@@ -174,6 +179,68 @@ const NotificationScreen = ({ navigation, user }) => {
     }
   };
 
+  const handleNotificationPress = async (notification) => {
+    // Mark notification as read first
+    await handleMarkAsRead(notification._id);
+    
+    // Handle different notification types
+    switch (notification.type) {
+      case 'like':
+      case 'comment':
+        if (notification.post) {
+          // Show post in modal instead of navigating
+          console.log('Notification post data:', notification.post);
+          console.log('Showing post in modal');
+          
+          // Get the post data - either from notification.post object or fetch it
+          let postData = notification.post;
+          if (typeof notification.post === 'string') {
+            // If it's just an ID, we need to fetch the post data
+            try {
+              const response = await api.getComments(notification.post);
+              if (response.success && (response.data.post || response.data)) {
+                postData = response.data.post || response.data;
+              }
+            } catch (error) {
+              console.error('Failed to fetch post data:', error);
+              Alert.alert('Error', 'Failed to load post');
+              return;
+            }
+          }
+          
+          setSelectedPost(postData);
+          setPostModalVisible(true);
+        }
+        break;
+      case 'follow':
+        if (notification.from && notification.from.length > 0) {
+          // Navigate to user profile
+          navigation.navigate('Profile', { 
+            userId: notification.from[0]._id 
+          });
+        }
+        break;
+      case 'follow_request':
+        // Follow request notifications are handled separately
+        break;
+      case 'event_invite':
+        if (notification.event) {
+          // Event details screen not available yet
+          Alert.alert(
+            'Event Details',
+            'Event details feature is coming soon!',
+            [{ text: 'OK' }]
+          );
+        }
+        break;
+      default:
+        // For other notification types, just mark as read
+        break;
+    }
+  };
+
+
+
   const handleMarkAllAsRead = async () => {
     try {
       const response = await api.markAllNotificationsRead();
@@ -307,7 +374,7 @@ const NotificationScreen = ({ navigation, user }) => {
           requester={requester}
           onAccept={() => handleAcceptFollowRequest(requester._id)}
           onReject={() => handleRejectFollowRequest(requester._id)}
-          onPress={() => handleMarkAsRead(notification._id)}
+          onPress={() => handleNotificationPress(notification)}
         />
       );
     }
@@ -324,7 +391,7 @@ const NotificationScreen = ({ navigation, user }) => {
             elevation: 4,
           }
         ]}
-        onPress={() => handleMarkAsRead(notification._id)}
+        onPress={() => handleNotificationPress(notification)}
         activeOpacity={0.7}
       >
         <View style={[
@@ -459,6 +526,102 @@ const NotificationScreen = ({ navigation, user }) => {
           windowSize={10}
         />
       )}
+
+      {/* Post Modal */}
+      <Modal
+        visible={postModalVisible}
+        transparent={true}
+        animationType="slide"
+                 onRequestClose={() => setPostModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            {/* Modal Header */}
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {selectedPost?.author?.name || 'Post'}
+              </Text>
+                             <TouchableOpacity
+                 style={styles.modalCloseButton}
+                 onPress={() => setPostModalVisible(false)}
+               >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Post Content */}
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {selectedPost && (
+                <View style={styles.postContent}>
+                  {/* Post Text */}
+                  {selectedPost.content && (
+                    <Text style={[styles.postText, { color: colors.text }]}>
+                      {selectedPost.content}
+                    </Text>
+                  )}
+
+                  {/* Post Media */}
+                  {selectedPost.media && selectedPost.media.length > 0 && (
+                    <View style={styles.mediaContainer}>
+                      {selectedPost.media.map((media, index) => (
+                        <View key={index} style={styles.mediaItem}>
+                          {media.type === 'image' && (
+                            <Image
+                              source={{ uri: media.url }}
+                              style={styles.mediaImage}
+                              resizeMode="cover"
+                            />
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                                     {/* Post Stats */}
+                   <View style={styles.postStats}>
+                     <View style={styles.statItem}>
+                       <Ionicons name="heart" size={16} color={colors.primary} />
+                       <Text style={[styles.statText, { color: colors.textSecondary }]}>
+                         {selectedPost.likes?.length || 0}
+                       </Text>
+                     </View>
+                     <View style={styles.statItem}>
+                       <Ionicons name="chatbubble" size={16} color={colors.primary} />
+                       <Text style={[styles.statText, { color: colors.textSecondary }]}>
+                         {selectedPost.comments?.length || 0}
+                       </Text>
+                     </View>
+                   </View>
+
+                   
+
+                   {/* Comments List */}
+                   {selectedPost.comments && selectedPost.comments.length > 0 && (
+                     <View style={styles.commentsSection}>
+                       <Text style={[styles.commentsTitle, { color: colors.text }]}>
+                         Comments ({selectedPost.comments.length})
+                       </Text>
+                       {selectedPost.comments.map((comment, index) => (
+                         <View key={index} style={styles.commentItem}>
+                           <Text style={[styles.commentAuthor, { color: colors.primary }]}>
+                             {comment.author?.name || 'Unknown'}
+                           </Text>
+                           <Text style={[styles.commentText, { color: colors.text }]}>
+                             {comment.content}
+                           </Text>
+                           <Text style={[styles.commentTime, { color: colors.textTertiary }]}>
+                             {formatNotificationTime(comment.createdAt)}
+                           </Text>
+                         </View>
+                       ))}
+                     </View>
+                   )}
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -686,6 +849,114 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    maxHeight: 400,
+  },
+  postContent: {
+    padding: 20,
+  },
+  postText: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  mediaContainer: {
+    marginBottom: 16,
+  },
+  mediaItem: {
+    marginBottom: 8,
+  },
+  mediaImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+  },
+  postStats: {
+    flexDirection: 'row',
+    gap: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  commentsSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  commentsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  commentItem: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  commentAuthor: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  commentText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  commentTime: {
+    fontSize: 12,
+    fontWeight: '400',
   },
 });
 
