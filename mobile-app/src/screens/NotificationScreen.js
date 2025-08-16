@@ -560,38 +560,22 @@ const NotificationScreen = ({ navigation, user }) => {
                     </Text>
                   )}
 
-                  {/* Post Media */}
-                  {selectedPost.media && selectedPost.media.length > 0 && (
-                    <View style={styles.mediaContainer}>
-                      {selectedPost.media.map((media, index) => (
-                        <View key={index} style={styles.mediaItem}>
-                          {media.type === 'image' && (
-                            <Image
-                              source={{ uri: media.url }}
-                              style={styles.mediaImage}
-                              resizeMode="cover"
-                            />
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                                     {/* Post Stats */}
-                   <View style={styles.postStats}>
-                     <View style={styles.statItem}>
-                       <Ionicons name="heart" size={16} color={colors.primary} />
-                       <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                         {selectedPost.likes?.length || 0}
-                       </Text>
+                                     {/* Post Media */}
+                   {selectedPost.media && selectedPost.media.length > 0 && (
+                     <View style={styles.mediaContainer}>
+                       {selectedPost.media.map((media, index) => (
+                         <View key={index} style={styles.mediaItem}>
+                           {media.type === 'image' && (
+                             <Image
+                               source={{ uri: media.url }}
+                               style={styles.mediaImage}
+                               resizeMode="cover"
+                             />
+                           )}
+                         </View>
+                       ))}
                      </View>
-                     <View style={styles.statItem}>
-                       <Ionicons name="chatbubble" size={16} color={colors.primary} />
-                       <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                         {selectedPost.comments?.length || 0}
-                       </Text>
-                     </View>
-                   </View>
+                   )}
 
                    
 
@@ -909,22 +893,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 12,
-  },
-  postStats: {
-    flexDirection: 'row',
-    gap: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statText: {
-    fontSize: 14,
-    fontWeight: '500',
   },
 
   commentsSection: {
