@@ -50,6 +50,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
   const flatListRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
   const [highlightedPostId, setHighlightedPostId] = useState(null);
+  const [filteredPosts, setFilteredPosts] = useState([]);
 
   const safeScrollHandler = (event) => {
     try {
@@ -148,37 +149,20 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
     try {
       setError(null);
       
-      console.log('🔍 FetchPosts - User state:', {
-        userExists: !!user,
-        emailVerified: user?.emailVerified,
-        userId: user?._id
-      });
-      
       // If user is not verified, don't fetch posts to avoid auth errors
       if (user && !user.emailVerified) {
-        console.log('⚠️ User not verified, skipping posts fetch');
         setPosts([]);
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
-      console.log('📡 Fetching posts...');
       const response = await apiService.getPosts(pageNum);
       
       if (response.success) {
         const newPosts = response.data.posts || [];
-        console.log('✅ Posts fetched successfully:', newPosts.length, 'posts');
-        
-        // Debug: Log first post structure
-        if (newPosts.length > 0) {
-          console.log('🔍 First post structure:', {
-            id: newPosts[0]._id,
-            author: newPosts[0].author,
-            content: newPosts[0].content?.substring(0, 50) + '...',
-            hasAuthor: !!newPosts[0].author,
-            authorType: typeof newPosts[0].author
-          });
+        if (__DEV__) {
+          console.log('✅ Posts fetched successfully:', newPosts.length, 'posts');
         }
         
         if (isRefresh || pageNum === 1) {
@@ -190,7 +174,9 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
         setHasMore(newPosts.length > 0);
         setPage(pageNum);
       } else {
-        console.log('❌ Posts fetch failed:', response.message);
+        if (__DEV__) {
+          console.log('❌ Posts fetch failed:', response.message);
+        }
         setError(response.message || getTranslation('postsLoadError', language));
       }
     } catch (error) {
@@ -215,28 +201,25 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
 
   const fetchTopWeeklyPosts = async () => {
     try {
-      console.log('📡 Fetching top weekly posts...');
       const response = await apiService.getTopWeeklyPosts();
       
       if (response.success) {
         const newTopPosts = response.data.posts || [];
-        console.log('✅ Top weekly posts fetched successfully:', newTopPosts.length, 'posts');
+        if (__DEV__) {
+          console.log('✅ Top weekly posts fetched successfully:', newTopPosts.length, 'posts');
+        }
         
         setTopWeeklyPosts(removeDuplicatePosts(newTopPosts));
         setTopPostsLastUpdated(new Date());
-        
-        // Log week info for debugging
-        if (response.data.weekInfo) {
-          console.log('📅 Week info:', response.data.weekInfo);
-        }
       } else {
-        console.log('❌ Top weekly posts fetch failed:', response.message);
-        // Don't set error state, just log it
+        if (__DEV__) {
+          console.log('❌ Top weekly posts fetch failed:', response.message);
+        }
       }
     } catch (error) {
-      console.error('Fetch top weekly posts error:', error);
-      // Don't set error for top posts, just log it and keep existing data
-      // This prevents the error from breaking the main feed functionality
+      if (__DEV__) {
+        console.error('Fetch top weekly posts error:', error);
+      }
     }
   };
 
@@ -288,6 +271,12 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
     }
   }, [user, user?.emailVerified]);
 
+  // Update filtered posts when dependencies change
+  useEffect(() => {
+    const newFilteredPosts = getFilteredPosts();
+    setFilteredPosts(newFilteredPosts);
+  }, [posts, events, topWeeklyPosts, selectedFilter]);
+
 
 
 
@@ -304,7 +293,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
 
   const handleLoadMore = () => {
     // Don't load more if we're in a filtered view with no posts
-    const filteredPosts = getFilteredPosts();
     if (selectedFilter !== 'CHATLI' && filteredPosts.length === 0) {
       return; // Don't load more for empty filtered views
     }
@@ -336,43 +324,32 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
 
   // Filter posts based on selected filter
   const getFilteredPosts = () => {
-    console.log('🔍 getFilteredPosts called with filter:', selectedFilter);
-    console.log('📊 Data counts - posts:', posts.length, 'events:', events.length, 'topWeeklyPosts:', topWeeklyPosts.length);
-    
     if (selectedFilter === 'Events') {
       // Return events for Events filter
-      const filteredEvents = removeDuplicatePosts(events);
-      console.log('📅 Events filter - returning events:', filteredEvents.length);
-      return filteredEvents;
+      return removeDuplicatePosts(events);
     }
     
     let filteredPosts = [];
     
     if (selectedFilter === 'CHATLI') {
       filteredPosts = posts; // Show all posts
-      console.log('🏠 CHATLI filter - returning posts:', filteredPosts.length);
     } else if (selectedFilter === 'Top Feeds') {
       // Use the top weekly posts data, fallback to regular posts if empty
       if (topWeeklyPosts.length > 0) {
         filteredPosts = topWeeklyPosts;
-        console.log('⭐ Top Feeds filter - using top weekly posts:', filteredPosts.length);
       } else {
         // Fallback: show posts with high engagement from regular posts
         filteredPosts = posts.filter(post => {
           const engagement = (post.likes?.length || 0) + (post.comments?.length || 0);
           return engagement >= 3; // Posts with 3+ total interactions
         });
-        console.log('⭐ Top Feeds filter - fallback to high engagement posts:', filteredPosts.length);
       }
     } else {
       filteredPosts = posts;
-      console.log('❓ Unknown filter - returning posts:', filteredPosts.length);
     }
     
     // Remove duplicates based on _id
-    const finalPosts = removeDuplicatePosts(filteredPosts);
-    console.log('✅ Final filtered posts count:', finalPosts.length);
-    return finalPosts;
+    return removeDuplicatePosts(filteredPosts);
   };
 
   const handlePostAction = async (postId, action, data = {}) => {
@@ -673,7 +650,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
     // Show welcome message for new users or when no content exists
     const isEventsFilter = selectedFilter === 'Events';
     const isTopFeedsFilter = selectedFilter === 'Top Feeds';
-    const filteredData = getFilteredPosts();
+    const filteredData = filteredPosts;
     const hasContent = filteredData.length > 0;
     
     return (
@@ -807,7 +784,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
 
           <FlatList
             ref={flatListRef}
-            data={getFilteredPosts()}
+            data={filteredPosts}
             renderItem={renderPost}
             keyExtractor={(item, index) => `post-${item._id}-${index}`}
             style={styles.postsList}
@@ -836,7 +813,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
                 </View>
               ) : null
             }
-            contentContainerStyle={getFilteredPosts().length === 0 ? styles.emptyListContainer : null}
+                          contentContainerStyle={filteredPosts.length === 0 ? styles.emptyListContainer : null}
           />
 
           {/* Floating Action Button for Add Post/Event */}

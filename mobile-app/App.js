@@ -285,7 +285,7 @@ function AuthStackNavigator({ onLogin }) {
   );
 }
 
-function MainStackNavigator({ user, onLogout, onGoToVerification }) {
+function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerificationBanner }) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
@@ -336,7 +336,7 @@ function MainStackNavigator({ user, onLogout, onGoToVerification }) {
           headerBackTitleVisible: false,
         }}
       >
-        {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} />}
+        {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowVerificationBanner={onShowVerificationBanner} />}
       </Stack.Screen>
       
       <Stack.Screen 
@@ -808,11 +808,27 @@ function App() {
   };
 
   const handleGoToVerification = () => {
+    // Show verification modal and also ensure banner is visible
     setShowVerificationModal(true);
+    setShowVerificationBanner(true);
   };
 
   const handleCancelVerification = () => {
+    // Hide banner temporarily, but show it again after 5 seconds
     setShowVerificationBanner(false);
+    setTimeout(() => {
+      // Only show again if user still exists and email is not verified
+      if (user && !user.emailVerified) {
+        setShowVerificationBanner(true);
+      }
+    }, 5000); // 5 seconds delay
+  };
+
+  const handleManualShowVerification = () => {
+    // Manually show verification banner if user's email is not verified
+    if (user && !user.emailVerified) {
+      setShowVerificationBanner(true);
+    }
   };
 
   if (!appIsReady || loading) {
@@ -825,23 +841,24 @@ function App() {
         <NavigationProvider>
           <BottomTabProvider>
             <SafeAreaProvider>
-              <AppContent 
-                user={user} 
-                onLogout={handleLogout} 
-                onLogin={handleLogin}
-                showSplash={showSplash}
-                onSplashComplete={handleSplashComplete}
-                showVerificationBanner={showVerificationBanner}
-                showVerificationModal={showVerificationModal}
-                setShowVerificationModal={setShowVerificationModal}
-                onVerificationSuccess={handleVerificationSuccess}
-                onGoToVerification={handleGoToVerification}
-                onCancelVerification={handleCancelVerification}
-                showUpdateScreen={showUpdateScreen}
-                updateInfo={updateInfo}
-                onUpdateSkip={handleUpdateSkip}
-                onUpdateComplete={handleUpdateComplete}
-              />
+                             <AppContent 
+                 user={user} 
+                 onLogout={handleLogout} 
+                 onLogin={handleLogin}
+                 showSplash={showSplash}
+                 onSplashComplete={handleSplashComplete}
+                 showVerificationBanner={showVerificationBanner}
+                 showVerificationModal={showVerificationModal}
+                 setShowVerificationModal={setShowVerificationModal}
+                 onVerificationSuccess={handleVerificationSuccess}
+                 onGoToVerification={handleGoToVerification}
+                 onCancelVerification={handleCancelVerification}
+                 onShowVerificationBanner={handleManualShowVerification}
+                 showUpdateScreen={showUpdateScreen}
+                 updateInfo={updateInfo}
+                 onUpdateSkip={handleUpdateSkip}
+                 onUpdateComplete={handleUpdateComplete}
+               />
             </SafeAreaProvider>
           </BottomTabProvider>
         </NavigationProvider>
@@ -864,6 +881,7 @@ function AppContent({
   onVerificationSuccess,
   onGoToVerification,
   onCancelVerification,
+  onShowVerificationBanner,
   showUpdateScreen,
   updateInfo,
   onUpdateSkip,
@@ -910,9 +928,9 @@ function AppContent({
             translucent={RNPlatform.OS === 'android'}
             barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
           />
-          {user ? (
-            <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />
-          ) : (
+                     {user ? (
+             <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowVerificationBanner={onShowVerificationBanner} />
+           ) : (
             <AuthStackNavigator onLogin={onLogin} />
           )}
         </NavigationContainer>

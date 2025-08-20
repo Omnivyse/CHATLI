@@ -11,6 +11,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -74,10 +75,64 @@ const EmailVerificationModal = ({
       });
       
       if (allDigitsFilled) {
+        // Use a longer delay to ensure React state is fully updated
         setTimeout(() => {
-          handleVerification();
-        }, 300); // Increased delay to ensure state is updated
+          const finalCode = newCode.join('');
+          if (finalCode.length === 5) {
+            // Use the newCode directly instead of waiting for state update
+            handleVerificationWithCode(finalCode);
+          }
+        }, 800);
       }
+    }
+  };
+
+  const handleVerificationWithCode = async (code) => {
+    console.log('🔐 Verification attempt with direct code:', {
+      code,
+      codeLength: code.length,
+      verificationCode,
+      allDigits: verificationCode.every(d => d !== ''),
+      individualDigits: verificationCode.map((d, i) => `[${i}]: "${d}"`)
+    });
+    
+    // Check if all 5 digits are entered
+    if (code.length !== 5) {
+      console.log('❌ Code length check failed:', { code, codeLength: code.length });
+      setError('Please enter a 5-digit code');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log('🔐 Sending verification request:', { email: user.email, code });
+      const response = await apiService.verifyEmail(user.email, code);
+      console.log('🔐 Verification response:', response);
+      
+      if (response.success) {
+        Alert.alert(
+          'Success',
+          'Email verified successfully!',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                onVerificationSuccess(response.data.user);
+                onClose();
+              },
+            },
+          ]
+        );
+      } else {
+        setError(response.message || 'Verification failed');
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      setError(error.message || 'Verification failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,11 +142,13 @@ const EmailVerificationModal = ({
       code,
       codeLength: code.length,
       verificationCode,
-      allDigits: verificationCode.every(d => d !== '')
+      allDigits: verificationCode.every(d => d !== ''),
+      individualDigits: verificationCode.map((d, i) => `[${i}]: "${d}"`)
     });
     
     // Check if all 5 digits are entered
-    if (verificationCode.length !== 5 || verificationCode.some(d => d === '')) {
+    if (code.length !== 5) {
+      console.log('❌ Code length check failed:', { code, codeLength: code.length });
       setError('Please enter a 5-digit code');
       return;
     }
@@ -184,164 +241,142 @@ const EmailVerificationModal = ({
       animationType="slide"
       transparent={true}
       onRequestClose={onClose}
+      statusBarTranslucent={false}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalOverlay}
-      >
-        <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>
-              Email Verification
-            </Text>
-            <View style={styles.placeholder} />
-          </View>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+                     <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+             {/* Header */}
+             <View style={[styles.header, { borderBottomColor: colors.border }]}>
+               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                 <Ionicons name="close" size={24} color={colors.text} />
+               </TouchableOpacity>
+               <Text style={[styles.headerTitle, { color: colors.text }]}>
+                 Email Verification
+               </Text>
+               <View style={styles.placeholder} />
+             </View>
 
-          {/* Content */}
-          <View style={styles.content}>
-            <View style={styles.emailInfo}>
-              <Ionicons name="mail" size={20} color={colors.primary} />
-              <Text style={[styles.emailText, { color: colors.text }]}>
-                {user.email}
-              </Text>
-            </View>
+             {/* Content */}
+             <View style={styles.content}>
+               <View style={styles.emailInfo}>
+                 <Ionicons name="mail" size={20} color={colors.primary} />
+                 <Text style={[styles.emailText, { color: colors.text }]}>
+                   {user.email}
+                 </Text>
+               </View>
 
-            <Text style={[styles.instruction, { color: colors.textSecondary }]}>
-              Check your email and enter the 5-digit verification code
-            </Text>
-            
-            {/* Help text for users */}
-            <Text style={[styles.helpText, { color: colors.textSecondary }]}>
-              💡 If you don't see the email, check your spam folder or click "Resend Code" below
-            </Text>
-            
-            {/* Show verification code for testing (remove in production) */}
-            {__DEV__ && (
-              <View style={styles.testCodeContainer}>
-                <Text style={[styles.testCodeLabel, { color: colors.textSecondary }]}>
-                  🧪 TEST MODE - Verification Code:
-                </Text>
-                <Text style={[styles.testCode, { color: colors.primary }]}>
-                  {user.verificationCode || 'No code available'}
-                </Text>
-                <Text style={[styles.testCodeNote, { color: colors.textSecondary }]}>
-                  (This is only visible in development mode)
-                </Text>
-                <TouchableOpacity
-                  style={[styles.showCodeButton, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    if (user.verificationCode) {
-                      Alert.alert('Verification Code', `Your code is: ${user.verificationCode}`);
-                    } else {
-                      Alert.alert('No Code', 'Verification code not available. Try resending.');
-                    }
-                  }}
-                >
-                  <Text style={[styles.showCodeButtonText, { color: colors.textInverse }]}>
-                    Show Code
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+               <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+                 Check your email and enter the 5-digit verification code
+               </Text>
+               
+               {/* Help text for users */}
+               <Text style={[styles.helpText, { color: colors.textSecondary }]}>
+                 💡 If you don't see the email, check your spam folder or click "Resend Code" below
+               </Text>
+               
+               {/* Code Input */}
+               <View style={styles.codeInputContainer}>
+                 {verificationCode.map((digit, index) => (
+                   <TextInput
+                     key={index}
+                     ref={(ref) => (inputRefs.current[index] = ref)}
+                     style={[
+                       styles.codeInput,
+                       { 
+                         backgroundColor: colors.surfaceVariant,
+                         borderColor: error ? colors.error : colors.border,
+                         color: colors.text
+                       }
+                     ]}
+                     value={digit}
+                     onChangeText={(text) => handleCodeChange(text, index)}
+                     keyboardType="numeric"
+                     maxLength={1}
+                     selectTextOnFocus
+                     editable={!loading}
+                     textAlign="center"
+                   />
+                 ))}
+               </View>
 
-            {/* Code Input */}
-            <View style={styles.codeInputContainer}>
-              {verificationCode.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => (inputRefs.current[index] = ref)}
-                  style={[
-                    styles.codeInput,
-                    { 
-                      backgroundColor: colors.surfaceVariant,
-                      borderColor: error ? colors.error : colors.border,
-                      color: colors.text
-                    }
-                  ]}
-                  value={digit}
-                  onChangeText={(text) => handleCodeChange(text, index)}
-                  keyboardType="numeric"
-                  maxLength={1}
-                  selectTextOnFocus
-                  editable={!loading}
-                  textAlign="center"
-                />
-              ))}
-            </View>
+               {/* Error Message */}
+               {error ? (
+                 <Text style={[styles.errorText, { color: colors.error }]}>
+                   {error}
+                 </Text>
+               ) : null}
 
-            {/* Error Message */}
-            {error ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {error}
-              </Text>
-            ) : null}
+               {/* Timer */}
+               {countdown > 0 && (
+                 <View style={styles.timerContainer}>
+                   <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                   <Text style={[styles.timerText, { color: colors.textSecondary }]}>
+                     Code expires in {formatTime(countdown)}
+                   </Text>
+                 </View>
+               )}
 
-            {/* Timer */}
-            {countdown > 0 && (
-              <View style={styles.timerContainer}>
-                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                <Text style={[styles.timerText, { color: colors.textSecondary }]}>
-                  Code expires in {formatTime(countdown)}
-                </Text>
-              </View>
-            )}
+               {/* Action Buttons */}
+               <View style={styles.buttonContainer}>
+                 <TouchableOpacity
+                   style={[
+                     styles.verifyButton,
+                     { 
+                       backgroundColor: colors.primary,
+                       opacity: verificationCode.join('').length === 5 && !loading ? 1 : 0.5
+                     }
+                   ]}
+                   onPress={handleVerification}
+                   disabled={loading || verificationCode.join('').length !== 5}
+                   activeOpacity={0.8}
+                 >
+                   {loading ? (
+                     <ActivityIndicator color={colors.textInverse} size="small" />
+                   ) : (
+                     <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>
+                       Verify
+                     </Text>
+                   )}
+                 </TouchableOpacity>
 
-            {/* Action Buttons */}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.verifyButton,
-                  { 
-                    backgroundColor: colors.primary,
-                    opacity: verificationCode.join('').length === 5 && !loading ? 1 : 0.5
-                  }
-                ]}
-                onPress={handleVerification}
-                disabled={loading || verificationCode.join('').length !== 5}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.textInverse} size="small" />
-                ) : (
-                  <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>
-                    Verify
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.resendButton,
-                  { 
-                    backgroundColor: countdown > 0 ? colors.surfaceVariant : colors.primary,
-                    opacity: countdown > 0 || resendLoading ? 0.6 : 1
-                  }
-                ]}
-                onPress={handleResendVerification}
-                disabled={countdown > 0 || resendLoading}
-                activeOpacity={0.8}
-              >
-                {resendLoading ? (
-                  <ActivityIndicator color={colors.textInverse} size="small" />
-                ) : (
-                  <Text style={[styles.resendButtonText, { color: colors.textInverse }]}>
-                    Resend Code
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+                 <TouchableOpacity
+                   style={[
+                     styles.resendButton,
+                     { 
+                       backgroundColor: countdown > 0 ? colors.surfaceVariant : colors.primary,
+                       opacity: countdown > 0 || resendLoading ? 0.6 : 1
+                     }
+                   ]}
+                   onPress={handleResendVerification}
+                   disabled={countdown > 0 || resendLoading}
+                   activeOpacity={0.8}
+                 >
+                   {resendLoading ? (
+                     <ActivityIndicator color={colors.textInverse} size="small" />
+                   ) : (
+                     <Text style={[styles.resendButtonText, { color: colors.textInverse }]}>
+                       Resend Code
+                     </Text>
+                   )}
+                 </TouchableOpacity>
+               </View>
+             </View>
+           </View>
+         </KeyboardAvoidingView>
+       </SafeAreaView>
+     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -360,6 +395,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
+    marginTop: Platform.OS === 'ios' ? 20 : 0,
   },
   header: {
     flexDirection: 'row',
@@ -403,44 +439,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     opacity: 0.8,
-  },
-  testCodeContainer: {
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    borderColor: 'rgba(0, 122, 255, 0.3)',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  testCodeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  testCode: {
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: 8,
-    fontFamily: 'monospace',
-    marginBottom: 8,
-  },
-  testCodeNote: {
-    fontSize: 10,
-    fontStyle: 'italic',
-    opacity: 0.7,
-  },
-  showCodeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  showCodeButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   codeInputContainer: {
     flexDirection: 'row',

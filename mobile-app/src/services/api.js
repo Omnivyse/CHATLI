@@ -314,12 +314,14 @@ class ApiService {
       config.body = JSON.stringify(options.body);
     }
 
-    console.log('🌐 Making request:', {
-      url,
-      method: config.method,
-      headers: config.headers,
-      body: config.body ? 'Present' : 'None'
-    });
+    if (__DEV__) {
+      console.log('🌐 Making request:', {
+        url,
+        method: config.method,
+        headers: config.headers,
+        body: config.body ? 'Present' : 'None'
+      });
+    }
 
     for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
@@ -328,14 +330,18 @@ class ApiService {
         }
 
         const response = await fetch(url, config);
-        console.log('🌐 Response received:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
-        });
+        if (__DEV__) {
+          console.log('🌐 Response received:', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+          });
+        }
         
         const data = await response.json();
-        console.log('🌐 Response data:', data);
+        if (__DEV__) {
+          console.log('🌐 Response data:', data);
+        }
 
         if (!response.ok) {
           // Handle rate limiting - don't retry
@@ -439,12 +445,14 @@ class ApiService {
   }
 
   async register(name, username, email, password) {
-    console.log('📡 API Service: register called with:', { 
-      name: name ? `${name.substring(0, 3)}***` : 'empty', 
-      username: username ? `${username.substring(0, 3)}***` : 'empty', 
-      email: email ? `${email.substring(0, 3)}***` : 'empty', 
-      passwordLength: password?.length || 0 
-    });
+    if (__DEV__) {
+      console.log('📡 API Service: register called with:', { 
+        name: name ? `${name.substring(0, 3)}***` : 'empty', 
+        username: username ? `${username.substring(0, 3)}***` : 'empty', 
+        email: email ? `${email.substring(0, 3)}***` : 'empty', 
+        passwordLength: password?.length || 0 
+      });
+    }
     
     // Additional validation before sending to API
     if (!name || !username || !email || !password) {
@@ -469,7 +477,9 @@ class ApiService {
         body: { name: name.trim(), username: username.trim(), email: email.trim(), password }
       });
 
-      console.log('📡 API Service: register response:', response);
+      if (__DEV__) {
+        console.log('📡 API Service: register response:', response);
+      }
 
       if (response.success && response.data.token) {
         await this.storeTokens(response.data.token, response.data.refreshToken);
@@ -477,7 +487,9 @@ class ApiService {
 
       return response;
     } catch (error) {
-      console.error('📡 API Service: register error:', error);
+      if (__DEV__) {
+        console.error('📡 API Service: register error:', error);
+      }
       // Re-throw the error with more context
       if (error.message.includes('Оролтын алдаа') || error.message.includes('Input Error')) {
         throw new Error('Registration failed: Please check your input data. Make sure all fields are filled correctly.');
@@ -688,9 +700,9 @@ class ApiService {
         body: messageData, // The request method will handle JSON.stringify
       });
       
-      if (__DEV__) {
-        console.log('✅ Message sent successfully:', response);
-      }
+              if (__DEV__) {
+          console.log('✅ Message sent successfully:', response);
+        }
       
       return response;
     } catch (error) {

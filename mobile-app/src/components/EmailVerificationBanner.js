@@ -6,10 +6,12 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -21,6 +23,7 @@ const EmailVerificationBanner = ({
 }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const insets = useSafeAreaInsets();
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-100));
 
@@ -69,6 +72,7 @@ const EmailVerificationBanner = ({
           borderColor: colors.warningBorder || '#FF9800',
           transform: [{ translateY: slideAnim }],
           opacity: fadeAnim,
+          paddingTop: Platform.OS === 'ios' ? insets.top + 8 : insets.top + 12,
         },
       ]}
     >
@@ -124,7 +128,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1000,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     shadowColor: '#000000',
     shadowOffset: {

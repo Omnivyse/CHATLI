@@ -25,7 +25,7 @@ import ReportModal from '../components/ReportModal';
 
 const { width } = Dimensions.get('window');
 
-const SettingsScreen = ({ navigation, user, onLogout }) => {
+const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShowVerificationBanner }) => {
   const { theme } = useTheme();
   const { language, setLanguage } = useLanguage();
   const colors = getThemeColors(theme);
@@ -60,6 +60,29 @@ const SettingsScreen = ({ navigation, user, onLogout }) => {
           type: 'arrow',
           onPress: () => navigation.navigate('Notifications'),
         },
+        // Only show verify email option if user's email is not verified
+        ...(user && !user.emailVerified ? [{
+          icon: 'mail-unread-outline',
+          title: 'Verify Email',
+          subtitle: 'Complete email verification',
+          type: 'arrow',
+          onPress: () => {
+            if (onGoToVerification) {
+              onGoToVerification();
+            }
+          },
+        },
+        {
+          icon: 'mail-outline',
+          title: 'Show Verification Banner',
+          subtitle: 'Display verification reminder',
+          type: 'arrow',
+          onPress: () => {
+            if (onShowVerificationBanner) {
+              onShowVerificationBanner();
+            }
+          },
+        }] : []),
       ],
     },
     {
