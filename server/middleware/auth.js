@@ -277,8 +277,8 @@ const optionalAuth = async (req, res, next) => {
     next();
   }
 };
-
-// Refresh token middleware
+   
+// Refresh token middleware for longer sessions
 const refreshAuth = async (req, res, next) => {
   try {
     const refreshToken = req.header('X-Refresh-Token');
