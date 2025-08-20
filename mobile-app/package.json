@@ -1,6 +1,6 @@
 {
   "name": "chatli-mobile",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "CHATLI Mobile App - React Native with Enhanced Security & JWT Compatibility",
   "main": "expo/AppEntry.js",
   "scripts": {

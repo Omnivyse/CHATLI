@@ -26,10 +26,14 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
   // Check if user has already verified this secret post
   const isUserVerified = localPost.passwordVerifiedUsers && localPost.passwordVerifiedUsers.includes(user._id);
   const isPostAuthor = localPost.author._id === user._id;
-  const shouldShowSecretContent = isPostAuthor || isUserVerified || isSecretPostUnlocked;
+  // For normal posts, always show content
+  // For secret posts, show content if user is author, verified, or unlocked
+  const shouldShowSecretContent = !localPost.isSecret || isPostAuthor || isUserVerified || isSecretPostUnlocked;
   
   // Check if description should be visible based on showDescription setting
-  const shouldShowDescription = isPostAuthor || isUserVerified || isSecretPostUnlocked || Boolean(localPost.showDescription);
+  // For normal posts, always show description
+  // For secret posts, show description if user is author, verified, unlocked, or showDescription is enabled
+  const shouldShowDescription = !localPost.isSecret || isPostAuthor || isUserVerified || isSecretPostUnlocked || Boolean(localPost.showDescription);
   
   // Debug logging for secret posts
   if (localPost.isSecret) {
@@ -202,12 +206,10 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
         }}
       >
         <div className="flex items-start gap-2">
-          {localPost.isSecret && !isPostAuthor && (
+          {localPost.isSecret && !isPostAuthor && !shouldShowDescription && (
             <div className="flex-shrink-0 mt-1">
-              <svg className={`w-4 h-4 ${
-                shouldShowDescription ? 'text-primary dark:text-primary-dark' : 'text-secondary dark:text-secondary-dark'
-              }`} fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+              <svg className="w-4 h-4 text-secondary dark:text-secondary-dark" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 9V7a5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
               </svg>
             </div>
           )}

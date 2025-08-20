@@ -808,17 +808,17 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       {/* Post Content */}
       {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
         <TouchableOpacity
-          onPress={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? handleSecretPostPress : undefined}
-          activeOpacity={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? 0.7 : 1}
-          style={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? styles.secretContentContainer : null}
+          onPress={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? handleSecretPostPress : undefined}
+          activeOpacity={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? 0.7 : 1}
+          style={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? styles.secretContentContainer : null}
         >
           <View style={styles.contentContainer}>
-            {localPost.isSecret && localPost.author._id !== user?._id && (
+            {localPost.isSecret && localPost.author._id !== user?._id && !isSecretPostUnlocked && !Boolean(localPost.showDescription) && (
               <View style={styles.lockIconContainer}>
                 <Ionicons 
                   name="lock-closed" 
                   size={16} 
-                  color={isSecretPostUnlocked ? colors.primary : colors.textSecondary} 
+                  color={colors.textSecondary} 
                 />
               </View>
             )}
@@ -852,7 +852,7 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       )}
 
       {/* Post Media */}
-      {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? (
+      {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? (
         // Show locked media placeholder for secret posts
         <TouchableOpacity
           onPress={handleSecretPostPress}
