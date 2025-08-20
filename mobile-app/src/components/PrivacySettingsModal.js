@@ -13,10 +13,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { getThemeColors } from '../utils/themeUtils';
+import { getTranslation } from '../utils/translations';
 
 const PrivacySettingsModal = ({ visible, onClose, user }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -100,10 +103,11 @@ const PrivacySettingsModal = ({ visible, onClose, user }) => {
   const handlePrivateAccountToggle = async (value) => {
     if (value) {
       Alert.alert(
-        'Making your account private will only allow your followers to see your posts. Are you sure you want to make this change?',
+        getTranslation('privateAccount', language),
+        getTranslation('privateAccountSecretPostWarning', language),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Yes', onPress: () => handleToggleSetting('isPrivateAccount', value) }
+          { text: getTranslation('cancel', language), style: 'cancel' },
+          { text: getTranslation('yes', language), onPress: () => handleToggleSetting('isPrivateAccount', value) }
         ]
       );
     } else {

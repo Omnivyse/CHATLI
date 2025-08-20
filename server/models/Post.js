@@ -55,6 +55,12 @@ const postSchema = new mongoose.Schema({
   isHidden: {
     type: Boolean,
     default: false
+  },
+  // Track why post was hidden
+  hiddenReason: {
+    type: String,
+    enum: ['manual', 'privacy_change', null],
+    default: null
   }
 }, {
   timestamps: true

@@ -26,7 +26,7 @@ import SecretPostPasswordModal from './SecretPostPasswordModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }) => {
+const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHighlighted }) => {
   // Debug: Validate props
   if (!post || typeof post !== 'object') {
     console.warn('Post component: Invalid post prop:', post);
@@ -275,39 +275,45 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
     );
   };
 
-  const handleHidePost = async () => {
-    try {
-      const isCurrentlyHidden = localPost.isHidden;
-      const newHiddenState = !isCurrentlyHidden;
-      
-      const response = await apiService.hidePost(post._id, newHiddenState);
-      if (response.success) {
-        setLocalPost(prevPost => ({
-          ...prevPost,
-          isHidden: newHiddenState
-        }));
-        onPostUpdate();
-        
-        // Show success message
-        Toast.show({
-          type: 'success',
-          text1: newHiddenState ? getTranslation('postHidden', language) : getTranslation('postShown', language),
-          text2: newHiddenState ? getTranslation('hiddenPostMessage', language) : '',
-          position: 'top',
-          visibilityTime: 3000,
-        });
-      }
-    } catch (error) {
-      console.error('Hide post error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.message || 'Failed to update post visibility',
-        position: 'top',
-        visibilityTime: 3000,
-      });
-    }
-  };
+     const handleHidePost = async () => {
+     try {
+       const isCurrentlyHidden = localPost.isHidden;
+       
+       // If post was hidden due to privacy settings, user cannot show it until they change privacy
+       if (isCurrentlyHidden && localPost.hiddenReason === 'privacy_change') {
+         Alert.alert(
+           getTranslation('cannotShowPost', language),
+           getTranslation('cannotShowPostPrivacyReason', language),
+           [
+             { text: getTranslation('ok', language), style: 'default' },
+             { 
+               text: getTranslation('goToPrivacySettings', language), 
+               onPress: () => {
+                 if (navigation) {
+                   navigation.navigate('Settings');
+                 }
+               }
+             }
+           ]
+         );
+         return;
+       }
+       
+       const newHiddenState = !isCurrentlyHidden;
+       
+       const response = await apiService.hidePost(post._id, newHiddenState);
+       if (response.success) {
+         setLocalPost(prevPost => ({
+           ...prevPost,
+           isHidden: newHiddenState,
+           hiddenReason: newHiddenState ? 'manual' : null
+         }));
+         onPostUpdate();
+       }
+     } catch (error) {
+       console.error('Hide post error:', error);
+     }
+   };
 
   const handleSecretPostPassword = async (password) => {
     try {
@@ -737,18 +743,67 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
         )}
       </View>
 
-      {/* Hidden Post Banner */}
-      {localPost.isHidden && (
-        <View style={[styles.hiddenPostBanner, { backgroundColor: colors.surfaceVariant }]}>
-          <Ionicons name="eye-off" size={16} color={colors.textSecondary} />
-          <Text style={[styles.hiddenPostBannerText, { color: colors.textSecondary }]}>
-            {getTranslation('hiddenPost', language)}
-          </Text>
-          <Text style={[styles.hiddenPostBannerSubtext, { color: colors.textSecondary }]}>
-            {getTranslation('hiddenPostMessage', language)}
-          </Text>
-        </View>
+      {/* Anchored dropdown for post menu */}
+      {showPostMenu && (
+        <>
+          <TouchableOpacity
+            style={styles.dropdownBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowPostMenu(false)}
+          />
+          <View style={[
+            styles.postMenuDropdown,
+            { backgroundColor: colors.surface, borderColor: colors.border }
+          ]}>
+            <TouchableOpacity
+              style={styles.postMenuItem}
+              onPress={() => {
+                setShowPostMenu(false);
+                handleHidePost();
+              }}
+            >
+              <Ionicons 
+                name={localPost.isHidden ? 'eye' : 'eye-off'} 
+                size={20} 
+                color={colors.text} 
+              />
+                             <Text style={[styles.postMenuItemText, { color: colors.text }]}>
+                 {localPost.isHidden 
+                   ? (localPost.hiddenReason === 'privacy_change' 
+                       ? getTranslation('postHiddenByPrivacy', language) 
+                       : getTranslation('showPost', language))
+                   : getTranslation('hidePost', language)
+                 }
+               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.postMenuItem}
+              onPress={() => {
+                setShowPostMenu(false);
+                handleDeletePost();
+              }}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+              <Text style={[styles.postMenuItemText, { color: colors.error }]}>
+                {getTranslation('delete', language)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
+
+             {/* Hidden Post Banner */}
+       {localPost.isHidden && (
+         <View style={[styles.hiddenPostBanner, { backgroundColor: colors.surfaceVariant }]}>
+           <Ionicons name="eye-off" size={16} color={colors.textSecondary} />
+           <Text style={[styles.hiddenPostBannerText, { color: colors.textSecondary }]}>
+             {localPost.hiddenReason === 'privacy_change' 
+               ? getTranslation('hiddenPostPrivacyChange', language)
+               : getTranslation('hiddenPost', language)
+             }
+           </Text>
+         </View>
+       )}
 
       {/* Post Content */}
       {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
@@ -769,7 +824,12 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
             )}
             <Text style={[styles.content, { color: colors.text }]}>
               {(() => {
-                // Simplified logic: show content if user is author, unlocked, or showDescription is true
+                // For normal posts, always show content
+                if (!localPost.isSecret) {
+                  return localPost.content;
+                }
+                
+                // For secret posts, show content if user is author, unlocked, or showDescription is true
                 const shouldShowContent = 
                   localPost.author._id === user?._id || // Author can always see
                   isSecretPostUnlocked || // Unlocked posts show content
@@ -791,7 +851,7 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
         </TouchableOpacity>
       )}
 
-      {/* Post Media - Always show media for secret posts, but with different states */}
+      {/* Post Media */}
       {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? (
         // Show locked media placeholder for secret posts
         <TouchableOpacity
@@ -1021,51 +1081,7 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
         </View>
       </Modal>
 
-      {/* Post Menu Modal */}
-      <Modal
-        visible={showPostMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPostMenu(false)}
-      >
-        <TouchableOpacity
-          style={styles.postMenuOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPostMenu(false)}
-        >
-          <View style={[styles.postMenuContainer, { backgroundColor: colors.surface }]}>
-            <TouchableOpacity
-              style={styles.postMenuItem}
-              onPress={() => {
-                setShowPostMenu(false);
-                handleHidePost();
-              }}
-            >
-              <Ionicons 
-                name={localPost.isHidden ? "eye" : "eye-off"} 
-                size={20} 
-                color={colors.text} 
-              />
-              <Text style={[styles.postMenuItemText, { color: colors.text }]}>
-                {localPost.isHidden ? getTranslation('showPost', language) : getTranslation('hidePost', language)}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.postMenuItem}
-              onPress={() => {
-                setShowPostMenu(false);
-                handleDeletePost();
-              }}
-            >
-              <Ionicons name="trash-outline" size={20} color={colors.error} />
-              <Text style={[styles.postMenuItemText, { color: colors.error }]}>
-                {getTranslation('delete', language)}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Removed old centered Post Menu Modal in favor of anchored dropdown */}
     </View>
   );
 };
@@ -1088,6 +1104,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    position: 'relative',
   },
   userInfo: {
     flexDirection: 'row',
@@ -1520,24 +1537,27 @@ const styles = StyleSheet.create({
   },
   
   // Post Menu Styles
-  postMenuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  postMenuContainer: {
+  postMenuDropdown: {
+    position: 'absolute',
+    top: 32,
+    right: 8,
     borderRadius: 12,
-    padding: 8,
-    minWidth: 200,
+    paddingVertical: 8,
+    minWidth: 180,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+    zIndex: 20,
   },
   postMenuItem: {
     flexDirection: 'row',

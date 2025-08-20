@@ -87,15 +87,23 @@ export const translations = {
     publish: 'Нийтлэх',
     secretPostHelpText: 'Нууц постыг ашиглахын тулд профайлаа нийтэд нээлттэй болгоно уу.',
     
-    // Hide Post
-    hidePost: 'Пост нуух',
-    showPost: 'Пост харуух',
+         // Hide Post
+     hidePost: 'Пост нуух',
+     showPost: 'Пост харуух',
+     // Privacy Settings
+     yes: 'Тийм',
+     privateAccountSecretPostWarning: 'Хувийн аккаунт болгох үед таны нууц постууд автоматаар нуулагдаж, харагдахгүй болно. Энэ өөрчлөлтийг хийхдээ итгэлтэй байна уу?',
     hidePostConfirm: 'Энэ постыг нуухдаа итгэлтэй байна уу? Нуусан постууд зөвхөн танд харагдана.',
     showPostConfirm: 'Энэ постыг харуухдаа итгэлтэй байна уу? Энэ нь бусад хэрэглэгчдэд дахин харагдах болно.',
     postHidden: 'Пост нуулагдлаа',
     postShown: 'Пост харагдана',
-    hiddenPost: 'Нуусан Пост',
-    hiddenPostMessage: 'Энэ пост нуулагдсан бөгөөд зөвхөн танд харагдана.',
+         hiddenPost: 'Нуусан Пост',
+     hiddenPostMessage: 'Энэ пост нуулагдсан бөгөөд зөвхөн танд харагдана.',
+     hiddenPostPrivacyChange: 'Нууцлалын тохиргооноос болж нуулагдсан',
+     cannotShowPost: 'Постыг харуух боломжгүй',
+     cannotShowPostPrivacyReason: 'Энэ пост нууцлалын тохиргооноос болж нуулагдсан. Постыг дахин харуулахын тулд профайлаа нийтэд нээлттэй болгоно уу.',
+     postHiddenByPrivacy: 'Нууцлалын тохиргооноос болж нуулагдсан',
+     ok: 'За',
 
     // Events
     event: 'Event',
@@ -561,15 +569,23 @@ export const translations = {
     publish: 'Publish',
     secretPostHelpText: 'To use secret posts, please change your account to public.',
     
-    // Hide Post
-    hidePost: 'Hide Post',
-    showPost: 'Show Post',
+         // Hide Post
+     hidePost: 'Hide Post',
+     showPost: 'Show Post',
+     // Privacy Settings
+     yes: 'Yes',
+     privateAccountSecretPostWarning: 'Making your account private will automatically hide all your secret posts and they will no longer be visible. Are you sure you want to make this change?',
     hidePostConfirm: 'Are you sure you want to hide this post? Hidden posts will only be visible to you.',
     showPostConfirm: 'Are you sure you want to show this post? It will be visible to other users again.',
     postHidden: 'Post hidden',
     postShown: 'Post shown',
-    hiddenPost: 'Hidden Post',
-    hiddenPostMessage: 'This post is hidden and only visible to you.',
+         hiddenPost: 'Hidden Post',
+     hiddenPostMessage: 'This post is hidden and only visible to you.',
+     hiddenPostPrivacyChange: 'Hidden due to privacy settings',
+     cannotShowPost: 'Cannot Show Post',
+     cannotShowPostPrivacyReason: 'This post was hidden due to privacy settings. To show it again, please change your profile to public.',
+     postHiddenByPrivacy: 'Hidden by privacy settings',
+     ok: 'OK',
   }
 };
 

@@ -841,8 +841,9 @@ router.patch('/:id/hide', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'isHidden field must be a boolean' });
     }
     
-    post.isHidden = isHidden;
-    await post.save();
+         post.isHidden = isHidden;
+     post.hiddenReason = isHidden ? 'manual' : null;
+     await post.save();
     
     res.json({ 
       success: true, 

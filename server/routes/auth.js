@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const PrivacySettings = require('../models/PrivacySettings');
 const Notification = require('../models/Notification');
+const Post = require('../models/Post');
 const { auth, optionalAuth, generateSecureToken, generateRefreshToken } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
@@ -1556,6 +1557,44 @@ router.put('/privacy-settings', auth, async (req, res) => {
 
     // Update only the fields that are provided
     if (typeof isPrivateAccount === 'boolean') {
+      // If user is changing to private account, automatically hide all their secret posts
+      if (isPrivateAccount && !privacySettings.isPrivateAccount) {
+        try {
+          await Post.updateMany(
+            { 
+              author: req.user._id, 
+              isSecret: true 
+            },
+            { 
+              isHidden: true,
+              hiddenReason: 'privacy_change'
+            }
+          );
+          console.log(`Automatically hidden secret posts for user ${req.user._id} after changing to private account`);
+        } catch (postError) {
+          console.error('Error hiding secret posts:', postError);
+          // Don't fail the privacy update if post hiding fails
+        }
+      }
+      // If user is changing to public account, automatically show posts that were hidden due to privacy
+      else if (!isPrivateAccount && privacySettings.isPrivateAccount) {
+        try {
+          await Post.updateMany(
+            { 
+              author: req.user._id, 
+              hiddenReason: 'privacy_change' 
+            },
+            { 
+              isHidden: false,
+              hiddenReason: null
+            }
+          );
+          console.log(`Automatically shown posts for user ${req.user._id} after changing to public account`);
+        } catch (postError) {
+          console.error('Error showing posts:', postError);
+          // Don't fail the privacy update if post showing fails
+        }
+      }
       privacySettings.isPrivateAccount = isPrivateAccount;
     }
     if (typeof showProfileInSearch === 'boolean') {

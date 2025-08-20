@@ -208,6 +208,7 @@ const ProfileScreen = ({ navigation, user, onLogout }) => {
                 <Post 
                   post={item} 
                   user={user} 
+                  onPostUpdate={() => fetchPosts()}
                   navigation={navigation}
                 />
               )}
