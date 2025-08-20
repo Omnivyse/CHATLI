@@ -89,10 +89,24 @@ const LoginScreen = ({ onLogin }) => {
       return;
     }
 
-    // Validate password length
-    if (password.length < 6) {
-      setError(getTranslation('passwordTooShort', language));
+    // Validate password length (server requires 12+ characters)
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters long');
       return;
+    }
+
+    // Validate password complexity (for registration)
+    if (mode === 'register') {
+      // Server requires: uppercase, lowercase, numbers, and special characters
+      const hasUppercase = /[A-Z]/.test(password);
+      const hasLowercase = /[a-z]/.test(password);
+      const hasNumbers = /[0-9]/.test(password);
+      const hasSpecialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+      
+      if (!hasUppercase || !hasLowercase || !hasNumbers || !hasSpecialChars) {
+        setError('Password must contain: uppercase letters, lowercase letters, numbers, and special characters (!@#$%^&*()_+-=[]{}|;:,.<>?)');
+        return;
+      }
     }
 
     // Validate username format (for registration)
@@ -103,6 +117,18 @@ const LoginScreen = ({ onLogin }) => {
       }
       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
         setError('Username can only contain letters, numbers, and _');
+        return;
+      }
+      
+      // Validate name (should not be empty and should be reasonable length)
+      if (!name.trim() || name.trim().length < 2) {
+        setError('Name must be at least 2 characters long');
+        return;
+      }
+      
+      // Validate username uniqueness check (basic check)
+      if (username.length > 20) {
+        setError('Username must be 20 characters or less');
         return;
       }
     }
@@ -139,6 +165,9 @@ const LoginScreen = ({ onLogin }) => {
           setError(res.message || getTranslation('loginError', language));
         }
       } else {
+        // Debug registration data before making API call
+        debugRegistration();
+        
         const res = await api.register(name, username, email, password);
         
         if (res.success) {
@@ -157,10 +186,20 @@ const LoginScreen = ({ onLogin }) => {
           error.message.includes('fetch') || 
           error.message.includes('timeout')) {
         setError('Please check your internet connection');
-              } else if (error.message.includes('Request timeout') || error.message.includes('timeout')) {
-          setError('Request timeout. Please check your internet connection.');
-        } else if (error.message.includes('Input Error') || error.message.includes('Input Error')) {
-        setError('Email or password is incorrect');
+      } else if (error.message.includes('Request timeout') || error.message.includes('timeout')) {
+        setError('Request timeout. Please check your internet connection.');
+      } else if (error.message.includes('Оролтын алдаа') || error.message.includes('Input Error') || error.message.includes('Validation failed')) {
+        // Handle input validation errors specifically
+        if (mode === 'register') {
+          // Check if it's a password validation error
+          if (error.message.includes('password') || error.message.includes('Invalid value') || error.message.includes('Validation failed: password')) {
+            setError('Password must be 12+ characters with: uppercase letters, lowercase letters, numbers, and special characters (!@#$%^&*()_+-=[]{}|;:,.<>?)');
+          } else {
+            setError('Registration failed: Please check your input data. Make sure:\n• Name is at least 2 characters\n• Username is 3-20 characters (letters, numbers, _ only)\n• Email is valid\n• Password is at least 12 characters with uppercase, lowercase, numbers, and special characters');
+          }
+        } else {
+          setError('Email or password is incorrect');
+        }
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         setError('Email or password is incorrect');
       } else if (error.message.includes('404') || error.message.includes('Not Found')) {
@@ -178,9 +217,19 @@ const LoginScreen = ({ onLogin }) => {
     onLogin(user, { isNewUser: false });
   };
 
-  // Test function to verify error display (remove in production)
-  const testErrorDisplay = () => {
-    setError('Test error message - Email or password is incorrect');
+  // Debug function to help troubleshoot registration issues
+  const debugRegistration = () => {
+    console.log('🔍 Debug Registration Data:', {
+      mode,
+      name: name ? `${name.substring(0, 3)}***` : 'empty',
+      username: username ? `${username.substring(0, 3)}***` : 'empty',
+      email: email ? `${email.substring(0, 3)}***` : 'empty',
+      passwordLength: password?.length || 0,
+      nameValid: name && name.trim().length >= 2,
+      usernameValid: username && username.trim().length >= 3 && /^[a-zA-Z0-9_]+$/.test(username),
+      emailValid: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+      passwordValid: password && password.length >= 12 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    });
   };
 
   const blob1Transform = blob1Anim.interpolate({
@@ -331,31 +380,41 @@ const LoginScreen = ({ onLogin }) => {
                 />
               </View>
               
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder={getTranslation('password', language)}
-                  placeholderTextColor="#666"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoComplete="password"
-                />
-                <TouchableOpacity
-                  style={styles.showPasswordButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Ionicons 
-                    name={showPassword ? "eye-off" : "eye"} 
-                    size={20} 
-                    color="#666" 
-                  />
-                </TouchableOpacity>
-              </View>
+                             <View style={styles.inputContainer}>
+                 <TextInput
+                   style={styles.input}
+                   placeholder={getTranslation('password', language)}
+                   placeholderTextColor="#666"
+                   value={password}
+                   onChangeText={setPassword}
+                   secureTextEntry={!showPassword}
+                   autoComplete="password"
+                 />
+                 <TouchableOpacity
+                   style={styles.showPasswordButton}
+                   onPress={() => setShowPassword(!showPassword)}
+                 >
+                   <Ionicons 
+                     name={showPassword ? "eye-off" : "eye"} 
+                     size={20} 
+                     color="#666" 
+                   />
+                 </TouchableOpacity>
+                 {mode === 'register' && (
+                   <>
+                     <Text style={styles.passwordHint}>
+                       Password must be 12+ characters with: uppercase, lowercase, numbers, and special characters
+                     </Text>
+                     <Text style={styles.passwordWarning}>
+                       ✅ Special characters like @#$%^&*+= are now allowed for security!
+                     </Text>
+                   </>
+                 )}
+               </View>
               
               {error && typeof error === 'string' && error.length > 0 ? (
                 <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText} numberOfLines={0}>{error}</Text>
                 </View>
               ) : null}
               
@@ -629,10 +688,22 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: 'transparent',
   },
-  showPasswordText: {
-    color: '#333',
-    fontSize: 14,
-  },
+     showPasswordText: {
+     color: '#333',
+     fontSize: 14,
+   },
+   passwordHint: {
+     color: '#666',
+     fontSize: 12,
+     marginTop: 4,
+     fontStyle: 'italic',
+   },
+   passwordWarning: {
+     color: '#ef4444',
+     fontSize: 11,
+     marginTop: 2,
+     fontWeight: '500',
+   },
 });
 
 export default LoginScreen; 

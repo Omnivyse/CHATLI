@@ -27,6 +27,8 @@ const RegisterScreen = ({ navigation, onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [rateLimited, setRateLimited] = useState(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
 
   // Password strength indicator
   const getPasswordStrength = (password) => {
@@ -86,6 +88,27 @@ const RegisterScreen = ({ navigation, onLogin }) => {
     return { isValid: true, message: 'Password is valid' };
   };
 
+  // Handle rate limiting with countdown
+  const handleRateLimit = (retryAfterSeconds) => {
+    setRateLimited(true);
+    setRateLimitCountdown(Math.ceil(retryAfterSeconds / 60));
+    
+    // Start countdown timer
+    const interval = setInterval(() => {
+      setRateLimitCountdown(prev => {
+        if (prev <= 1) {
+          setRateLimited(false);
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 60000); // Update every minute
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+  };
+
   // Test network connectivity
   const testNetworkConnectivity = async () => {
     try {
@@ -111,14 +134,18 @@ const RegisterScreen = ({ navigation, onLogin }) => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    console.log(`🔧 handleInputChange: ${field} = "${value}" (length: ${value?.length})`);
+    
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      console.log('🔧 New form data:', newData);
+      return newData;
+    });
     
     // Real-time validation for password
     if (field === 'password') {
       const validation = validatePassword(value);
+      console.log('🔧 Password validation result:', validation);
       if (value && !validation.isValid) {
         setErrors(prev => ({ ...prev, [field]: validation.message }));
       } else if (value && validation.isValid) {
@@ -171,13 +198,38 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
+    // Set errors and return validation result immediately
     setErrors(newErrors);
+    
+    // Debug logging
+    console.log('🔍 Form validation result:', {
+      hasErrors: Object.keys(newErrors).length > 0,
+      errorCount: Object.keys(newErrors).length,
+      errors: newErrors,
+      password: formData.password,
+      passwordLength: formData.password?.length,
+      passwordValidation: formData.password ? validatePassword(formData.password) : null
+    });
+    
     return Object.keys(newErrors).length === 0;
   };
 
   const handleRegister = async () => {
     if (!validateForm()) {
       console.log('❌ Form validation failed:', errors);
+      return;
+    }
+
+    // Double-check password validation before API call
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      console.log('❌ Password validation failed after form validation:', passwordValidation.message);
+      setErrors(prev => ({ ...prev, password: passwordValidation.message }));
+      Toast.show({
+        type: 'error',
+        text1: 'Password Error',
+        text2: passwordValidation.message,
+      });
       return;
     }
 
@@ -188,7 +240,8 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       name: formData.name,
       username: formData.username,
       email: formData.email,
-      passwordLength: formData.password.length
+      passwordLength: formData.password.length,
+      passwordValidation: passwordValidation
     });
     
     try {
@@ -296,7 +349,15 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       // Handle network or server errors
       let errorMessage = 'Server error occurred';
       if (error.message) {
-        if (error.message.includes('Network request failed')) {
+        if (error.message.includes('Rate limited')) {
+          // Extract retry time from error message
+          const match = error.message.match(/(\d+) minutes/);
+          if (match) {
+            const minutes = parseInt(match[1]);
+            handleRateLimit(minutes * 60);
+          }
+          errorMessage = error.message;
+        } else if (error.message.includes('Network request failed')) {
           errorMessage = 'Network error. Please check your connection and try again.';
         } else if (error.message.includes('fetch')) {
           errorMessage = 'Connection error. Please check your internet connection.';
@@ -461,11 +522,22 @@ const RegisterScreen = ({ navigation, onLogin }) => {
             >
               <Text style={styles.testButtonText}>Test Connection</Text>
             </TouchableOpacity>
+            
+            {/* Rate limit warning */}
+            <View style={styles.rateLimitWarning}>
+              <Ionicons name="information-circle-outline" size={16} color="#f59e0b" />
+              <Text style={styles.rateLimitText}>
+                Note: Registration is limited to 5 attempts per 15 minutes for security
+              </Text>
+            </View>
 
             <TouchableOpacity
-              style={[styles.registerButton, loading && styles.buttonDisabled]}
+              style={[
+                styles.registerButton, 
+                (loading || Object.keys(errors).length > 0 || rateLimited) && styles.buttonDisabled
+              ]}
               onPress={handleRegister}
-              disabled={loading}
+              disabled={loading || Object.keys(errors).length > 0 || rateLimited}
             >
               {loading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
@@ -473,6 +545,26 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                 <Text style={styles.registerButtonText}>Register</Text>
               )}
             </TouchableOpacity>
+            
+            {/* Form validation status */}
+            {Object.keys(errors).length > 0 && (
+              <Text style={styles.validationStatus}>
+                ⚠️ Please fix the errors above before registering
+              </Text>
+            )}
+            
+            {Object.keys(errors).length === 0 && formData.password.length > 0 && !rateLimited && (
+              <Text style={styles.validationStatus}>
+                ✅ Form is valid and ready to submit
+              </Text>
+            )}
+            
+            {/* Rate limit countdown */}
+            {rateLimited && (
+              <Text style={[styles.validationStatus, styles.rateLimitError]}>
+                ⏰ Rate limited. Please wait {rateLimitCountdown} minute{rateLimitCountdown !== 1 ? 's' : ''} before trying again.
+              </Text>
+            )}
 
             <View style={styles.loginContainer}>
               <Text style={styles.loginText}>Already have an account? </Text>
@@ -624,6 +716,37 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 16,
     fontWeight: '600',
+  },
+  validationStatus: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  rateLimitWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  rateLimitText: {
+    fontSize: 12,
+    color: '#92400e',
+    marginLeft: 8,
+    flex: 1,
+  },
+  rateLimitError: {
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#dc2626',
+    borderRadius: 8,
+    padding: 12,
   },
 });
 
