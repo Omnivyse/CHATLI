@@ -166,9 +166,9 @@ router.post('/register', [
     .normalizeEmail()
     .withMessage('Зөв имэйл оруулна уу'),
   body('password')
-    .isLength({ min: 12, max: 128 })
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/)
-    .withMessage('Нууц үг хамгийн багадаа 12 тэмдэгт байх ёстой бөгөөд том үсэг, жижиг үсэг, тоо, тусгай тэмдэгт агуулсан байх ёстой')
+    .isLength({ min: 10, max: 128 })
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;:,.<>?])/)
+    .withMessage('Нууц үг хамгийн багадаа 10 тэмдэгт байх ёстой бөгөөд том үсэг, жижиг үсэг, тоо, тусгай тэмдэгт агуулсан байх ёстой')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1302,7 +1302,7 @@ router.post('/verify-reset-code', [
 // @access  Public (with reset token)
 router.post('/reset-password', [
   body('resetToken').notEmpty().withMessage('Reset token шаардлагатай'),
-  body('newPassword').isLength({ min: 6 }).withMessage('Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой')
+  body('newPassword').isLength({ min: 10 }).withMessage('Нууц үг хамгийн багадаа 10 тэмдэгт байх ёстой')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1397,7 +1397,7 @@ router.post('/reset-password', [
 // @access  Private
 router.post('/change-password', auth, [
   body('currentPassword').notEmpty().withMessage('Одоогийн нууц үг оруулна уу'),
-  body('newPassword').isLength({ min: 6 }).withMessage('Шинэ нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой')
+  body('newPassword').isLength({ min: 10 }).withMessage('Шинэ нууц үг хамгийн багадаа 10 тэмдэгт байх ёстой')
 ], async (req, res) => {
   try {
     console.log('🔄 Change password request received for user:', req.user._id);

@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Нууц үг оруулна уу'],
-    minlength: [6, 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой']
+    minlength: [10, 'Нууц үг хамгийн багадаа 10 тэмдэгт байх ёстой']
   },
   avatar: {
     type: String,
