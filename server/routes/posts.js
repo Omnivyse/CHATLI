@@ -133,6 +133,7 @@ router.get('/', auth, async (req, res) => {
     const followingIds = currentUser ? currentUser.following.map(id => id.toString()) : [];
     
     // Filter out posts from private users and handle secret posts
+    const originalCount = posts.length;
     posts = posts.filter(post => {
       const author = post.author;
       
@@ -195,8 +196,10 @@ router.get('/', auth, async (req, res) => {
       if (post.isHidden) {
         // Only show hidden posts to the author themselves
         if (String(author._id) === String(req.user._id)) {
+          console.log(`👁️ Hidden post ${post._id} shown to author ${author._id} (main feed)`);
           return true;
         }
+        console.log(`🚫 Hidden post ${post._id} filtered out for user ${req.user._id} (author: ${author._id}, main feed)`);
         return false;
       }
       
@@ -216,6 +219,12 @@ router.get('/', auth, async (req, res) => {
       
       return true;
     });
+    
+    // Log filtering results
+    const filteredCount = posts.length;
+    if (originalCount !== filteredCount) {
+      console.log(`🚫 Main feed: Filtered out ${originalCount - filteredCount} posts (${originalCount} -> ${filteredCount})`);
+    }
     
     // Populate comments.author for filtered posts, but handle deleted users
     try {
@@ -287,6 +296,7 @@ router.get('/top-weekly', auth, async (req, res) => {
     const followingIds = currentUser ? currentUser.following.map(id => id.toString()) : [];
     
     // Filter out posts from private users and hidden posts
+    const originalCount = posts.length;
     posts = posts.filter(post => {
       const author = post.author;
       
@@ -294,8 +304,10 @@ router.get('/top-weekly', auth, async (req, res) => {
       if (post.isHidden) {
         // Only show hidden posts to the author themselves
         if (String(author._id) === String(req.user._id)) {
+          console.log(`👁️ Hidden post ${post._id} shown to author ${author._id} (top weekly)`);
           return true;
         }
+        console.log(`🚫 Hidden post ${post._id} filtered out for user ${req.user._id} (author: ${author._id}, top weekly)`);
         return false;
       }
       
@@ -315,6 +327,12 @@ router.get('/top-weekly', auth, async (req, res) => {
       
       return true;
     });
+    
+    // Log filtering results
+    const filteredCount = posts.length;
+    if (originalCount !== filteredCount) {
+      console.log(`🚫 Top weekly: Filtered out ${originalCount - filteredCount} posts (${originalCount} -> ${filteredCount})`);
+    }
     
     // Populate comments.author for filtered posts
     try {
@@ -746,7 +764,12 @@ router.get('/user/:userId', auth, async (req, res) => {
     
     // Filter out hidden posts for non-authors
     if (String(user._id) !== String(req.user._id)) {
+      const originalCount = posts.length;
       posts = posts.filter(post => !post.isHidden);
+      const filteredCount = posts.length;
+      if (originalCount !== filteredCount) {
+        console.log(`🚫 Filtered out ${originalCount - filteredCount} hidden posts for user ${req.user._id} viewing ${user._id}'s posts`);
+      }
     }
     
     res.json({ success: true, data: { posts } });

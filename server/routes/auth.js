@@ -1557,41 +1557,89 @@ router.put('/privacy-settings', auth, async (req, res) => {
 
     // Update only the fields that are provided
     if (typeof isPrivateAccount === 'boolean') {
+      const wasPrivateBefore = privacySettings.isPrivateAccount;
+      
       // If user is changing to private account, automatically hide all their secret posts
-      if (isPrivateAccount && !privacySettings.isPrivateAccount) {
+      if (isPrivateAccount && !wasPrivateBefore) {
         try {
-          await Post.updateMany(
-            { 
+          console.log(`🔄 User ${req.user._id} changing from public to private account`);
+          console.log(`🔍 Finding secret posts to hide...`);
+          
+          // First, let's check how many secret posts exist
+          const secretPostCount = await Post.countDocuments({ 
+            author: req.user._id, 
+            isSecret: true 
+          });
+          console.log(`📊 Found ${secretPostCount} secret posts to hide`);
+          
+          if (secretPostCount > 0) {
+            const updateResult = await Post.updateMany(
+              { 
+                author: req.user._id, 
+                isSecret: true 
+              },
+              { 
+                isHidden: true,
+                hiddenReason: 'privacy_change'
+              }
+            );
+            console.log(`✅ Successfully hidden ${updateResult.modifiedCount} secret posts for user ${req.user._id}`);
+            console.log(`📝 Update result:`, updateResult);
+            
+            // Verify the update worked
+            const hiddenPostsCount = await Post.countDocuments({ 
               author: req.user._id, 
-              isSecret: true 
-            },
-            { 
+              isSecret: true, 
               isHidden: true,
               hiddenReason: 'privacy_change'
-            }
-          );
-          console.log(`Automatically hidden secret posts for user ${req.user._id} after changing to private account`);
+            });
+            console.log(`🔍 Verification: ${hiddenPostsCount} posts are now hidden with privacy_change reason`);
+          } else {
+            console.log(`ℹ️ No secret posts found for user ${req.user._id}`);
+          }
         } catch (postError) {
-          console.error('Error hiding secret posts:', postError);
+          console.error('❌ Error hiding secret posts:', postError);
           // Don't fail the privacy update if post hiding fails
         }
       }
       // If user is changing to public account, automatically show posts that were hidden due to privacy
-      else if (!isPrivateAccount && privacySettings.isPrivateAccount) {
+      else if (!isPrivateAccount && wasPrivateBefore) {
         try {
-          await Post.updateMany(
-            { 
+          console.log(`🔄 User ${req.user._id} changing from private to public account`);
+          console.log(`🔍 Finding posts to show...`);
+          
+          // First, let's check how many posts are hidden due to privacy
+          const hiddenPostsCount = await Post.countDocuments({ 
+            author: req.user._id, 
+            hiddenReason: 'privacy_change' 
+          });
+          console.log(`📊 Found ${hiddenPostsCount} posts hidden due to privacy to show`);
+          
+          if (hiddenPostsCount > 0) {
+            const updateResult = await Post.updateMany(
+              { 
+                author: req.user._id, 
+                hiddenReason: 'privacy_change' 
+              },
+              { 
+                isHidden: false,
+                hiddenReason: null
+              }
+            );
+            console.log(`✅ Successfully shown ${updateResult.modifiedCount} posts for user ${req.user._id}`);
+            console.log(`📝 Update result:`, updateResult);
+            
+            // Verify the update worked
+            const shownPostsCount = await Post.countDocuments({ 
               author: req.user._id, 
               hiddenReason: 'privacy_change' 
-            },
-            { 
-              isHidden: false,
-              hiddenReason: null
-            }
-          );
-          console.log(`Automatically shown posts for user ${req.user._id} after changing to public account`);
+            });
+            console.log(`🔍 Verification: ${shownPostsCount} posts still have privacy_change reason (should be 0)`);
+          } else {
+            console.log(`ℹ️ No posts hidden due to privacy found for user ${req.user._id}`);
+          }
         } catch (postError) {
-          console.error('Error showing posts:', postError);
+          console.error('❌ Error showing posts:', postError);
           // Don't fail the privacy update if post showing fails
         }
       }
