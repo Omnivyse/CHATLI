@@ -640,7 +640,7 @@ export default function App() {
       // Show welcome modal for new users or on app update
       const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
       const appVersion = await AsyncStorage.getItem('appVersion');
-      const currentVersion = '1.0.0'; // Update this when you release new versions
+      const currentVersion = '1.4.0'; // Update this when you release new versions
       
       // For testing: Force show welcome modal (remove this line after testing)
       await AsyncStorage.removeItem('hasSeenWelcome');
