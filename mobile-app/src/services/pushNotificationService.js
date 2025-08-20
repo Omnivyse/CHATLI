@@ -81,11 +81,32 @@ export const logNotificationFilteringStatus = () => {
 };
 
 // Clear current user ID (for logout)
-export const clearCurrentUserId = () => {
-  console.log('🔔 clearCurrentUserId called, clearing current user ID');
-  currentUserId = null;
-  console.log('🔔 Current user ID cleared, notification filtering disabled');
-};
+export const clearCurrentUserId = (() => {
+  let timeoutId = null;
+  let isClearing = false;
+  
+  return () => {
+    // Prevent multiple simultaneous calls
+    if (isClearing) {
+      console.log('🔔 clearCurrentUserId already in progress, skipping...');
+      return;
+    }
+    
+    // Clear any pending timeout
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    // Debounce the actual clearing
+    timeoutId = setTimeout(() => {
+      isClearing = true;
+      console.log('🔔 clearCurrentUserId called, clearing current user ID');
+      currentUserId = null;
+      console.log('🔔 Current user ID cleared, notification filtering disabled');
+      isClearing = false;
+    }, 50);
+  };
+})();
 
 // Configure notification behavior with custom sounds
 Notifications.setNotificationHandler({

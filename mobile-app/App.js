@@ -369,7 +369,10 @@ function MainStackNavigator({ user, onLogout, onGoToVerification }) {
   );
 }
 
-export default function App() {
+// Global flag to prevent multiple token expiration handlers from running
+let isTokenExpirationHandling = false;
+
+function App() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -471,7 +474,12 @@ export default function App() {
       }, 1000);
     } else {
       console.log('🔔 User cleared, clearing current user ID for notifications');
-      clearCurrentUserId();
+      // Debounce the clearCurrentUserId call to prevent spam
+      const timeoutId = setTimeout(() => {
+        clearCurrentUserId();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [user]);
 
@@ -482,6 +490,12 @@ export default function App() {
     // Refresh token every 10 minutes to keep it fresh
     const tokenRefreshInterval = setInterval(async () => {
       try {
+        // Double-check that user is still authenticated
+        if (!user) {
+          console.log('🔄 User no longer authenticated, stopping token refresh');
+          return;
+        }
+        
         if (__DEV__) {
           console.log('🔄 Periodic token refresh check...');
         }
@@ -565,25 +579,39 @@ export default function App() {
   };
 
   // Handle token expiration globally
-  const handleTokenExpiration = async () => {
-    console.log('🔐 Global token expiration handler triggered');
-    try {
-      // Clear all authentication data
-      await AsyncStorage.removeItem('token');
-      await AsyncStorage.removeItem('refreshToken');
-      await apiService.clearToken();
-      
-      // Clear user state
-      setUser(null);
-      clearCurrentUserId();
-      
-      // Disconnect socket
-      socketService.disconnect();
-      
-      console.log('✅ Token expiration handled, user redirected to login');
-    } catch (error) {
-      console.error('Error handling token expiration:', error);
+  const handleTokenExpiration = () => {
+    // Prevent multiple simultaneous executions (synchronous check)
+    if (isTokenExpirationHandling) {
+      console.log('🔐 Token expiration handler already executing, skipping...');
+      return;
     }
+    
+    // Set flag immediately (synchronous)
+    isTokenExpirationHandling = true;
+    console.log('🔐 Global token expiration handler triggered');
+    
+    // Handle the token expiration asynchronously
+    (async () => {
+      try {
+        // Clear all authentication data without triggering the handler again
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('refreshToken');
+        
+        // Clear user state
+        setUser(null);
+        clearCurrentUserId();
+        
+        // Disconnect socket
+        socketService.disconnect();
+        
+        console.log('✅ Token expiration handled, user redirected to login');
+      } catch (error) {
+        console.error('Error handling token expiration:', error);
+      } finally {
+        // Reset flag after work is done
+        isTokenExpirationHandling = false;
+      }
+    })();
   };
 
   const checkForAppUpdates = async () => {
@@ -719,33 +747,32 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    console.log('🔄 handleLogout called');
     try {
-      // Track logout event with error handling
-      try {
-        if (analyticsService && typeof analyticsService.trackUserLogout === 'function') {
-          analyticsService.trackUserLogout();
-          console.log('📊 Analytics tracked');
-        }
-      } catch (analyticsError) {
-        console.error('Analytics tracking error:', analyticsError);
-      }
+      console.log('🚪 Logging out...');
       
-      // Try to call logout API, but don't fail if it doesn't work
-      try {
-        await apiService.logout();
-        console.log('✅ API logout successful');
-      } catch (logoutError) {
-        console.log('ℹ️ Logout API call failed (expected if token invalidated):', logoutError.message);
-        // This is expected behavior when token is already invalidated
-      }
+      // Call logout API
+      await apiService.logout();
+      
+      // Clear user state
+      setUser(null);
+      
+      // Clear current user ID for notification filtering (debounced)
+      setTimeout(() => {
+        clearCurrentUserId();
+      }, 100);
+      
+      socketService.disconnect();
+      await AsyncStorage.removeItem('token');
+      console.log('✅ Logout cleanup complete');
     } catch (error) {
       console.error('❌ Logout error:', error);
     } finally {
       console.log('🧹 Cleaning up user session...');
       setUser(null);
-      // Clear current user ID for notification filtering
-      clearCurrentUserId();
+      // Clear current user ID for notification filtering (debounced)
+      setTimeout(() => {
+        clearCurrentUserId();
+      }, 100);
       socketService.disconnect();
       await AsyncStorage.removeItem('token');
       console.log('✅ Logout cleanup complete');
@@ -757,8 +784,10 @@ export default function App() {
       console.log('🧹 Clearing all stored data...');
       await AsyncStorage.clear();
       setUser(null);
-      // Clear current user ID for notification filtering
-      clearCurrentUserId();
+      // Clear current user ID for notification filtering (debounced)
+      setTimeout(() => {
+        clearCurrentUserId();
+      }, 100);
       socketService.disconnect();
       console.log('✅ All data cleared');
     } catch (error) {
@@ -820,6 +849,8 @@ export default function App() {
     </ThemeProvider>
   );
 }
+
+export default App;
 
 function AppContent({ 
   user, 

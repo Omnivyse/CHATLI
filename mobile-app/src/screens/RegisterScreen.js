@@ -53,6 +53,39 @@ const RegisterScreen = ({ navigation, onLogin }) => {
 
   const passwordStrength = getPasswordStrength(formData.password);
 
+  // Detailed password validation function
+  const validatePassword = (password) => {
+    if (!password) {
+      return { isValid: false, message: 'Please enter password' };
+    }
+    
+    if (password.length < 12) {
+      return { isValid: false, message: `Password must be at least 12 characters (currently ${password.length})` };
+    }
+    
+    if (password.length > 128) {
+      return { isValid: false, message: 'Password must be less than 128 characters' };
+    }
+    
+    if (!/[a-z]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one lowercase letter' };
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one uppercase letter' };
+    }
+    
+    if (!/\d/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one number' };
+    }
+    
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)' };
+    }
+    
+    return { isValid: true, message: 'Password is valid' };
+  };
+
   // Test network connectivity
   const testNetworkConnectivity = async () => {
     try {
@@ -83,11 +116,22 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       [field]: value
     }));
     
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }));
+    // Real-time validation for password
+    if (field === 'password') {
+      const validation = validatePassword(value);
+      if (value && !validation.isValid) {
+        setErrors(prev => ({ ...prev, [field]: validation.message }));
+      } else if (value && validation.isValid) {
+        setErrors(prev => ({ ...prev, [field]: '' }));
+      }
+    } else {
+      // Clear error when user starts typing for other fields
+      if (errors[field]) {
+        setErrors(prev => ({
+          ...prev,
+          [field]: ''
+        }));
+      }
     }
   };
 
@@ -116,10 +160,11 @@ const RegisterScreen = ({ navigation, onLogin }) => {
 
     if (!formData.password) {
       newErrors.password = 'Please enter password';
-    } else if (formData.password.length < 12) {
-      newErrors.password = 'Password must be at least 12 characters';
-    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/.test(formData.password)) {
-      newErrors.password = 'Password must contain uppercase, lowercase, number, and special character';
+    } else {
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        newErrors.password = passwordValidation.message;
+      }
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -194,16 +239,48 @@ const RegisterScreen = ({ navigation, onLogin }) => {
           const fieldErrors = {};
           response.errors.forEach(error => {
             if (error.path) {
-              fieldErrors[error.path] = error.msg;
+              // Translate backend errors to user-friendly messages
+              switch (error.path) {
+                case 'password':
+                  fieldErrors[error.path] = 'Password must be at least 12 characters with uppercase, lowercase, number, and special character';
+                  break;
+                case 'email':
+                  fieldErrors[error.path] = 'Please enter a valid email address';
+                  break;
+                case 'username':
+                  fieldErrors[error.path] = 'Username must be 3-20 characters, letters, numbers, and underscores only';
+                  break;
+                case 'name':
+                  fieldErrors[error.path] = 'Name must be between 2 and 50 characters';
+                  break;
+                default:
+                  fieldErrors[error.path] = error.msg;
+              }
             }
           });
           
           // Update form errors with backend validation errors
           setErrors(prev => ({ ...prev, ...fieldErrors }));
           
-          // Show first error message
+          // Show user-friendly error message
           if (response.errors.length > 0) {
-            errorMessage = response.errors[0].msg;
+            const firstError = response.errors[0];
+            switch (firstError.path) {
+              case 'password':
+                errorMessage = 'Password does not meet requirements. Please check the requirements below.';
+                break;
+              case 'email':
+                errorMessage = 'Please enter a valid email address.';
+                break;
+              case 'username':
+                errorMessage = 'Username format is invalid. Please check the requirements.';
+                break;
+              case 'name':
+                errorMessage = 'Name length is invalid.';
+                break;
+              default:
+                errorMessage = firstError.msg || 'Please check your input and try again.';
+            }
           }
         }
         

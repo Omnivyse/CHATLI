@@ -38,6 +38,9 @@ if (__DEV__) {
   console.log('🔗 Environment:', __DEV__ ? 'Development' : 'Production');
 }
 
+// Global flag to prevent recursive token clearing
+let isClearingToken = false;
+
 class ApiService {
   constructor() {
     this.baseURL = API_URL;
@@ -101,13 +104,25 @@ class ApiService {
   }
 
   async clearToken() {
-    this.token = null;
-    await AsyncStorage.removeItem('token');
-    await AsyncStorage.removeItem('refreshToken');
+    // Prevent recursive calls
+    if (isClearingToken) {
+      if (__DEV__) console.log('🔐 Already clearing token, skipping...');
+      return;
+    }
     
-    // Call global token expiration handler if set
-    if (this.onTokenExpiration) {
-      this.onTokenExpiration();
+    isClearingToken = true;
+    
+    try {
+      this.token = null;
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('refreshToken');
+      
+      // Call global token expiration handler if set (only once)
+      if (this.onTokenExpiration && !isClearingToken) {
+        this.onTokenExpiration();
+      }
+    } finally {
+      isClearingToken = false;
     }
   }
 
@@ -260,8 +275,10 @@ class ApiService {
     if (this.token && !this.isTokenExpired(this.token)) {
       headers['Authorization'] = `Bearer ${this.token}`;
     } else if (this.token) {
-      // Token is expired, clear it
-      this.clearToken();
+      // Token is expired, clear it asynchronously to prevent loops
+      setTimeout(() => {
+        this.clearToken();
+      }, 0);
     }
     
     return headers;
