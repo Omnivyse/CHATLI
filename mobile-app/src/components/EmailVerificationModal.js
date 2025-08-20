@@ -139,7 +139,12 @@ const EmailVerificationModal = ({
       const response = await apiService.resendVerificationCode(user.email);
       
       if (response.success) {
-        Alert.alert('Success', 'Verification email sent again');
+        // Show success message with the new code if available
+        const message = response.data?.verificationCode 
+          ? `New verification code: ${response.data.verificationCode}`
+          : 'Verification email sent again';
+        
+        Alert.alert('Success', message);
         setCountdown(60); // Start countdown
         setVerificationCode(['', '', '', '', '']);
         setError('');
@@ -208,6 +213,40 @@ const EmailVerificationModal = ({
             <Text style={[styles.instruction, { color: colors.textSecondary }]}>
               Check your email and enter the 5-digit verification code
             </Text>
+            
+            {/* Help text for users */}
+            <Text style={[styles.helpText, { color: colors.textSecondary }]}>
+              💡 If you don't see the email, check your spam folder or click "Resend Code" below
+            </Text>
+            
+            {/* Show verification code for testing (remove in production) */}
+            {__DEV__ && (
+              <View style={styles.testCodeContainer}>
+                <Text style={[styles.testCodeLabel, { color: colors.textSecondary }]}>
+                  🧪 TEST MODE - Verification Code:
+                </Text>
+                <Text style={[styles.testCode, { color: colors.primary }]}>
+                  {user.verificationCode || 'No code available'}
+                </Text>
+                <Text style={[styles.testCodeNote, { color: colors.textSecondary }]}>
+                  (This is only visible in development mode)
+                </Text>
+                <TouchableOpacity
+                  style={[styles.showCodeButton, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    if (user.verificationCode) {
+                      Alert.alert('Verification Code', `Your code is: ${user.verificationCode}`);
+                    } else {
+                      Alert.alert('No Code', 'Verification code not available. Try resending.');
+                    }
+                  }}
+                >
+                  <Text style={[styles.showCodeButtonText, { color: colors.textInverse }]}>
+                    Show Code
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Code Input */}
             <View style={styles.codeInputContainer}>
@@ -357,6 +396,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 20,
     textAlign: 'center',
+  },
+  helpText: {
+    fontSize: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    opacity: 0.8,
+  },
+  testCodeContainer: {
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    borderColor: 'rgba(0, 122, 255, 0.3)',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  testCodeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  testCode: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 8,
+    fontFamily: 'monospace',
+    marginBottom: 8,
+  },
+  testCodeNote: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    opacity: 0.7,
+  },
+  showCodeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  showCodeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   codeInputContainer: {
     flexDirection: 'row',

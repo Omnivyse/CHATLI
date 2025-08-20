@@ -233,7 +233,8 @@ router.post('/register', [
           followers: user.followers,
           following: user.following,
           posts: user.posts,
-          createdAt: user.createdAt
+          createdAt: user.createdAt,
+          verificationCode: process.env.NODE_ENV === 'development' ? user.verificationCode : undefined
         },
         token,
         refreshToken,
@@ -1138,7 +1139,10 @@ router.post('/resend-verification', [
 
     res.json({
       success: true,
-      message: 'Баталгаажуулах имэйл дахин илгээгдлээ'
+      message: 'Баталгаажуулах имэйл дахин илгээгдлээ',
+      data: {
+        verificationCode: process.env.NODE_ENV === 'development' ? verificationCode : undefined
+      }
     });
   } catch (error) {
     console.error('Resend verification error:', error);

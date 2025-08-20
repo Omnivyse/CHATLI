@@ -89,9 +89,9 @@ const LoginScreen = ({ onLogin }) => {
       return;
     }
 
-    // Validate password length (server requires 12+ characters)
-    if (password.length < 12) {
-      setError('Password must be at least 12 characters long');
+    // Validate password length (server requires 10+ characters)
+    if (password.length < 10) {
+      setError('Password must be at least 10 characters long');
       return;
     }
 
@@ -191,12 +191,12 @@ const LoginScreen = ({ onLogin }) => {
       } else if (error.message.includes('Оролтын алдаа') || error.message.includes('Input Error') || error.message.includes('Validation failed')) {
         // Handle input validation errors specifically
         if (mode === 'register') {
-          // Check if it's a password validation error
-          if (error.message.includes('password') || error.message.includes('Invalid value') || error.message.includes('Validation failed: password')) {
-            setError('Password must be 12+ characters with: uppercase letters, lowercase letters, numbers, and special characters (!@#$%^&*()_+-=[]{}|;:,.<>?)');
-          } else {
-            setError('Registration failed: Please check your input data. Make sure:\n• Name is at least 2 characters\n• Username is 3-20 characters (letters, numbers, _ only)\n• Email is valid\n• Password is at least 12 characters with uppercase, lowercase, numbers, and special characters');
-          }
+                     // Check if it's a password validation error
+           if (error.message.includes('password') || error.message.includes('Invalid value') || error.message.includes('Validation failed: password')) {
+             setError('Password must be 10+ characters with: uppercase letters, lowercase letters, numbers, and special characters (!@#$%^&*()_+-=[]{}|;:,.<>?)');
+           } else {
+             setError('Registration failed: Please check your input data. Make sure:\n• Name is at least 2 characters\n• Username is 3-20 characters (letters, numbers, _ only)\n• Email is valid\n• Password is at least 10 characters with uppercase, lowercase, numbers, and special characters');
+           }
         } else {
           setError('Email or password is incorrect');
         }
@@ -228,7 +228,7 @@ const LoginScreen = ({ onLogin }) => {
       nameValid: name && name.trim().length >= 2,
       usernameValid: username && username.trim().length >= 3 && /^[a-zA-Z0-9_]+$/.test(username),
       emailValid: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-      passwordValid: password && password.length >= 12 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+      passwordValid: password && password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
     });
   };
 
@@ -402,9 +402,9 @@ const LoginScreen = ({ onLogin }) => {
                  </TouchableOpacity>
                  {mode === 'register' && (
                    <>
-                     <Text style={styles.passwordHint}>
-                       Password must be 12+ characters with: uppercase, lowercase, numbers, and special characters
-                     </Text>
+                                           <Text style={styles.passwordHint}>
+                        Password must be 10+ characters with: uppercase, lowercase, numbers, and special characters
+                      </Text>
                      <Text style={styles.passwordWarning}>
                        ✅ Special characters like @#$%^&*+= are now allowed for security!
                      </Text>
