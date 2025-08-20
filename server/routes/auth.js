@@ -202,6 +202,11 @@ router.post('/register', [
       password
     });
 
+    // Generate verification code
+    const verificationCode = Math.floor(10000 + Math.random() * 90000).toString();
+    user.verificationCode = verificationCode;
+    user.verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
     await user.save();
 
     // Generate secure tokens
@@ -209,7 +214,7 @@ router.post('/register', [
     const refreshToken = generateRefreshTokenForUser(user._id, req);
 
     // Send verification email
-    const emailResult = await emailService.sendVerificationEmail(user.email, user.verificationCode);
+    const emailResult = await emailService.sendVerificationEmail(user.email, user.username, user.verificationCode);
 
     res.status(201).json({
       success: true,

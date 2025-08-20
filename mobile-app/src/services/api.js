@@ -1,12 +1,33 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL, DEV_API_URL } from '@env';
+
+// Fallback API URLs if environment variables are not loaded
+const FALLBACK_API_URL = 'https://chatli-production.up.railway.app/api';
+const FALLBACK_DEV_API_URL = 'http://localhost:5000/api';
+
+// Try to import environment variables, fallback to hardcoded values
+let API_BASE_URL, DEV_API_URL;
+
+try {
+  const env = require('@env');
+  API_BASE_URL = env.API_BASE_URL;
+  DEV_API_URL = env.DEV_API_URL;
+} catch (error) {
+  console.log('⚠️ Environment variables not loaded, using fallback URLs');
+  API_BASE_URL = FALLBACK_API_URL;
+  DEV_API_URL = FALLBACK_DEV_API_URL;
+}
 
 // Use environment variable or fallback to production URL
 const getApiUrl = () => {
-  if (__DEV__ && DEV_API_URL) {
+  // In development, prefer DEV_API_URL if available, otherwise use API_BASE_URL
+  if (__DEV__ && DEV_API_URL && DEV_API_URL !== 'http://localhost:5000/api') {
+    console.log('🔧 Development mode: Using DEV_API_URL:', DEV_API_URL);
     return DEV_API_URL;
   }
-  return API_BASE_URL || 'https://chatli-production.up.railway.app/api';
+  
+  // In production or if no dev URL, use API_BASE_URL
+  console.log('🚀 Production mode: Using API_BASE_URL:', API_BASE_URL);
+  return API_BASE_URL || FALLBACK_API_URL;
 };
 
 const API_URL = getApiUrl();
@@ -276,14 +297,28 @@ class ApiService {
       config.body = JSON.stringify(options.body);
     }
 
+    console.log('🌐 Making request:', {
+      url,
+      method: config.method,
+      headers: config.headers,
+      body: config.body ? 'Present' : 'None'
+    });
+
     for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
         if (__DEV__) {
-          console.log(`Making request to: ${url} (attempt ${attempt + 1})`);
+          console.log(`🌐 Making request to: ${url} (attempt ${attempt + 1})`);
         }
 
         const response = await fetch(url, config);
+        console.log('🌐 Response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        
         const data = await response.json();
+        console.log('🌐 Response data:', data);
 
         if (!response.ok) {
           // Handle token expiration immediately - don't retry
@@ -365,10 +400,14 @@ class ApiService {
   }
 
   async register(name, username, email, password) {
+    console.log('📡 API Service: register called with:', { name, username, email, passwordLength: password?.length });
+    
     const response = await this.request('/auth/register', {
       method: 'POST',
       body: { name, username, email, password }
     });
+
+    console.log('📡 API Service: register response:', response);
 
     if (response.success && response.data.token) {
       await this.storeTokens(response.data.token, response.data.refreshToken);

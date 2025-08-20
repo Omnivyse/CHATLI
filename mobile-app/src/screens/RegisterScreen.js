@@ -28,6 +28,55 @@ const RegisterScreen = ({ navigation, onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // Password strength indicator
+  const getPasswordStrength = (password) => {
+    if (!password) return { strength: 0, color: '#e5e5e5', text: '' };
+    
+    let score = 0;
+    if (password.length >= 12) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++;
+    
+    const strengths = [
+      { strength: 0, color: '#ef4444', text: 'Very Weak' },
+      { strength: 1, color: '#f97316', text: 'Weak' },
+      { strength: 2, color: '#eab308', text: 'Fair' },
+      { strength: 3, color: '#84cc16', text: 'Good' },
+      { strength: 4, color: '#22c55e', text: 'Strong' },
+      { strength: 5, color: '#16a34a', text: 'Very Strong' }
+    ];
+    
+    return strengths[Math.min(score, 5)];
+  };
+
+  const passwordStrength = getPasswordStrength(formData.password);
+
+  // Test network connectivity
+  const testNetworkConnectivity = async () => {
+    try {
+      console.log('🌐 Testing network connectivity...');
+      const response = await fetch('https://chatli-production.up.railway.app/api/health');
+      const data = await response.json();
+      console.log('✅ Network test successful:', data);
+      Toast.show({
+        type: 'success',
+        text1: 'Network Connection OK',
+        text2: 'You are connected to the internet.',
+      });
+      return true;
+    } catch (error) {
+      console.error('❌ Network test failed:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Network Connection Failed',
+        text2: 'Please check your internet connection.',
+      });
+      return false;
+    }
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -47,10 +96,16 @@ const RegisterScreen = ({ navigation, onLogin }) => {
 
     if (!formData.name.trim()) {
       newErrors.name = 'Please enter your name';
+    } else if (formData.name.trim().length < 2 || formData.name.trim().length > 50) {
+      newErrors.name = 'Name must be between 2 and 50 characters';
     }
 
     if (!formData.username.trim()) {
       newErrors.username = 'Please enter username';
+    } else if (formData.username.trim().length < 3 || formData.username.trim().length > 20) {
+      newErrors.username = 'Username must be between 3 and 20 characters';
+    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
     if (!formData.email.trim()) {
@@ -61,8 +116,10 @@ const RegisterScreen = ({ navigation, onLogin }) => {
 
     if (!formData.password) {
       newErrors.password = 'Please enter password';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 12) {
+      newErrors.password = 'Password must be at least 12 characters';
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/.test(formData.password)) {
+      newErrors.password = 'Password must contain uppercase, lowercase, number, and special character';
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -75,17 +132,37 @@ const RegisterScreen = ({ navigation, onLogin }) => {
 
   const handleRegister = async () => {
     if (!validateForm()) {
+      console.log('❌ Form validation failed:', errors);
       return;
     }
 
     setLoading(true);
+    
+    // Debug logging
+    console.log('🔐 Attempting registration with:', {
+      name: formData.name,
+      username: formData.username,
+      email: formData.email,
+      passwordLength: formData.password.length
+    });
+    
     try {
-      const response = await apiService.register({
-        name: formData.name,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-      });
+      // Test network connectivity first
+      console.log('🌐 Testing network connectivity...');
+      const isConnected = await testNetworkConnectivity();
+      if (!isConnected) {
+        throw new Error('Network connectivity test failed. Please check your internet connection.');
+      }
+      
+      console.log('📡 Calling API service...');
+      const response = await apiService.register(
+        formData.name,
+        formData.username,
+        formData.email,
+        formData.password
+      );
+      
+      console.log('📧 Registration response:', response);
       
       if (response.success) {
         Toast.show({
@@ -109,18 +186,54 @@ const RegisterScreen = ({ navigation, onLogin }) => {
           });
         }
       } else {
+        // Handle backend validation errors
+        let errorMessage = response.message || 'Registration failed';
+        
+        // Check for specific validation errors from backend
+        if (response.errors && Array.isArray(response.errors)) {
+          const fieldErrors = {};
+          response.errors.forEach(error => {
+            if (error.path) {
+              fieldErrors[error.path] = error.msg;
+            }
+          });
+          
+          // Update form errors with backend validation errors
+          setErrors(prev => ({ ...prev, ...fieldErrors }));
+          
+          // Show first error message
+          if (response.errors.length > 0) {
+            errorMessage = response.errors[0].msg;
+          }
+        }
+        
         Toast.show({
           type: 'error',
           text1: 'Registration error',
-          text2: response.message || 'Registration failed',
+          text2: errorMessage,
         });
       }
     } catch (error) {
       console.error('Register error:', error);
+      
+      // Handle network or server errors
+      let errorMessage = 'Server error occurred';
+      if (error.message) {
+        if (error.message.includes('Network request failed')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('fetch')) {
+          errorMessage = 'Connection error. Please check your internet connection.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timeout. Please try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: error.message || 'Server error occurred',
+        text1: 'Connection Error',
+        text2: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -174,6 +287,9 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                 />
               </View>
               {errors.username && typeof errors.username === 'string' ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+              <Text style={styles.helperText}>
+                Username must be 3-20 characters, letters, numbers, and underscores only
+              </Text>
             </View>
 
             <View style={styles.inputContainer}>
@@ -220,6 +336,27 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                 </TouchableOpacity>
               </View>
               {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+              <Text style={styles.helperText}>
+                Must be at least 12 characters with uppercase, lowercase, number, and special character
+              </Text>
+              {formData.password.length > 0 && (
+                <View style={styles.strengthContainer}>
+                  <View style={styles.strengthBar}>
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <View
+                        key={level}
+                        style={[
+                          styles.strengthSegment,
+                          { backgroundColor: level <= passwordStrength.strength ? passwordStrength.color : '#e5e5e5' }
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <Text style={[styles.strengthText, { color: passwordStrength.color }]}>
+                    {passwordStrength.text}
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
@@ -239,6 +376,14 @@ const RegisterScreen = ({ navigation, onLogin }) => {
               </View>
               {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
             </View>
+
+            <TouchableOpacity
+              style={[styles.testButton]}
+              onPress={testNetworkConnectivity}
+              disabled={loading}
+            >
+              <Text style={styles.testButtonText}>Test Connection</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.registerButton, loading && styles.buttonDisabled]}
@@ -333,6 +478,11 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     marginTop: 4,
   },
+  helperText: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 4,
+  },
   registerButton: {
     backgroundColor: '#000000',
     borderRadius: 12,
@@ -361,6 +511,41 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 14,
     color: '#000000',
+    fontWeight: '600',
+  },
+  strengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  strengthBar: {
+    flexDirection: 'row',
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#e5e5e5',
+    marginRight: 8,
+  },
+  strengthSegment: {
+    width: '20%',
+    height: '100%',
+    borderRadius: 4,
+  },
+  strengthText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  testButton: {
+    backgroundColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 24,
+  },
+  testButtonText: {
+    color: '#000000',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
