@@ -50,7 +50,12 @@ const postSchema = new mongoose.Schema({
   passwordVerifiedUsers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }]
+  }],
+  // Hidden post field
+  isHidden: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true
 });

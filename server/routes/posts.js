@@ -37,19 +37,32 @@ router.post('/', auth, [
       hasPassword: !!secretPassword
     });
     
-    // Validate secret post requirements
-    if (isSecret && !secretPassword) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Secret post requires a 4-digit password' 
-      });
-    }
-    
-    if (isSecret && !/^\d{4}$/.test(secretPassword)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Password must be exactly 4 digits' 
-      });
+    // Check if user has private account and trying to create secret post
+    if (isSecret) {
+      // Get user's privacy settings
+      const userPrivacySettings = await PrivacySettings.findOne({ userId: req.user._id });
+      
+      if (userPrivacySettings && userPrivacySettings.isPrivateAccount) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Private accounts cannot create secret posts. Only public accounts can create secret posts.' 
+        });
+      }
+      
+      // Validate secret post requirements
+      if (!secretPassword) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Secret post requires a 4-digit password' 
+        });
+      }
+      
+      if (!/^\d{4}$/.test(secretPassword)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Password must be exactly 4 digits' 
+        });
+      }
     }
     
     const post = new Post({
@@ -178,6 +191,15 @@ router.get('/', auth, async (req, res) => {
         return true; // Show the post but with hidden content/media based on showDescription
       }
       
+      // Check if post is hidden by author
+      if (post.isHidden) {
+        // Only show hidden posts to the author themselves
+        if (String(author._id) === String(req.user._id)) {
+          return true;
+        }
+        return false;
+      }
+      
       // Check privacy settings for the author
       const authorPrivacy = privacyMap.get(author._id.toString());
       if (authorPrivacy && authorPrivacy.isPrivateAccount) {
@@ -264,9 +286,18 @@ router.get('/top-weekly', auth, async (req, res) => {
     const currentUser = await User.findById(req.user._id).select('following');
     const followingIds = currentUser ? currentUser.following.map(id => id.toString()) : [];
     
-    // Filter out posts from private users
+    // Filter out posts from private users and hidden posts
     posts = posts.filter(post => {
       const author = post.author;
+      
+      // Check if post is hidden by author
+      if (post.isHidden) {
+        // Only show hidden posts to the author themselves
+        if (String(author._id) === String(req.user._id)) {
+          return true;
+        }
+        return false;
+      }
       
       // Check privacy settings for the author
       const authorPrivacy = privacyMap.get(author._id.toString());
@@ -708,10 +739,15 @@ router.get('/user/:userId', auth, async (req, res) => {
       }
     }
     
-    const posts = await Post.find({ author: req.params.userId })
+    let posts = await Post.find({ author: req.params.userId })
       .sort({ createdAt: -1 })
       .populate('author', 'name avatar isVerified')
       .populate('comments.author', 'name avatar isVerified');
+    
+    // Filter out hidden posts for non-authors
+    if (String(user._id) !== String(req.user._id)) {
+      posts = posts.filter(post => !post.isHidden);
+    }
     
     res.json({ success: true, data: { posts } });
   } catch (error) {
@@ -783,6 +819,38 @@ router.put('/:id', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Edit post error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
+// Hide/Unhide a post (owner only)
+router.patch('/:id/hide', auth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Пост олдсонгүй' });
+    }
+    
+    if (String(post.author) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Та зөвшөөрөлгүй байна' });
+    }
+    
+    const { isHidden } = req.body;
+    
+    if (typeof isHidden !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'isHidden field must be a boolean' });
+    }
+    
+    post.isHidden = isHidden;
+    await post.save();
+    
+    res.json({ 
+      success: true, 
+      message: isHidden ? 'Пост амжилттай нуулаа' : 'Пост амжилттай харагдана',
+      data: { post }
+    });
+  } catch (error) {
+    console.error('Hide post error:', error);
     res.status(500).json({ success: false, message: 'Серверийн алдаа' });
   }
 });

@@ -797,6 +797,13 @@ class ApiService {
     });
   }
 
+  async hidePost(postId, isHidden) {
+    return this.request(`/posts/${postId}/hide`, {
+      method: 'PATCH',
+      body: { isHidden },
+    });
+  }
+
   // Notification endpoints
   async getNotifications() {
     return this.request('/notifications');

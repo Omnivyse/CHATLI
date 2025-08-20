@@ -44,6 +44,8 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [testCounter, setTestCounter] = useState(0);
+  const [privacySettings, setPrivacySettings] = useState(null);
+  const [loadingPrivacySettings, setLoadingPrivacySettings] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -74,6 +76,43 @@ const CreatePostScreen = ({ navigation, user }) => {
   useEffect(() => {
     console.log('testCounter state changed to:', testCounter);
   }, [testCounter]);
+
+  // Load user's privacy settings
+  useEffect(() => {
+    const loadPrivacySettings = async () => {
+      try {
+        setLoadingPrivacySettings(true);
+        const response = await api.getPrivacySettings();
+        if (response.success && response.data) {
+          setPrivacySettings(response.data);
+          
+          // If user has private account and is trying to create secret post, reset it
+          if (response.data.isPrivateAccount && isSecretPost) {
+            setIsSecretPost(false);
+            setSecretPassword('');
+            setShowPasswordInput(false);
+            setShowDescription(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading privacy settings:', error);
+      } finally {
+        setLoadingPrivacySettings(false);
+      }
+    };
+
+    loadPrivacySettings();
+  }, []);
+
+  // Monitor privacy settings changes and reset secret post if needed
+  useEffect(() => {
+    if (privacySettings?.isPrivateAccount && isSecretPost) {
+      setIsSecretPost(false);
+      setSecretPassword('');
+      setShowPasswordInput(false);
+      setShowDescription(false);
+    }
+  }, [privacySettings?.isPrivateAccount, isSecretPost]);
 
   const handleSelectMedia = async () => {
     try {
@@ -195,6 +234,22 @@ const CreatePostScreen = ({ navigation, user }) => {
   const handleCreatePost = async () => {
     if (!content.trim() && selectedMedia.length === 0) {
       Alert.alert('Error', 'Please add some content or media to your post.');
+      return;
+    }
+
+    // Check if user is trying to create a secret post with private account
+    if (isSecretPost && privacySettings?.isPrivateAccount) {
+      Alert.alert(
+        getTranslation('privateAccountRestriction', language),
+        getTranslation('privateAccountRestrictionMessage', language) + ' Please change your account to public in Privacy Settings to use this feature.',
+        [
+          { text: getTranslation('cancel', language), style: 'cancel' },
+          { 
+            text: 'Go to Privacy Settings', 
+            onPress: () => navigation.navigate('Settings')
+          }
+        ]
+      );
       return;
     }
 
@@ -324,15 +379,18 @@ const CreatePostScreen = ({ navigation, user }) => {
           style={[
             styles.postButton,
             { backgroundColor: colors.primary },
-            (!content.trim() && selectedMedia.length === 0) && styles.postButtonDisabled
+            (!content.trim() && selectedMedia.length === 0) && styles.postButtonDisabled,
+            (isSecretPost && privacySettings?.isPrivateAccount) && styles.postButtonDisabled
           ]}
           onPress={handleCreatePost}
-          disabled={loading || (!content.trim() && selectedMedia.length === 0)}
+          disabled={loading || (!content.trim() && selectedMedia.length === 0) || (isSecretPost && privacySettings?.isPrivateAccount)}
         >
           {loading ? (
             <ActivityIndicator size="small" color={colors.textInverse} />
+          ) : (isSecretPost && privacySettings?.isPrivateAccount) ? (
+            <Text style={[styles.postButtonText, { color: colors.textInverse }]}>{getTranslation('privateAccount', language)}</Text>
           ) : (
-            <Text style={[styles.postButtonText, { color: colors.textInverse }]}>Publish</Text>
+            <Text style={[styles.postButtonText, { color: colors.textInverse }]}>{getTranslation('publish', language)}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -397,21 +455,101 @@ const CreatePostScreen = ({ navigation, user }) => {
               </View>
             </View>
 
-            {/* Secret Post Toggle */}
+                        {/* Secret Post Toggle */}
             <View style={[styles.secretPostSection, { backgroundColor: colors.surfaceVariant }]}>
+              {loadingPrivacySettings && (
+                <View style={styles.privacySettingsLoading}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.privacySettingsLoadingText, { color: colors.textSecondary }]}>
+                    {getTranslation('loading', language)}...
+                  </Text>
+                </View>
+              )}
+              
+              {/* Disabled overlay for private accounts */}
+              {privacySettings?.isPrivateAccount && !loadingPrivacySettings && (
+                <View style={[styles.secretPostDisabledOverlay, { backgroundColor: colors.surfaceVariant }]}>
+                  <Ionicons name="lock-closed" size={24} color={colors.error} />
+                  <Text style={[styles.secretPostDisabledText, { color: colors.error }]}>
+                    {getTranslation('privateAccountRestriction', language)}
+                  </Text>
+                  <Text style={[styles.secretPostDisabledSubtext, { color: colors.textSecondary }]}>
+                    {getTranslation('privateAccountRestrictionMessage', language)}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.goToPrivacySettingsButton, { backgroundColor: colors.primary }]}
+                    onPress={() => navigation.navigate('Settings')}
+                  >
+                    <Text style={[styles.goToPrivacySettingsButtonText, { color: colors.textInverse }]}>
+                      {getTranslation('goToPrivacySettings', language)}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              {/* Info icon for private account restriction */}
+              {privacySettings?.isPrivateAccount && !loadingPrivacySettings && (
+                <TouchableOpacity
+                  style={styles.infoIcon}
+                  onPress={() => {
+                    Alert.alert(
+                      getTranslation('privateAccountRestriction', language),
+                      getTranslation('privateAccountRestrictionMessage', language) + '\n\n' + getTranslation('secretPostHelpText', language),
+                      [
+                        { text: getTranslation('cancel', language), style: 'cancel' },
+                        { 
+                          text: getTranslation('goToPrivacySettings', language), 
+                          onPress: () => navigation.navigate('Settings')
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="information-circle" size={20} color={colors.info} />
+                </TouchableOpacity>
+              )}
+              
               <TouchableOpacity
-                style={styles.secretPostToggle}
-                onPress={() => {
-                  setIsSecretPost(!isSecretPost);
-                  if (!isSecretPost) {
-                    setShowPasswordInput(true);
-                  } else {
-                    setSecretPassword('');
-                    setShowPasswordInput(false);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
+                  style={[
+                    styles.secretPostToggle,
+                    privacySettings?.isPrivateAccount && { opacity: 0.5 }
+                  ]}
+                  onPress={() => {
+                    // Check if user has private account
+                    if (privacySettings?.isPrivateAccount) {
+                      Alert.alert(
+                        getTranslation('privateAccountRestriction', language),
+                        getTranslation('privateAccountRestrictionMessage', language) + ' Please change your account to public in Privacy Settings to use this feature.',
+                        [
+                          { text: getTranslation('cancel', language), style: 'cancel' },
+                          { 
+                            text: 'Go to Privacy Settings', 
+                            onPress: () => navigation.navigate('Settings')
+                          }
+                        ]
+                      );
+                      return;
+                    }
+
+                    setIsSecretPost(!isSecretPost);
+                    if (!isSecretPost) {
+                      setShowPasswordInput(true);
+                    } else {
+                      setSecretPassword('');
+                      setShowPasswordInput(false);
+                    }
+                  }}
+                  activeOpacity={privacySettings?.isPrivateAccount ? 1 : 0.7}
+                  disabled={privacySettings?.isPrivateAccount}
+                >
+                  {privacySettings?.isPrivateAccount && (
+                    <View style={[styles.privateAccountOverlay, { backgroundColor: colors.surfaceVariant }]}>
+                      <Ionicons name="lock-closed" size={16} color={colors.error} />
+                      <Text style={[styles.privateAccountOverlayText, { color: colors.error }]}>
+                        {getTranslation('privateProfile', language)}
+                      </Text>
+                    </View>
+                  )}
                 <View style={styles.secretPostToggleContent}>
                   <View style={[styles.secretPostIconContainer, { backgroundColor: colors.surface }]}>
                     <Ionicons 
@@ -427,11 +565,19 @@ const CreatePostScreen = ({ navigation, user }) => {
                     <Text style={[styles.secretPostSubtext, { color: colors.textSecondary }]}>
                       {isSecretPost ? 'Password protected' : 'Public post'}
                     </Text>
+                    {privacySettings?.isPrivateAccount && (
+                      <Text style={[styles.secretPostRestrictionText, { color: colors.error }]}>
+                        {getTranslation('notAvailableForPrivateAccounts', language)}
+                      </Text>
+                    )}
                   </View>
                 </View>
                 <View style={[
                   styles.toggleSwitch,
-                  { backgroundColor: isSecretPost ? colors.primary : colors.border }
+                  { 
+                    backgroundColor: isSecretPost ? colors.primary : colors.border,
+                    opacity: privacySettings?.isPrivateAccount ? 0.5 : 1
+                  }
                 ]}>
                   <View style={[
                     styles.toggleKnob,
@@ -444,8 +590,8 @@ const CreatePostScreen = ({ navigation, user }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Show Description Toggle - Only visible when secret post is enabled */}
-            {isSecretPost && (
+            {/* Show Description Toggle - Only visible when secret post is enabled and user doesn't have private account */}
+            {isSecretPost && !privacySettings?.isPrivateAccount && (
               <View style={[styles.showDescriptionSection, { backgroundColor: colors.surfaceVariant }]}>
                 {/* State indicator */}
                 <View style={styles.stateIndicator}>
@@ -567,7 +713,7 @@ const CreatePostScreen = ({ navigation, user }) => {
             )}
 
             {/* Secret Post Password Input */}
-            {showPasswordInput && isSecretPost && (
+            {showPasswordInput && isSecretPost && !privacySettings?.isPrivateAccount && (
               <View style={[styles.passwordSection, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[styles.passwordLabel, { color: colors.text }]}>
                   Set 4-digit password:
@@ -903,6 +1049,82 @@ const styles = StyleSheet.create({
   },
   secretPostSubtext: {
     fontSize: 12,
+  },
+  secretPostRestrictionText: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  privacySettingsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  privacySettingsLoadingText: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  privateAccountOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    zIndex: 1,
+  },
+  privateAccountOverlayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  secretPostDisabledOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    zIndex: 2,
+    padding: 16,
+  },
+  secretPostDisabledText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  secretPostDisabledSubtext: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  goToPrivacySettingsButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 120,
+  },
+  goToPrivacySettingsButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  infoIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 3,
+    padding: 4,
   },
   toggleSwitch: {
     width: 44,

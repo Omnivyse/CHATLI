@@ -79,6 +79,23 @@ export const translations = {
     passwordMustBe4Digits: 'Нууц үг яг 4 оронтой байх ёстой',
     passwordMustBeDigits: 'Нууц үг зөвхөн тоо агуулсан байх ёстой',
     passwordVerificationFailed: 'Нууц үг шалгахад алдаа гарлаа',
+    privateAccountRestriction: 'Хувийн профайлын хязгаарлалт',
+    privateAccountRestrictionMessage: 'Хувийн профайлтай хэрэглэгчид нууц пост үүсгэх боломжгүй. Зөвхөн нийтэд нээлттэй профайлтай хэрэглэгчид энэ функцийг ашиглах боломжтой.',
+    notAvailableForPrivateAccounts: 'Хувийн профайлд боломжгүй',
+    goToPrivacySettings: 'Нууцлалын тохиргоо руу орох',
+    privateAccount: 'Хувийн профайл',
+    publish: 'Нийтлэх',
+    secretPostHelpText: 'Нууц постыг ашиглахын тулд профайлаа нийтэд нээлттэй болгоно уу.',
+    
+    // Hide Post
+    hidePost: 'Пост нуух',
+    showPost: 'Пост харуух',
+    hidePostConfirm: 'Энэ постыг нуухдаа итгэлтэй байна уу? Нуусан постууд зөвхөн танд харагдана.',
+    showPostConfirm: 'Энэ постыг харуухдаа итгэлтэй байна уу? Энэ нь бусад хэрэглэгчдэд дахин харагдах болно.',
+    postHidden: 'Пост нуулагдлаа',
+    postShown: 'Пост харагдана',
+    hiddenPost: 'Нуусан Пост',
+    hiddenPostMessage: 'Энэ пост нуулагдсан бөгөөд зөвхөн танд харагдана.',
 
     // Events
     event: 'Event',
@@ -536,6 +553,23 @@ export const translations = {
     noUpdateAvailable: 'No update available',
     checkingForUpdates: 'Checking for updates...',
     deleteChatConfirm: 'Are you sure you want to delete this chat?',
+    privateAccountRestriction: 'Private Account Restriction',
+    privateAccountRestrictionMessage: 'Private accounts cannot create secret posts. Only public accounts can create secret posts.',
+    notAvailableForPrivateAccounts: 'Not available for private accounts',
+    goToPrivacySettings: 'Go to Privacy Settings',
+    privateAccount: 'Private Account',
+    publish: 'Publish',
+    secretPostHelpText: 'To use secret posts, please change your account to public.',
+    
+    // Hide Post
+    hidePost: 'Hide Post',
+    showPost: 'Show Post',
+    hidePostConfirm: 'Are you sure you want to hide this post? Hidden posts will only be visible to you.',
+    showPostConfirm: 'Are you sure you want to show this post? It will be visible to other users again.',
+    postHidden: 'Post hidden',
+    postShown: 'Post shown',
+    hiddenPost: 'Hidden Post',
+    hiddenPostMessage: 'This post is hidden and only visible to you.',
   }
 };
 

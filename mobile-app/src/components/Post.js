@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../utils/translations';
@@ -52,6 +53,7 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
   const [profileImageViewerVisible, setProfileImageViewerVisible] = useState(false);
   const [secretPasswordModalVisible, setSecretPasswordModalVisible] = useState(false);
   const [isSecretPostUnlocked, setIsSecretPostUnlocked] = useState(false);
+  const [showPostMenu, setShowPostMenu] = useState(false);
   
   // Video state management
   const [videoPlaying, setVideoPlaying] = useState({});
@@ -271,6 +273,40 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
         },
       ]
     );
+  };
+
+  const handleHidePost = async () => {
+    try {
+      const isCurrentlyHidden = localPost.isHidden;
+      const newHiddenState = !isCurrentlyHidden;
+      
+      const response = await apiService.hidePost(post._id, newHiddenState);
+      if (response.success) {
+        setLocalPost(prevPost => ({
+          ...prevPost,
+          isHidden: newHiddenState
+        }));
+        onPostUpdate();
+        
+        // Show success message
+        Toast.show({
+          type: 'success',
+          text1: newHiddenState ? getTranslation('postHidden', language) : getTranslation('postShown', language),
+          text2: newHiddenState ? getTranslation('hiddenPostMessage', language) : '',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('Hide post error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'Failed to update post visibility',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    }
   };
 
   const handleSecretPostPassword = async (password) => {
@@ -695,11 +731,24 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
         </TouchableOpacity>
         
         {isOwner && (
-          <TouchableOpacity style={styles.moreButton} onPress={handleDeletePost}>
+          <TouchableOpacity style={styles.moreButton} onPress={() => setShowPostMenu(true)}>
             <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Hidden Post Banner */}
+      {localPost.isHidden && (
+        <View style={[styles.hiddenPostBanner, { backgroundColor: colors.surfaceVariant }]}>
+          <Ionicons name="eye-off" size={16} color={colors.textSecondary} />
+          <Text style={[styles.hiddenPostBannerText, { color: colors.textSecondary }]}>
+            {getTranslation('hiddenPost', language)}
+          </Text>
+          <Text style={[styles.hiddenPostBannerSubtext, { color: colors.textSecondary }]}>
+            {getTranslation('hiddenPostMessage', language)}
+          </Text>
+        </View>
+      )}
 
       {/* Post Content */}
       {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
@@ -970,6 +1019,52 @@ const Post = ({ post, user, onPostUpdate, navigation, isTopPost, isHighlighted }
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* Post Menu Modal */}
+      <Modal
+        visible={showPostMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPostMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.postMenuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPostMenu(false)}
+        >
+          <View style={[styles.postMenuContainer, { backgroundColor: colors.surface }]}>
+            <TouchableOpacity
+              style={styles.postMenuItem}
+              onPress={() => {
+                setShowPostMenu(false);
+                handleHidePost();
+              }}
+            >
+              <Ionicons 
+                name={localPost.isHidden ? "eye" : "eye-off"} 
+                size={20} 
+                color={colors.text} 
+              />
+              <Text style={[styles.postMenuItemText, { color: colors.text }]}>
+                {localPost.isHidden ? getTranslation('showPost', language) : getTranslation('hidePost', language)}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.postMenuItem}
+              onPress={() => {
+                setShowPostMenu(false);
+                handleDeletePost();
+              }}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+              <Text style={[styles.postMenuItemText, { color: colors.error }]}>
+                {getTranslation('delete', language)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -1403,6 +1498,58 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1,
+  },
+  
+  // Hidden Post Banner Styles
+  hiddenPostBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  hiddenPostBannerText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  hiddenPostBannerSubtext: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginLeft: 'auto',
+  },
+  
+  // Post Menu Styles
+  postMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  postMenuContainer: {
+    borderRadius: 12,
+    padding: 8,
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  postMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  postMenuItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 12,
   },
 });
 
