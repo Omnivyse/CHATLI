@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getThemeColors } from '../utils/themeUtils';
 import { getTranslation } from '../utils/translations';
+import api from '../services/api';
 
 const EditProfileScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
@@ -20,11 +21,33 @@ const EditProfileScreen = ({ navigation, user }) => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Placeholder upload function
-  const uploadImage = async (uri) => {
-    // TODO: Replace with real upload logic (e.g., Cloudinary or your backend)
-    // For now, just return the local URI
-    return uri;
+  // Real upload function using API service
+  const uploadImage = async (uri, type) => {
+    try {
+      const file = {
+        uri: uri,
+        type: 'image/jpeg',
+        name: `${type}_${Date.now()}.jpg`,
+      };
+
+      let response;
+      if (type === 'avatar') {
+        response = await api.uploadAvatar(file);
+      } else if (type === 'cover') {
+        response = await api.uploadCoverImage(file);
+      } else {
+        response = await api.uploadSingleFile(file);
+      }
+
+      if (response.success) {
+        return response.data.url;
+      } else {
+        throw new Error(response.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
   };
 
   // Image picker logic
@@ -39,6 +62,7 @@ const EditProfileScreen = ({ navigation, user }) => {
         );
         return;
       }
+      
       // Pick image
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -46,16 +70,26 @@ const EditProfileScreen = ({ navigation, user }) => {
         aspect: type === 'cover' ? [3, 1] : [1, 1],
         quality: 0.8,
       });
+      
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setUploading(true);
-        const localUri = result.assets[0].uri;
-        const uploadedUrl = await uploadImage(localUri);
-        if (type === 'avatar') {
-          setAvatar(uploadedUrl);
-        } else {
-          setCoverImage(uploadedUrl);
+        try {
+          const localUri = result.assets[0].uri;
+          const uploadedUrl = await uploadImage(localUri, type);
+          
+          if (type === 'avatar') {
+            setAvatar(uploadedUrl);
+          } else {
+            setCoverImage(uploadedUrl);
+          }
+        } catch (uploadError) {
+          Alert.alert(
+            getTranslation('error', language),
+            'Failed to upload image. Please try again.'
+          );
+        } finally {
+          setUploading(false);
         }
-        setUploading(false);
       }
     } catch (err) {
       setUploading(false);
@@ -66,14 +100,45 @@ const EditProfileScreen = ({ navigation, user }) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Name is required');
+      return;
+    }
+
     setSaving(true);
-    // TODO: Implement save logic (API call)
-    setTimeout(() => {
+    try {
+      // Prepare profile data (username cannot be updated on the server)
+      const profileData = {
+        name: name.trim(),
+        bio: bio.trim(),
+        avatar: avatar,
+        coverImage: coverImage,
+      };
+
+      // Call API to update profile
+      const response = await api.updateProfile(profileData);
+      
+      if (response.success) {
+        Alert.alert(
+          'Success', 
+          getTranslation('profileUpdateSuccess', language),
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', response.message || 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
       setSaving(false);
-      Alert.alert('Success', getTranslation('profileUpdateSuccess', language));
-      navigation.goBack();
-    }, 1200);
+    }
   };
 
   return (
@@ -129,13 +194,17 @@ const EditProfileScreen = ({ navigation, user }) => {
           />
           <Text style={[styles.label, { color: colors.text }]}>{getTranslation('username', language)}</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
+            style={[styles.input, { backgroundColor: colors.surfaceVariant, color: colors.textSecondary, borderColor: colors.border }]}
             value={username}
             onChangeText={setUsername}
             placeholder="@username"
             autoCapitalize="none"
             placeholderTextColor={colors.placeholder}
+            editable={false}
           />
+          <Text style={[styles.disabledFieldNote, { color: colors.textTertiary }]}>
+            Username cannot be changed
+          </Text>
           <Text style={[styles.label, { color: colors.text }]}>{getTranslation('bio', language)}</Text>
           <TextInput
             style={[styles.input, styles.bioInput, { backgroundColor: colors.surfaceVariant, color: colors.text, borderColor: colors.border }]}
@@ -257,6 +326,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   saveButtonText: { fontSize: 16, fontWeight: 'bold' },
+  disabledFieldNote: {
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
 });
 
 export default EditProfileScreen; 

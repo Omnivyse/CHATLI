@@ -593,13 +593,6 @@ const CreatePostScreen = ({ navigation, user }) => {
             {/* Show Description Toggle - Only visible when secret post is enabled and user doesn't have private account */}
             {isSecretPost && !privacySettings?.isPrivateAccount && (
               <View style={[styles.showDescriptionSection, { backgroundColor: colors.surfaceVariant }]}>
-                {/* State indicator */}
-                <View style={styles.stateIndicator}>
-                  <Text style={[styles.stateIndicatorText, { color: colors.textSecondary }]}>
-                    State: {showDescription ? 'ON' : 'OFF'}
-                  </Text>
-                </View>
-                
                 {isWeb ? (
                   // Web-specific toggle button
                   <View style={styles.webToggleContainer}>
@@ -1240,21 +1233,6 @@ const styles = StyleSheet.create({
   webToggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  stateIndicator: {
-    position: 'absolute',
-    top: -20, // Adjust as needed to position it above the toggle
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  stateIndicatorText: {
-    fontSize: 12,
   },
 });
 

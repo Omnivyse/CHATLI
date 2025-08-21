@@ -7,6 +7,8 @@ const { uploadImage, uploadVideo } = require('../config/cloudinary');
 
 const router = express.Router();
 
+console.log('📁 Upload routes loading...');
+
 // Ensure upload directory exists
 const ensureUploadDir = async () => {
   const uploadDir = path.join(__dirname, '../uploads/temp');
@@ -193,6 +195,7 @@ router.post('/multiple', auth, (req, res) => {
 
 // Avatar/Profile image upload (smaller size)
 router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
+  console.log('👤 Avatar upload route hit');
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -235,5 +238,54 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
     });
   }
 });
+
+// Cover image upload
+router.post('/cover', auth, upload.single('cover'), async (req, res) => {
+  console.log('🖼️ Cover image upload route hit');
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    if (!req.file.mimetype.startsWith('image/')) {
+      await fs.unlink(req.file.path);
+      return res.status(400).json({ success: false, message: 'Only image files allowed for cover image' });
+    }
+
+    // Upload with cover-specific transformations
+    const uploadResult = await uploadImage(req.file, 'messenger/covers');
+
+    // Clean up temp file
+    await fs.unlink(req.file.path);
+
+    res.json({
+      success: true,
+      data: {
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        type: 'image'
+      }
+    });
+
+  } catch (error) {
+    // Clean up temp file on error
+    if (req.file && req.file.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (unlinkError) {
+        console.error('Error cleaning up temp file:', unlinkError);
+      }
+    }
+    
+    console.error('Cover image upload error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Cover image upload failed' 
+    });
+  }
+});
+
+console.log('✅ Upload routes loaded successfully');
+console.log('📋 Available routes: /single, /multiple, /avatar, /cover');
 
 module.exports = router; 

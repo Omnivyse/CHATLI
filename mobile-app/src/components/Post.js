@@ -99,7 +99,7 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       setVideoDuration({});
       setVideoLoading({});
     }
-  }, [post, user?._id]);
+  }, [post, user]);
 
   // Real-time socket listeners - optimized to prevent excessive re-renders
   useEffect(() => {
@@ -622,7 +622,7 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
                   resizeMode="cover"
                 />
               </TouchableOpacity>
-                         ) : (
+            ) : (
                <View style={[styles.videoContainer, { borderColor: colors.border }]}>
                  <Video
                    ref={videoRef}
@@ -680,12 +680,12 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
     }, isHighlighted && {
       borderWidth: 3,
       borderColor: colors.primary,
-      shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
       elevation: 8,
     }]}>
+      
       {/* Highlight Bar */}
       {isHighlighted && (
         <View style={[styles.highlightBar, { backgroundColor: colors.primary }]} />
@@ -808,12 +808,12 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       {/* Post Content */}
       {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
         <TouchableOpacity
-          onPress={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? handleSecretPostPress : undefined}
-          activeOpacity={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? 0.7 : 1}
-          style={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? styles.secretContentContainer : null}
+          onPress={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? handleSecretPostPress : undefined}
+          activeOpacity={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? 0.7 : 1}
+          style={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? styles.secretContentContainer : null}
         >
           <View style={styles.contentContainer}>
-            {localPost.isSecret && localPost.author._id !== user?._id && !isSecretPostUnlocked && !Boolean(localPost.showDescription) && (
+            {localPost.isSecret && localPost.author._id !== user?._id && !isSecretPostUnlocked && (
               <View style={styles.lockIconContainer}>
                 <Ionicons 
                   name="lock-closed" 
@@ -823,37 +823,24 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
               </View>
             )}
             <Text style={[styles.content, { color: colors.text }]}>
-              {(() => {
-                // For normal posts, always show content
-                if (!localPost.isSecret) {
-                  return localPost.content;
-                }
-                
-                // For secret posts, show content if user is author, unlocked, or showDescription is true
-                const shouldShowContent = 
-                  localPost.author._id === user?._id || // Author can always see
-                  isSecretPostUnlocked || // Unlocked posts show content
-                  Boolean(localPost.showDescription); // Show description if enabled
-                
-                return shouldShowContent ? localPost.content : 'Content hidden';
-              })()}
+              {localPost.content}
             </Text>
-          </View>
-          {/* Only show secret overlay if content should be hidden */}
-          {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) && (
-            <View style={styles.secretOverlay}>
-              <View style={styles.secretOverlayContent}>
-                <Ionicons name="lock-closed" size={24} color="#ffffff" />
-                <Text style={[styles.secretText, { color: "#ffffff" }]}>Tap to enter password</Text>
+            {/* Only show secret overlay if content should be hidden */}
+            {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) && (
+              <View style={styles.secretOverlay}>
+                <View style={styles.secretOverlayContent}>
+                  <Ionicons name="lock-closed" size={24} color="#ffffff" />
+                  <Text style={[styles.secretText, { color: "#ffffff" }]}>Tap to enter password</Text>
+                </View>
               </View>
-            </View>
-          )}
+            )}
+          </View>
         </TouchableOpacity>
       )}
 
       {/* Post Media */}
-      {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) ? (
-        // Show locked media placeholder for secret posts
+      {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? (
+        // Show locked media placeholder for secret posts (regardless of showDescription)
         <TouchableOpacity
           onPress={handleSecretPostPress}
           activeOpacity={0.7}
@@ -864,7 +851,9 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
               <Ionicons name="lock-closed" size={48} color={colors.textSecondary} />
             </View>
             <Text style={[styles.secretMediaText, { color: colors.text }]}>Media hidden</Text>
-            <Text style={[styles.secretMediaSubtext, { color: colors.textSecondary }]}>Enter password to view</Text>
+            <Text style={[styles.secretMediaSubtext, { color: colors.textSecondary }]}>
+              Enter password to view
+            </Text>
           </View>
         </TouchableOpacity>
       ) : (
