@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, Alert, Platform, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,7 +9,7 @@ import { getThemeColors } from '../utils/themeUtils';
 import { getTranslation } from '../utils/translations';
 import api from '../services/api';
 
-const EditProfileScreen = ({ navigation, user }) => {
+const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const colors = getThemeColors(theme);
@@ -20,6 +20,23 @@ const EditProfileScreen = ({ navigation, user }) => {
   const [coverImage, setCoverImage] = useState(user?.coverImage || '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageRefreshKey, setImageRefreshKey] = useState(0);
+
+  // Refresh images when component mounts to ensure they're up to date
+  React.useEffect(() => {
+    if (user?.avatar || user?.coverImage) {
+      console.log('🔄 Refreshing images on component mount');
+      setImageRefreshKey(prev => prev + 1);
+    }
+  }, [user?.avatar, user?.coverImage]);
+
+  // Force refresh images function
+  const forceRefreshImages = () => {
+    console.log('🔄 Force refreshing images');
+    console.log('📸 Current avatar state:', avatar);
+    console.log('🖼️ Current cover image state:', coverImage);
+    setImageRefreshKey(prev => prev + 1);
+  };
 
   // Real upload function using API service
   const uploadImage = async (uri, type) => {
@@ -41,8 +58,11 @@ const EditProfileScreen = ({ navigation, user }) => {
         response = await api.uploadSingleFile(file);
       }
 
+      console.log('📤 Upload response:', response);
       if (response.success) {
-        return response.data.url;
+        const imageUrl = response.data.url;
+        console.log('🖼️ Extracted image URL:', imageUrl);
+        return imageUrl;
       } else {
         throw new Error(response.message || 'Upload failed');
       }
@@ -79,10 +99,22 @@ const EditProfileScreen = ({ navigation, user }) => {
           const localUri = result.assets[0].uri;
           const uploadedUrl = await uploadImage(localUri, type);
           
+          console.log(`📸 Image uploaded successfully for ${type}:`, uploadedUrl);
+          // Add timestamp to prevent caching issues
+          const timestampedUrl = `${uploadedUrl}?t=${Date.now()}`;
+          
           if (type === 'avatar') {
-            setAvatar(uploadedUrl);
+            setAvatar(timestampedUrl);
+            setImageRefreshKey(prev => prev + 1);
+            console.log('👤 Avatar state updated to:', timestampedUrl);
+            // Force immediate refresh
+            setTimeout(() => setImageRefreshKey(prev => prev + 1), 100);
           } else {
-            setCoverImage(uploadedUrl);
+            setCoverImage(timestampedUrl);
+            setImageRefreshKey(prev => prev + 1);
+            console.log('🖼️ Cover image state updated to:', timestampedUrl);
+            // Force immediate refresh
+            setTimeout(() => setImageRefreshKey(prev => prev + 1), 100);
           }
         } catch (uploadError) {
           Alert.alert(
@@ -117,11 +149,39 @@ const EditProfileScreen = ({ navigation, user }) => {
         avatar: avatar,
         coverImage: coverImage,
       };
+      
+      console.log('💾 Saving profile data:', profileData);
 
       // Call API to update profile
       const response = await api.updateProfile(profileData);
+      console.log('📡 API response:', response);
       
       if (response.success) {
+        // Update parent component with new profile data
+        if (onProfileUpdate) {
+          onProfileUpdate({
+            ...user,
+            name: name.trim(),
+            bio: bio.trim(),
+            avatar: avatar,
+            coverImage: coverImage,
+          });
+        }
+        
+        // Also refresh user data from server to ensure synchronization
+        try {
+          const userResponse = await api.getCurrentUser();
+          if (userResponse.success) {
+            console.log('🔄 User data refreshed from server:', userResponse.data);
+            // Update local state with fresh server data
+            setAvatar(userResponse.data.avatar || '');
+            setCoverImage(userResponse.data.coverImage || '');
+            setImageRefreshKey(prev => prev + 1);
+          }
+        } catch (refreshError) {
+          console.log('⚠️ Could not refresh user data, using local state');
+        }
+        
         Alert.alert(
           'Success', 
           getTranslation('profileUpdateSuccess', language),
@@ -154,13 +214,27 @@ const EditProfileScreen = ({ navigation, user }) => {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>{getTranslation('editProfile', language)}</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity 
+          style={styles.refreshButton} 
+          onPress={forceRefreshImages}
+          disabled={uploading}
+        >
+          <Ionicons 
+            name="refresh" 
+            size={20} 
+            color={uploading ? colors.textTertiary : colors.primary} 
+          />
+        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={[styles.content]} showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
         <TouchableOpacity style={[styles.coverImageContainer, { backgroundColor: colors.surfaceVariant }]} onPress={() => pickImage('cover')} disabled={uploading}>
           {coverImage ? (
-            <Image source={{ uri: coverImage }} style={styles.coverImage} />
+            <Image 
+              source={{ uri: coverImage }} 
+              style={styles.coverImage} 
+              key={`cover-${imageRefreshKey}`} // Force re-render when refresh key changes
+            />
           ) : (
             <View style={styles.coverPlaceholder}>
               <Ionicons name="image-outline" size={40} color={colors.textTertiary} />
@@ -172,7 +246,12 @@ const EditProfileScreen = ({ navigation, user }) => {
         {/* Avatar */}
         <TouchableOpacity style={styles.avatarContainer} onPress={() => pickImage('avatar')} disabled={uploading}>
           {avatar ? (
-            <Image source={{ uri: avatar }} style={[styles.avatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.background }]} />
+            <Image 
+              source={{ uri: avatar }}
+
+              style={[styles.avatar, { backgroundColor: colors.surfaceVariant, borderColor: colors.background }]} 
+              key={`avatar-${imageRefreshKey}`} // Force re-render when refresh key changes
+            />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary, borderColor: colors.background }] }>
               <Image source={require('../../assets/logo.png')} style={styles.avatarLogo} resizeMode="contain" />
@@ -252,6 +331,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
     textAlign: 'center',
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   coverImageContainer: {
     width: '100%',

@@ -20,7 +20,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 
-const ProfileScreen = ({ navigation, user, onLogout }) => {
+const ProfileScreen = ({ navigation, user, onLogout, onTestPushNotification }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const { language } = useLanguage();
@@ -396,8 +396,13 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   verificationContainer: {
-    alignItems: 'center',
-    marginBottom: 8,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 4,
+    zIndex: 1,
   },
   verifiedIcon: {
     // No margin needed since gap handles spacing

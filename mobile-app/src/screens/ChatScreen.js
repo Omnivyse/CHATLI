@@ -314,6 +314,19 @@ const ChatScreen = ({ navigation, route, user }) => {
     }
   }, [messages.length, loading]);
 
+  // Reload messages when screen is focused to ensure reactions are up-to-date
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('🎯 Chat screen focused, checking if messages need refresh...');
+      if (messages.length > 0 && !loading) {
+        console.log('🔄 Reloading messages to ensure reactions are current...');
+        loadMessages();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, messages.length, loading]);
+
   const animateReaction = (messageId, emoji) => {
     const animationKey = `${messageId}-${emoji}`;
     const animatedValue = new Animated.Value(0);
@@ -335,6 +348,45 @@ const ChatScreen = ({ navigation, route, user }) => {
         useNativeDriver: true,
       }),
     ]).start();
+  };
+
+  // Add a function to manually refresh a message's reactions from the server
+  const refreshMessageReactions = async (messageId) => {
+    try {
+      console.log('🔄 Refreshing reactions for message:', messageId);
+      const response = await api.getMessages(chatId);
+      if (response.success) {
+        const messages = response.data.messages || [];
+        const targetMessage = messages.find(msg => msg._id === messageId);
+        
+        if (targetMessage && targetMessage.reactions) {
+          console.log('✅ Found message with reactions:', targetMessage.reactions);
+          
+          // Convert server format to mobile format
+          const convertedReactions = targetMessage.reactions.map(reaction => ({
+            userId: reaction.user?._id || reaction.userId,
+            emoji: reaction.emoji,
+            userName: reaction.user?.name || reaction.userName
+          }));
+          
+          // Update the message in local state
+          setMessages(prevMessages => 
+            prevMessages.map(msg => {
+              if (msg._id === messageId) {
+                return { ...msg, reactions: convertedReactions };
+              }
+              return msg;
+            })
+          );
+          
+          console.log('✅ Message reactions refreshed successfully');
+        } else {
+          console.log('⚠️ Message not found or has no reactions');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to refresh message reactions:', error);
+    }
   };
 
   const handleAddReaction = async (message, emoji) => {
@@ -369,7 +421,37 @@ const ChatScreen = ({ navigation, route, user }) => {
       // Trigger animation
       animateReaction(message._id, emoji);
       
-      // Update the message locally with the reaction
+      // Store current message state for potential rollback
+      const currentMessage = messages.find(msg => msg._id === message._id);
+      const currentReactions = currentMessage?.reactions || [];
+      
+      // Call API first to ensure server-side success
+      const response = await api.reactToMessage(chatId, message._id, emoji);
+      
+      if (!response.success) {
+        console.error('❌ API reaction failed:', response.message);
+        Alert.alert('Алдаа', 'Реакци нэмэхэд алдаа гарлаа - Дахин оролдоно уу');
+        return;
+      }
+      
+      console.log('✅ API reaction successful, response:', response);
+      console.log('✅ API response data:', response.data);
+      console.log('✅ API response reactions:', response.data?.reactions);
+      
+      // Verify the API response has the expected structure
+      if (!response.data?.reactions) {
+        console.warn('⚠️ API response missing reactions data, using local update only');
+      } else {
+        console.log('✅ API response has reactions, structure:', 
+          response.data.reactions.map(r => ({
+            userId: r.user?._id || r.userId,
+            emoji: r.emoji,
+            userName: r.user?.name || r.userName
+          }))
+        );
+      }
+      
+      // Now update the message locally with the reaction
       setMessages(prevMessages => 
         prevMessages.map(msg => {
           if (msg._id === message._id) {
@@ -427,6 +509,11 @@ const ChatScreen = ({ navigation, route, user }) => {
       
       console.log('✅ MOBILE: Reaction added successfully');
       
+      // Refresh the message reactions from server to ensure sync
+      setTimeout(() => {
+        refreshMessageReactions(message._id);
+      }, 500);
+      
     } catch (error) {
       console.error('❌ MOBILE: Add reaction error:', error);
       Alert.alert('Алдаа', 'Реакци нэмэхэд алдаа гарлаа - Дахин оролдоно уу');
@@ -442,22 +529,32 @@ const ChatScreen = ({ navigation, route, user }) => {
         prevMessages.map(msg => {
           if (msg._id === data.messageId) {
             const reactions = msg.reactions || [];
-            const existingReaction = reactions.find(r => r.userId === data.userId);
+            
+            // Handle both server format (user object) and mobile format (userId/userName)
+            const userId = data.userId || data.user?._id;
+            const userName = data.userName || data.user?.name;
+            
+            if (!userId) {
+              console.warn('⚠️ Reaction event missing user ID:', data);
+              return msg;
+            }
+            
+            const existingReaction = reactions.find(r => r.userId === userId);
             
             if (existingReaction) {
               // Replace existing reaction
               const newReactions = reactions.map(r => 
-                r.userId === data.userId 
-                  ? { ...r, emoji: data.emoji, userName: data.userName }
+                r.userId === userId 
+                  ? { ...r, emoji: data.emoji, userName: userName }
                   : r
               );
               return { ...msg, reactions: newReactions };
             } else {
               // Add new reaction
               const newReactions = [...reactions, { 
-                userId: data.userId, 
+                userId: userId, 
                 emoji: data.emoji, 
-                userName: data.userName 
+                userName: userName
               }];
               return { ...msg, reactions: newReactions };
             }
@@ -467,7 +564,7 @@ const ChatScreen = ({ navigation, route, user }) => {
       );
       
       // Animate the reaction if it's not from the current user
-      if (data.userId !== user._id) {
+      if (userId !== user._id) {
         animateReaction(data.messageId, data.emoji);
       }
     } else {
@@ -484,7 +581,16 @@ const ChatScreen = ({ navigation, route, user }) => {
         prevMessages.map(msg => {
           if (msg._id === data.messageId) {
             const reactions = msg.reactions || [];
-            const newReactions = reactions.filter(r => r.userId !== data.userId);
+            
+            // Handle both server format (user object) and mobile format (userId)
+            const userId = data.userId || data.user?._id;
+            
+            if (!userId) {
+              console.warn('⚠️ Reaction removal event missing user ID:', data);
+              return msg;
+            }
+            
+            const newReactions = reactions.filter(r => r.userId !== userId);
             return { ...msg, reactions: newReactions };
           }
           return msg;
@@ -553,6 +659,40 @@ const ChatScreen = ({ navigation, route, user }) => {
           lastMessage: reversedMessages[reversedMessages.length - 1]?.content?.text?.substring(0, 20)
         });
         
+        // Debug: Check reactions in loaded messages
+        const messagesWithReactions = reversedMessages.filter(msg => msg.reactions && msg.reactions.length > 0);
+        if (messagesWithReactions.length > 0) {
+          console.log('🔥 Messages with reactions found:', messagesWithReactions.length);
+          messagesWithReactions.forEach(msg => {
+            console.log(`  Message ${msg._id}: ${msg.reactions.length} reactions:`, 
+              msg.reactions.map(r => `${r.emoji} by ${r.user?.name || r.userName || r.userId}`)
+            );
+          });
+          
+          // Convert server reaction format to mobile app format
+          const convertedMessages = reversedMessages.map(msg => {
+            if (msg.reactions && msg.reactions.length > 0) {
+              const convertedReactions = msg.reactions.map(reaction => ({
+                userId: reaction.user?._id || reaction.userId,
+                emoji: reaction.emoji,
+                userName: reaction.user?.name || reaction.userName
+              }));
+              return { ...msg, reactions: convertedReactions };
+            }
+            return msg;
+          });
+          
+          console.log('🔄 Converted reactions format:', convertedMessages.filter(m => m.reactions?.length > 0).map(m => ({
+            messageId: m._id,
+            reactions: m.reactions
+          })));
+          
+          setMessages(convertedMessages);
+        } else {
+          console.log('ℹ️ No messages with reactions found');
+          setMessages(reversedMessages);
+        }
+        
         // Log message order for debugging
         if (reversedMessages.length > 0) {
           console.log('📋 Message order check:');
@@ -560,8 +700,6 @@ const ChatScreen = ({ navigation, route, user }) => {
             console.log(`  ${index + 1}. ${msg.content?.text?.substring(0, 30)}... (${new Date(msg.createdAt).toLocaleTimeString()})`);
           });
         }
-        
-        setMessages(reversedMessages);
         
         // Mark messages as read
         try {
@@ -926,6 +1064,13 @@ const ChatScreen = ({ navigation, route, user }) => {
   const renderMessage = ({ item: message }) => {
     const isMyMessage = message.sender._id === user._id;
     const messageTime = formatMessageTime(message.createdAt);
+    
+    // Debug: Log reactions for this message
+    if (message.reactions && message.reactions.length > 0) {
+      console.log(`🔥 Rendering message ${message._id} with ${message.reactions.length} reactions:`, 
+        message.reactions.map(r => `${r.emoji} by ${r.userName || r.userId}`)
+      );
+    }
     
     // Handle deleted messages
     if (message.isDeleted) {

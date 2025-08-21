@@ -5,10 +5,10 @@ import { Platform } from 'react-native';
 class AppUpdateService {
   constructor() {
     // Get current version from app.json
-    this.currentVersion = Constants.expoConfig?.version || '1.1.4';
+    this.currentVersion = Constants.expoConfig?.version || '1.5.0';
     this.buildNumber = Platform.OS === 'ios' 
-      ? Constants.expoConfig?.ios?.buildNumber || '16'
-      : Constants.expoConfig?.android?.versionCode || '9';
+      ? Constants.expoConfig?.ios?.buildNumber || '22'
+      : Constants.expoConfig?.android?.versionCode || '14';
     
     // App Store URLs (replace with your actual URLs)
     this.appStoreUrl = 'https://apps.apple.com/app/chatli/id6749570514'; // Updated with actual App Store ID
@@ -81,24 +81,30 @@ class AppUpdateService {
         current,
         latest,
         currentVersion,
-        latestVersion
+        latestVersion,
+        currentParsed: current,
+        latestParsed: latest
       });
       
       // Compare major version
       if (latest.major > current.major) {
+        console.log('🔍 Major version update required');
         return { required: true, type: 'force' };
       }
       
       // Compare minor version
       if (latest.minor > current.minor) {
+        console.log('🔍 Minor version update required');
         return { required: true, type: 'recommended' };
       }
       
       // Compare patch version
       if (latest.patch > current.patch) {
+        console.log('🔍 Patch version update required');
         return { required: true, type: 'recommended' };
       }
       
+      console.log('🔍 No update required - versions are the same or current is newer');
       return { required: false, type: 'none' };
     } catch (error) {
       console.error('Error comparing versions:', error);
@@ -147,11 +153,16 @@ class AppUpdateService {
       }
       
       // Make API call to your server to get latest version info
-      const response = await fetch('https://chatli-production.up.railway.app/api/app/version', {
+      const queryParams = new URLSearchParams({
+        platform: Platform.OS,
+        currentVersion: this.currentVersion
+      });
+      
+      const response = await fetch(`https://chatli-production.up.railway.app/api/app/version?${queryParams}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
+        }
       });
 
       if (!response.ok) {
@@ -160,10 +171,33 @@ class AppUpdateService {
 
       const versionInfo = await response.json();
       
+      if (!versionInfo.success || !versionInfo.data) {
+        throw new Error('Invalid version info response');
+      }
+      
+      const data = versionInfo.data;
+      console.log('🔍 Server version info received:', data);
+      
       // Save last check time
       await this.setLastCheckTime(now);
       
-      return versionInfo;
+      // Check if update is required by comparing versions
+      const updateCheck = this.isUpdateRequired(data.latestVersion, this.currentVersion);
+      
+      console.log('🔍 Update check result:', updateCheck);
+      
+      // Return the update info with proper flags
+      return {
+        currentVersion: this.currentVersion,
+        latestVersion: data.latestVersion,
+        updateDescription: data.updateDescription,
+        isUpdateRequired: updateCheck.required,
+        isForceUpdate: data.isForceUpdate || updateCheck.type === 'force',
+        canSkip: !data.isForceUpdate && updateCheck.type !== 'force',
+        storeUrl: data.storeUrl,
+        platform: data.platform,
+        isTestFlight: false
+      };
     } catch (error) {
       console.error('Error checking for updates:', error);
       return null;
@@ -196,7 +230,8 @@ class AppUpdateService {
         isForceUpdate: false,
         canSkip: true,
         updateType: 'introduction',
-        isTestFlight: true
+        isTestFlight: true,
+        storeUrl: this.getStoreUrl()
       };
       
       console.log('🔍 TestFlight update info created:', testFlightUpdateInfo);
@@ -398,7 +433,7 @@ class AppUpdateService {
   getMockUpdateInfo() {
     return {
       currentVersion: this.currentVersion,
-      latestVersion: '1.1.5',
+      latestVersion: '1.5.1',
       updateDescription: 'This is a mock update for testing purposes. In production, this would come from your backend API.',
       isUpdateRequired: true,
       isForceUpdate: false,

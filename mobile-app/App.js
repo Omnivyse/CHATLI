@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './src/contexts/LanguageContext';
 import { NavigationProvider, useNavigationState } from './src/contexts/NavigationContext';
@@ -61,7 +62,7 @@ const Tab = createBottomTabNavigator();
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
 
-function MainTabNavigator({ user, onLogout, onGoToVerification }) {
+function MainTabNavigator({ user, onLogout, onGoToVerification, onTestPushNotification }) {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { translateY } = useBottomTab();
@@ -243,7 +244,7 @@ function MainTabNavigator({ user, onLogout, onGoToVerification }) {
           tabBarLabel: getTranslation('profile', language)
         }}
       >
-        {(props) => <ProfileScreen {...props} user={user} onLogout={onLogout} />}
+                 {(props) => <ProfileScreen {...props} user={user} onLogout={onLogout} onTestPushNotification={onTestPushNotification} />}
       </Tab.Screen>
     </Tab.Navigator>
   );
@@ -285,7 +286,7 @@ function AuthStackNavigator({ onLogin }) {
   );
 }
 
-function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerificationBanner }) {
+function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerificationBanner, onProfileUpdate, onTestPushNotification }) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
@@ -296,9 +297,9 @@ function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerifica
         cardStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="MainTabs">
-        {(props) => <MainTabNavigator {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} />}
-      </Stack.Screen>
+             <Stack.Screen name="MainTabs">
+         {(props) => <MainTabNavigator {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onTestPushNotification={onTestPushNotification} />}
+       </Stack.Screen>
       
       <Stack.Screen 
         name="Chat"
@@ -354,7 +355,7 @@ function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerifica
           headerShown: false,
         }}
       >
-        {(props) => <EditProfileScreen {...props} user={user} />}
+                 {(props) => <EditProfileScreen {...props} user={user} onProfileUpdate={onProfileUpdate} />}
       </Stack.Screen>
       
       <Stack.Screen 
@@ -387,10 +388,28 @@ function App() {
 
   // Register notification listeners ONCE at the top level
   useEffect(() => {
-    registerForPushNotificationsAsync().then(token => {
-      // TODO: Save this token to your backend for this user!
-      console.log('Expo Push Token:', token);
-    });
+    const setupPushNotifications = async () => {
+      try {
+        console.log('🔔 Setting up push notifications on app start...');
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          console.log('✅ Initial push token obtained:', token);
+          // Store the token immediately
+          try {
+            await AsyncStorage.setItem('pushToken', token);
+            console.log('💾 Initial push token stored');
+          } catch (storageError) {
+            console.log('⚠️ Could not store initial push token:', storageError);
+          }
+        } else {
+          console.log('⚠️ No initial push token obtained');
+        }
+      } catch (error) {
+        console.error('❌ Initial push notification setup failed:', error);
+      }
+    };
+
+    setupPushNotifications();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification received:', notification);
@@ -420,7 +439,9 @@ function App() {
         analyticsService.init();
         
         // Check for app updates
+        console.log('🔍 App.js: Starting app update check...');
         await checkForAppUpdates();
+        console.log('🔍 App.js: App update check completed');
         
         // Check if user is already logged in
         await checkAuth();
@@ -623,27 +644,67 @@ function App() {
       
       console.log('🔍 Update info received:', updateInfo);
       
-      if (updateInfo && (updateInfo.isUpdateRequired || updateInfo.isTestFlight)) {
-        console.log('🔍 Update/introduction required:', updateInfo);
-        setUpdateInfo(updateInfo);
-        
-        // Show update screen immediately for force updates or TestFlight introductions
-        if (updateInfo.isForceUpdate || updateInfo.isTestFlight) {
-          console.log('🔍 Showing update screen for:', updateInfo.isForceUpdate ? 'force update' : 'TestFlight introduction');
+      if (updateInfo) {
+        // Check if this is a TestFlight introduction or an actual update
+        if (updateInfo.isTestFlight) {
+          console.log('🔍 TestFlight introduction detected');
+          setUpdateInfo(updateInfo);
+          setShowUpdateScreen(true);
+        } else if (updateInfo.isUpdateRequired || updateInfo.isForceUpdate) {
+          console.log('🔍 Update required:', {
+            isUpdateRequired: updateInfo.isUpdateRequired,
+            isForceUpdate: updateInfo.isForceUpdate,
+            currentVersion: updateInfo.currentVersion,
+            latestVersion: updateInfo.latestVersion
+          });
+          
+          setUpdateInfo(updateInfo);
           setShowUpdateScreen(true);
         } else {
-          // For recommended updates, you might want to show a modal or banner
-          // For now, we'll show the update screen
-          setShowUpdateScreen(true);
+          console.log('🔍 No update required - versions are current');
         }
       } else {
-        console.log('🔍 No update required');
+        console.log('🔍 No update info available');
       }
     } catch (error) {
       console.error('Error checking for app updates:', error);
       // Don't block app startup if update check fails
     }
   };
+
+  // Function to manually trigger update check (useful for testing)
+  const triggerUpdateCheck = async () => {
+    console.log('🔍 Manually triggering update check...');
+    await checkForAppUpdates();
+  };
+
+  // Test function to simulate different version scenarios
+  const testUpdateLogic = async () => {
+    console.log('🧪 Testing update logic...');
+    
+    // Test with current version
+    const currentVersion = appUpdateService.getCurrentVersion();
+    console.log('🧪 Current version:', currentVersion);
+    
+    // Test version comparison
+    const testVersions = ['1.4.9', '1.5.0', '1.5.1', '1.6.0', '2.0.0'];
+    testVersions.forEach(testVersion => {
+      const result = appUpdateService.isUpdateRequired(testVersion, currentVersion.version);
+      console.log(`🧪 Testing ${testVersion} vs ${currentVersion.version}:`, result);
+    });
+    
+    // Trigger actual update check
+    await triggerUpdateCheck();
+  };
+
+  // Make test function available globally for debugging
+  if (__DEV__) {
+    global.testUpdateLogic = testUpdateLogic;
+    global.triggerUpdateCheck = triggerUpdateCheck;
+    console.log('🧪 Update test functions available globally:');
+    console.log('🧪 - testUpdateLogic() - Test version comparison logic');
+    console.log('🧪 - triggerUpdateCheck() - Manually trigger update check');
+  }
 
   const handleUpdateSkip = async () => {
     if (updateInfo) {
@@ -668,7 +729,7 @@ function App() {
       // Show welcome modal for new users or on app update
       const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
       const appVersion = await AsyncStorage.getItem('appVersion');
-      const currentVersion = '1.4.0'; // Update this when you release new versions
+      const currentVersion = '1.5.0'; // Update this when you release new versions
       
       // For testing: Force show welcome modal (remove this line after testing)
       await AsyncStorage.removeItem('hasSeenWelcome');
@@ -716,24 +777,45 @@ function App() {
         console.error('Push notification initialization error:', pushError);
       }
       
-      // Set up push notifications (optional - won't block login)
-      setTimeout(async () => {
-        try {
-          const token = await registerForPushNotificationsAsync();
-          if (token) {
-            await apiService.updatePushToken(token);
-            console.log('Push token sent to server successfully');
-            
-            // Also update through push notification service
-            const pushNotificationService = require('./src/services/pushNotificationService').default;
-            await pushNotificationService.updatePushTokenForUser();
-          } else {
-            console.log('No push token available (this is normal in development)');
-          }
-        } catch (pushTokenError) {
-          console.error('Push token setup error (non-blocking):', pushTokenError);
-        }
-      }, 1000); // Delay push notification setup to not block login
+             // Set up push notifications (critical for TestFlight)
+       setTimeout(async () => {
+         try {
+           console.log('🔔 Setting up push notifications...');
+           const token = await registerForPushNotificationsAsync();
+           
+           if (token) {
+             console.log('📱 Push token obtained, sending to server...');
+             
+             // Send to main API service
+             try {
+               await apiService.updatePushToken(token);
+               console.log('✅ Push token sent to server successfully');
+             } catch (apiError) {
+               console.error('❌ Failed to send push token to API:', apiError);
+             }
+             
+             // Also update through push notification service
+             try {
+               const pushNotificationService = require('./src/services/pushNotificationService').default;
+               await pushNotificationService.updatePushTokenForUser();
+               console.log('✅ Push token updated in notification service');
+             } catch (serviceError) {
+               console.error('❌ Failed to update push token in notification service:', serviceError);
+             }
+             
+           } else {
+             if (__DEV__) {
+               console.log('ℹ️ No push token available (this is normal in development)');
+             } else {
+               console.log('⚠️ No push token available - notifications may not work');
+               console.log('🔧 Check console logs above for push token generation errors');
+             }
+           }
+         } catch (pushTokenError) {
+           console.error('❌ Push token setup error:', pushTokenError);
+           console.log('🔧 This may affect push notification functionality');
+         }
+       }, 2000); // Increased delay for TestFlight builds
       
       // Show verification banner if needed
       if (!userData.emailVerified) {
@@ -831,6 +913,93 @@ function App() {
     }
   };
 
+  const testPushNotification = async () => {
+    try {
+      console.log('🧪 Testing push notification...');
+      
+      // First, try to get stored push token
+      let token = await getStoredPushToken();
+      
+      if (!token) {
+        console.log('📱 No stored push token found, trying to generate new one...');
+        token = await registerForPushNotificationsAsync();
+      }
+      
+      if (token) {
+        console.log('✅ Push token available:', token);
+        
+        // Send test notification to yourself
+        try {
+          await apiService.sendTestNotification();
+          Alert.alert(
+            'Test Notification Sent', 
+            'Check if you receive a notification. If not, check console logs for errors.',
+            [{ text: 'OK' }]
+          );
+        } catch (error) {
+          console.error('❌ Failed to send test notification:', error);
+          Alert.alert(
+            'Test Failed', 
+            'Could not send test notification. Check console logs for details.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        console.log('❌ No push token available');
+        
+        // Provide more specific guidance based on environment
+        const isDevelopment = __DEV__;
+        const isTestFlight = !isDevelopment && RNPlatform.OS === 'ios';
+        
+        let guidanceMessage = 'Push notification token not available. ';
+        
+        if (isTestFlight) {
+          guidanceMessage += 'For TestFlight builds, ensure:\n\n1. App has notification permissions\n2. Project ID is correct in app.json\n3. EAS build is properly configured\n4. Apple Push Notification service is enabled';
+        } else if (isDevelopment) {
+          guidanceMessage += 'For development, this is normal. Push tokens only work in production builds.';
+        } else {
+          guidanceMessage += 'Check console logs above for push token generation errors.';
+        }
+        
+        // Offer to manually refresh the token
+        Alert.alert(
+          'No Push Token', 
+          guidanceMessage,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Refresh Token', 
+              onPress: async () => {
+                console.log('🔄 User requested manual token refresh...');
+                const newToken = await refreshPushToken();
+                if (newToken) {
+                  Alert.alert(
+                    'Token Refreshed', 
+                    'New push token obtained. Try testing notifications again.',
+                    [{ text: 'OK' }]
+                  );
+                } else {
+                  Alert.alert(
+                    'Refresh Failed', 
+                    'Could not obtain new push token. Check console logs for details.',
+                    [{ text: 'OK' }]
+                  );
+                }
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('❌ Push notification test error:', error);
+      Alert.alert(
+        'Test Error', 
+        'Error testing push notifications. Check console logs.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   if (!appIsReady || loading) {
     return <LoadingScreen />;
   }
@@ -858,6 +1027,8 @@ function App() {
                  updateInfo={updateInfo}
                  onUpdateSkip={handleUpdateSkip}
                  onUpdateComplete={handleUpdateComplete}
+                 onProfileUpdate={setUser}
+                 onTestPushNotification={testPushNotification}
                />
             </SafeAreaProvider>
           </BottomTabProvider>
@@ -885,7 +1056,9 @@ function AppContent({
   showUpdateScreen,
   updateInfo,
   onUpdateSkip,
-  onUpdateComplete
+  onUpdateComplete,
+  onProfileUpdate,
+  onTestPushNotification
 }) {
   const { theme, isLoading } = useTheme();
   const { language, isLoading: languageLoading } = useLanguage();
@@ -914,6 +1087,7 @@ function AppContent({
         onSkip={updateInfo.canSkip ? onUpdateSkip : null}
         onUpdate={onUpdateComplete}
         isTestFlight={updateInfo.isTestFlight || false}
+        storeUrl={updateInfo.storeUrl}
       />
     );
   }
@@ -929,7 +1103,7 @@ function AppContent({
             barStyle={RNPlatform.OS === 'ios' ? statusBarStyle : 'light-content'}
           />
                      {user ? (
-             <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowVerificationBanner={onShowVerificationBanner} />
+             <MainStackNavigator user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowVerificationBanner={onShowVerificationBanner} onProfileUpdate={onProfileUpdate} onTestPushNotification={onTestPushNotification} />
            ) : (
             <AuthStackNavigator onLogin={onLogin} />
           )}
@@ -969,14 +1143,17 @@ async function registerForPushNotificationsAsync() {
     
     // Check if we're in development or production
     const isDevelopment = __DEV__;
+    const isTestFlight = !isDevelopment && RNPlatform.OS === 'ios';
     
     console.log('🔔 Registering for push notifications...');
     console.log('📱 Environment:', {
       isDevelopment,
       isProduction: !isDevelopment,
+      isTestFlight,
       platform: RNPlatform.OS
     });
     
+    // Set up notification channel for Android
     if (RNPlatform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
@@ -986,11 +1163,20 @@ async function registerForPushNotificationsAsync() {
       });
     }
     
+    // Request permissions
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
+    
     if (existingStatus !== 'granted') {
       console.log('🔔 Requesting notification permissions...');
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: false,
+        },
+      });
       finalStatus = status;
     }
     
@@ -1002,58 +1188,91 @@ async function registerForPushNotificationsAsync() {
     
     console.log('✅ Push notification permissions granted');
     
-    // Get project ID using the same logic as the service
+    // Get project ID - this is crucial for TestFlight
     const projectId = 
       Constants.expoConfig?.extra?.eas?.projectId ||
       Constants.expoConfig?.extra?.projectId ||
       Constants.expoConfig?.projectId ||
       process.env.EXPO_PROJECT_ID ||
-      '228cdfa0-b203-439c-bfe6-c6b682a56be3'; // Fallback to your actual project ID
+      '228cdfa0-b203-439c-bfe6-c6b682a56be3'; // Your actual project ID
     
     console.log('🔍 Project ID for push token:', {
       projectId,
       isDevelopment,
-      isProduction: !isDevelopment
+      isProduction: !isDevelopment,
+      isTestFlight
     });
     
-    // Only try to get push token if we have proper configuration
-    if (projectId && projectId !== 'your-project-id') {
-      try {
-        token = (await Notifications.getExpoPushTokenAsync({
-          projectId: projectId,
-        })).data;
-        console.log('✅ Push token obtained successfully:', token);
-        console.log('📋 Token details:', {
-          token: token,
-          tokenLength: token?.length,
-          startsWithExponent: token?.startsWith('ExponentPushToken'),
-          isDevelopment,
-          isProduction: !isDevelopment
-        });
-      } catch (pushTokenError) {
-        console.error('❌ Push token error:', pushTokenError);
-        console.log('📋 Push token error details:', {
-          message: pushTokenError.message,
-          code: pushTokenError.code,
-          stack: pushTokenError.stack
-        });
-        
-        // For TestFlight builds, provide specific guidance
-        if (!isDevelopment) {
-          console.log('🔧 TestFlight build detected - checking configuration...');
-          console.log('🔧 Ensure your app.json has the correct project ID');
-          console.log('🔧 Current project ID:', projectId);
-        }
-        
-        return null;
-      }
-    } else {
-      console.log('⚠️ No valid project ID found, skipping push token generation');
+    // Debug Constants configuration
+    console.log('🔍 Constants configuration:', {
+      expoConfig: Constants.expoConfig,
+      extra: Constants.expoConfig?.extra,
+      eas: Constants.expoConfig?.extra?.eas,
+      projectId: Constants.expoConfig?.projectId
+    });
+    
+    // Validate project ID
+    if (!projectId || projectId === 'your-project-id') {
+      console.log('⚠️ Invalid project ID found, skipping push token generation');
       console.log('📋 Available config:', {
         expoConfig: Constants.expoConfig,
         extra: Constants.expoConfig?.extra,
         eas: Constants.expoConfig?.extra?.eas
       });
+      return null;
+    }
+    
+    // Get push token
+    try {
+      token = (await Notifications.getExpoPushTokenAsync({
+        projectId: projectId,
+      })).data;
+      
+      console.log('✅ Push token obtained successfully:', token);
+      console.log('📋 Token details:', {
+        token: token,
+        tokenLength: token?.length,
+        startsWithExponent: token?.startsWith('ExponentPushToken'),
+        isDevelopment,
+        isProduction: !isDevelopment,
+        isTestFlight
+      });
+      
+      // For TestFlight, log additional debugging info
+      if (isTestFlight) {
+        console.log('🔧 TestFlight build - push token generated successfully');
+        console.log('🔧 Ensure your server is configured to send to this token');
+        console.log('🔧 Token type:', token?.startsWith('ExponentPushToken') ? 'Expo' : 'Unknown');
+      }
+      
+      // Store the token for later use
+      if (token) {
+        try {
+          await AsyncStorage.setItem('pushToken', token);
+          console.log('💾 Push token stored in AsyncStorage');
+        } catch (storageError) {
+          console.log('⚠️ Could not store push token:', storageError);
+        }
+      }
+      
+    } catch (pushTokenError) {
+      console.error('❌ Push token error:', pushTokenError);
+      console.log('📋 Push token error details:', {
+        message: pushTokenError.message,
+        code: pushTokenError.code,
+        stack: pushTokenError.stack
+      });
+      
+      // For TestFlight builds, provide specific guidance
+      if (isTestFlight) {
+        console.log('🔧 TestFlight build detected - push token generation failed');
+        console.log('🔧 Common issues:');
+        console.log('🔧 1. Check app.json has correct project ID');
+        console.log('🔧 2. Verify EAS build configuration');
+        console.log('🔧 3. Ensure Apple Push Notification service is enabled');
+        console.log('🔧 Current project ID:', projectId);
+      }
+      
       return null;
     }
     
@@ -1064,6 +1283,47 @@ async function registerForPushNotificationsAsync() {
       message: error.message,
       stack: error.stack
     });
+    return null;
+  }
+}
+
+// Add a function to get stored push token
+async function getStoredPushToken() {
+  try {
+    const storedToken = await AsyncStorage.getItem('pushToken');
+    if (storedToken) {
+      console.log('📱 Retrieved stored push token:', storedToken);
+      return storedToken;
+    }
+    return null;
+  } catch (error) {
+    console.log('⚠️ Could not retrieve stored push token:', error);
+    return null;
+  }
+}
+
+// Add a function to manually refresh push token
+async function refreshPushToken() {
+  try {
+    console.log('🔄 Manually refreshing push token...');
+    const newToken = await registerForPushNotificationsAsync();
+    if (newToken) {
+      console.log('✅ New push token obtained:', newToken);
+      // Store the new token
+      try {
+        await AsyncStorage.setItem('pushToken', newToken);
+        console.log('💾 New push token stored');
+        return newToken;
+      } catch (storageError) {
+        console.log('⚠️ Could not store new push token:', storageError);
+        return newToken; // Return token even if storage fails
+      }
+    } else {
+      console.log('❌ Failed to obtain new push token');
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error refreshing push token:', error);
     return null;
   }
 } 

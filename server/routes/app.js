@@ -4,18 +4,18 @@ const router = express.Router();
 // App version information
 const appVersions = {
   ios: {
-    latestVersion: '1.1.0',
+    latestVersion: '1.5.0',
     minimumVersion: '1.0.0',
     forceUpdateVersion: '1.0.0', // Versions below this require force update
-    updateDescription: 'This update includes bug fixes, performance improvements, and new features to enhance your CHATLI experience.',
+    updateDescription: 'This update includes bug fixes, performance improvements, and new features to enhance your CHATLI experience. Update now to get the latest improvements!',
     isForceUpdate: false,
-    appStoreUrl: 'https://apps.apple.com/app/chatli/id1234567890' // Replace with your actual App Store ID
+    appStoreUrl: 'https://apps.apple.com/app/chatli/id6749570514' // Updated with actual App Store ID
   },
   android: {
-    latestVersion: '1.1.0',
+    latestVersion: '1.5.0',
     minimumVersion: '1.0.0',
     forceUpdateVersion: '1.0.0',
-    updateDescription: 'This update includes bug fixes, performance improvements, and new features to enhance your CHATLI experience.',
+    updateDescription: 'This update includes bug fixes, performance improvements, and new features to enhance your CHATLI experience. Update now to get the latest improvements!',
     isForceUpdate: false,
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.chatli.mobile'
   }

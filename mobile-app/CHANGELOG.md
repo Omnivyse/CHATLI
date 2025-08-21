@@ -1,5 +1,50 @@
 # CHATLI Mobile App Changelog
 
+## [1.5.0] - 2025-01-27
+
+### 🚀 New Features
+- **App Update System**: Complete overhaul of the app update recommendation system
+- **Version Management**: Improved version checking and update detection for both App Store and TestFlight builds
+- **Update Screen**: Enhanced update screen with proper store integration and TestFlight support
+
+### 🔧 Improvements
+- **Version Comparison**: Enhanced version comparison logic with better debugging and logging
+- **Server Integration**: Improved server-side version checking and update recommendations
+- **TestFlight Support**: Better handling of TestFlight builds with appropriate update logic
+- **Store Integration**: Proper integration with App Store and Google Play Store for updates
+
+### 🐛 Bug Fixes
+- **Update Recommendations**: Fixed issue where app updates were not being properly recommended
+- **Version Mismatch**: Corrected server and client version synchronization
+- **Update Screen**: Fixed update screen not displaying when updates are available
+- **Store Links**: Ensured proper store URLs are passed to update screen
+
+### 🔒 Security Improvements
+- **Version Validation**: Enhanced version validation and comparison logic
+- **Update Security**: Improved update checking with proper error handling
+
+### 📱 Technical Improvements
+- **App Version**: Updated to version 1.5.0 with build numbers 22 (iOS) and 14 (Android)
+- **Version Service**: Completely refactored app update service for better reliability
+- **Error Handling**: Improved error handling throughout the update system
+- **Logging**: Enhanced logging for better debugging of update issues
+
+### 🧪 Testing & Debugging
+- **Update Testing**: Added global test functions for debugging update logic
+- **Version Testing**: Enhanced version comparison testing and validation
+- **Console Logging**: Comprehensive logging throughout the update process
+
+### 📋 Breaking Changes
+- **Version Update**: App version updated from 1.4.1 to 1.5.0
+- **Build Numbers**: iOS build number increased to 22, Android version code to 14
+
+### 🔄 Migration Notes
+- Existing users will see the new update system in action
+- The app will now properly recommend updates when new versions are available
+- TestFlight users will see appropriate update introductions
+
+---
+
 ## [1.4.0] - 2025-08-20
 
 ### 🚀 New Features

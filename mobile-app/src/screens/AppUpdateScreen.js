@@ -20,41 +20,43 @@ import { getThemeColors } from '../utils/themeUtils';
 const { width, height } = Dimensions.get('window');
 
 const AppUpdateScreen = ({
-  currentVersion = '1.1.4',
-  latestVersion = '1.1.4',
+  currentVersion = '1.5.0',
+  latestVersion = '1.5.0',
   updateDescription = '',
   isUpdateRequired = false,
   isForceUpdate = false,
   onUpdate,
   onSkip,
-  isTestFlight = false
+  isTestFlight = false,
+  storeUrl = null
 }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const colors = getThemeColors(theme);
 
   const handleUpdate = async () => {
-    try {
-      // Open App Store for iOS
-      const appStoreUrl = 'https://apps.apple.com/app/chatli/id1234567890'; // Replace with your actual App Store URL
-      const supported = await Linking.canOpenURL(appStoreUrl);
-
-      if (supported) {
-        await Linking.openURL(appStoreUrl);
-      } else {
-        Alert.alert(
-          getTranslation('error', language),
-          getTranslation('cannotOpenAppStore', language),
-          [{ text: getTranslation('ok', language) }]
-        );
+    if (isTestFlight) {
+      // For TestFlight, just close the screen
+      if (onUpdate) {
+        onUpdate();
       }
-    } catch (error) {
-      console.error('Error opening App Store:', error);
-      Alert.alert(
-        getTranslation('error', language),
-        getTranslation('updateError', language),
-        [{ text: getTranslation('ok', language) }]
-      );
+    } else {
+      // For regular updates, open the appropriate store
+      try {
+        if (storeUrl) {
+          const supported = await Linking.canOpenURL(storeUrl);
+          if (supported) {
+            await Linking.openURL(storeUrl);
+          } else {
+            Alert.alert('Error', 'Cannot open app store. Please update manually.');
+          }
+        } else {
+          Alert.alert('Update', 'Please update the app from your device\'s app store.');
+        }
+      } catch (error) {
+        console.error('Error opening store:', error);
+        Alert.alert('Error', 'Failed to open app store. Please update manually.');
+      }
     }
   };
 
