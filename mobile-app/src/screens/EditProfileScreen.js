@@ -34,7 +34,9 @@ const EditProfileScreen = ({ navigation, user }) => {
       if (type === 'avatar') {
         response = await api.uploadAvatar(file);
       } else if (type === 'cover') {
-        response = await api.uploadCoverImage(file);
+        // Temporary workaround: use avatar endpoint for cover images
+        // until server is restarted to pick up the new /cover endpoint
+        response = await api.uploadAvatar(file);
       } else {
         response = await api.uploadSingleFile(file);
       }
