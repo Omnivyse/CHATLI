@@ -18,8 +18,8 @@ import apiService from '../services/api';
 
 const RegisterScreen = ({ navigation, onLogin }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    username: '',
+    displayName: '',
+    tagName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -165,18 +165,18 @@ const RegisterScreen = ({ navigation, onLogin }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Please enter your name';
-    } else if (formData.name.trim().length < 2 || formData.name.trim().length > 50) {
-      newErrors.name = 'Name must be between 2 and 50 characters';
+    if (!formData.displayName.trim()) {
+      newErrors.displayName = 'Please enter your display name';
+    } else if (formData.displayName.trim().length < 2 || formData.displayName.trim().length > 50) {
+      newErrors.displayName = 'Display name must be between 2 and 50 characters';
     }
 
-    if (!formData.username.trim()) {
-      newErrors.username = 'Please enter username';
-    } else if (formData.username.trim().length < 3 || formData.username.trim().length > 20) {
-      newErrors.username = 'Username must be between 3 and 20 characters';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Username can only contain letters, numbers, and underscores';
+    if (!formData.tagName.trim()) {
+      newErrors.tagName = 'Please enter a tag name';
+    } else if (formData.tagName.trim().length < 3 || formData.tagName.trim().length > 20) {
+      newErrors.tagName = 'Tag name must be between 3 and 20 characters';
+    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.tagName)) {
+      newErrors.tagName = 'Tag name can only contain letters, numbers, and underscores';
     }
 
     if (!formData.email.trim()) {
@@ -237,8 +237,8 @@ const RegisterScreen = ({ navigation, onLogin }) => {
     
     // Debug logging
     console.log('🔐 Attempting registration with:', {
-      name: formData.name,
-      username: formData.username,
+      displayName: formData.displayName,
+      tagName: formData.tagName,
       email: formData.email,
       passwordLength: formData.password.length,
       passwordValidation: passwordValidation
@@ -254,8 +254,8 @@ const RegisterScreen = ({ navigation, onLogin }) => {
       
       console.log('📡 Calling API service...');
       const response = await apiService.register(
-        formData.name,
-        formData.username,
+        formData.displayName,
+        formData.tagName,
         formData.email,
         formData.password
       );
@@ -301,10 +301,10 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                   fieldErrors[error.path] = 'Please enter a valid email address';
                   break;
                 case 'username':
-                  fieldErrors[error.path] = 'Username must be 3-20 characters, letters, numbers, and underscores only';
+                  fieldErrors[error.path] = 'Tag name must be 3-20 characters, letters, numbers, and underscores only';
                   break;
                 case 'name':
-                  fieldErrors[error.path] = 'Name must be between 2 and 50 characters';
+                  fieldErrors[error.path] = 'Display name must be between 2 and 50 characters';
                   break;
                 default:
                   fieldErrors[error.path] = error.msg;
@@ -326,10 +326,10 @@ const RegisterScreen = ({ navigation, onLogin }) => {
                 errorMessage = 'Please enter a valid email address.';
                 break;
               case 'username':
-                errorMessage = 'Username format is invalid. Please check the requirements.';
+                errorMessage = 'Tag name format is invalid. Please check the requirements.';
                 break;
               case 'name':
-                errorMessage = 'Name length is invalid.';
+                errorMessage = 'Display name length is invalid.';
                 break;
               default:
                 errorMessage = firstError.msg || 'Please check your input and try again.';
@@ -395,38 +395,47 @@ const RegisterScreen = ({ navigation, onLogin }) => {
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Name</Text>
-              <View style={[styles.inputWrapper, errors.name && styles.inputError]}>
+              <Text style={styles.label}>Display Name</Text>
+              <View style={[styles.inputWrapper, errors.displayName && styles.inputError]}>
                 <Ionicons name="person-outline" size={20} color="#666666" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Your name"
+                  placeholder="Your display name"
                   placeholderTextColor="#999999"
-                  value={formData.name}
-                  onChangeText={(value) => handleInputChange('name', value)}
+                  value={formData.displayName}
+                  onChangeText={(value) => handleInputChange('displayName', value)}
                   editable={!loading}
                 />
               </View>
-              {errors.name && typeof errors.name === 'string' ? <Text style={styles.errorText}>{errors.name}</Text> : null}
+              {errors.displayName && typeof errors.displayName === 'string' ? <Text style={styles.errorText}>{errors.displayName}</Text> : null}
+              <Text style={styles.helperText}>
+                This is the name that will be displayed to other users
+              </Text>
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Username</Text>
-              <View style={[styles.inputWrapper, errors.username && styles.inputError]}>
+              <Text style={styles.label}>Tag Name</Text>
+              <View style={styles.tagNameWarning}>
+                <Ionicons name="warning-outline" size={16} color="#f59e0b" />
+                <Text style={styles.tagNameWarningText}>
+                  ⚠️ This name cannot be changed later. Please write your name carefully.
+                </Text>
+              </View>
+              <View style={[styles.inputWrapper, errors.tagName && styles.inputError]}>
                 <Ionicons name="at-outline" size={20} color="#666666" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="username"
+                  placeholder="your_tag_name"
                   placeholderTextColor="#999999"
-                  value={formData.username}
-                  onChangeText={(value) => handleInputChange('username', value)}
+                  value={formData.tagName}
+                  onChangeText={(value) => handleInputChange('tagName', value)}
                   autoCapitalize="none"
                   editable={!loading}
                 />
               </View>
-              {errors.username && typeof errors.username === 'string' ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+              {errors.tagName && typeof errors.tagName === 'string' ? <Text style={styles.errorText}>{errors.tagName}</Text> : null}
               <Text style={styles.helperText}>
-                Username must be 3-20 characters, letters, numbers, and underscores only
+                Tag name must be 3-20 characters, letters, numbers, and underscores only
               </Text>
             </View>
 
@@ -747,6 +756,23 @@ const styles = StyleSheet.create({
     borderColor: '#dc2626',
     borderRadius: 8,
     padding: 12,
+  },
+  tagNameWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+  },
+  tagNameWarningText: {
+    fontSize: 12,
+    color: '#92400e',
+    marginLeft: 6,
+    flex: 1,
+    fontWeight: '500',
   },
 });
 

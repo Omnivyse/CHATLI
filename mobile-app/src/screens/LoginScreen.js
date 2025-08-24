@@ -27,8 +27,9 @@ const LoginScreen = ({ onLogin }) => {
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [tagName, setTagName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -77,7 +78,7 @@ const LoginScreen = ({ onLogin }) => {
 
   const handleSubmit = async () => {
     // Validate required fields
-    if (!email || !password || (mode === 'register' && (!name || !username))) {
+    if (!email || !password || (mode === 'register' && (!displayName || !tagName))) {
       setError(getTranslation('emailRequired', language));
       return;
     }
@@ -109,26 +110,32 @@ const LoginScreen = ({ onLogin }) => {
       }
     }
 
-    // Validate username format (for registration)
+    // Validate tag name format (for registration)
     if (mode === 'register') {
-      if (username.length < 3) {
-        setError('Username must be at least 3 characters');
+      if (tagName.length < 3) {
+        setError('Tag name must be at least 3 characters');
         return;
       }
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        setError('Username can only contain letters, numbers, and _');
-        return;
-      }
-      
-      // Validate name (should not be empty and should be reasonable length)
-      if (!name.trim() || name.trim().length < 2) {
-        setError('Name must be at least 2 characters long');
+      if (!/^[a-zA-Z0-9_]+$/.test(tagName)) {
+        setError('Tag name can only contain letters, numbers, and _');
         return;
       }
       
-      // Validate username uniqueness check (basic check)
-      if (username.length > 20) {
-        setError('Username must be 20 characters or less');
+      // Validate display name (should not be empty and should be reasonable length)
+      if (!displayName.trim() || displayName.trim().length < 2) {
+        setError('Display name must be at least 2 characters long');
+        return;
+      }
+      
+      // Validate tag name length check
+      if (tagName.length > 20) {
+        setError('Tag name must be 20 characters or less');
+        return;
+      }
+      
+      // Check if passwords match
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
         return;
       }
     }
@@ -142,8 +149,8 @@ const LoginScreen = ({ onLogin }) => {
         mode,
         email: email ? `${email.substring(0, 3)}***` : 'empty',
         password: password ? '***' : 'empty',
-        name: mode === 'register' ? name : 'N/A',
-        username: mode === 'register' ? username : 'N/A'
+        name: mode === 'register' ? displayName : 'N/A',
+        username: mode === 'register' ? tagName : 'N/A'
       });
     }
     
@@ -168,7 +175,7 @@ const LoginScreen = ({ onLogin }) => {
         // Debug registration data before making API call
         debugRegistration();
         
-        const res = await api.register(name, username, email, password);
+        const res = await api.register(displayName, tagName, email, password);
         
         if (res.success) {
           onLogin(res.data.user, { isNewUser: true });
@@ -221,14 +228,16 @@ const LoginScreen = ({ onLogin }) => {
   const debugRegistration = () => {
     console.log('🔍 Debug Registration Data:', {
       mode,
-      name: name ? `${name.substring(0, 3)}***` : 'empty',
-      username: username ? `${username.substring(0, 3)}***` : 'empty',
+      displayName: displayName ? `${displayName.substring(0, 3)}***` : 'empty',
+      tagName: tagName ? `${tagName.substring(0, 3)}***` : 'empty',
       email: email ? `${email.substring(0, 3)}***` : 'empty',
       passwordLength: password?.length || 0,
-      nameValid: name && name.trim().length >= 2,
-      usernameValid: username && username.trim().length >= 3 && /^[a-zA-Z0-9_]+$/.test(username),
+      confirmPasswordLength: confirmPassword?.length || 0,
+      displayNameValid: displayName && displayName.trim().length >= 2,
+      tagNameValid: tagName && tagName.trim().length >= 3 && /^[a-zA-Z0-9_]+$/.test(tagName),
       emailValid: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-      passwordValid: password && password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+      passwordValid: password && password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+      passwordsMatch: password === confirmPassword
     });
   };
 
@@ -345,24 +354,38 @@ const LoginScreen = ({ onLogin }) => {
               {mode === 'register' && (
                 <>
                   <View style={styles.inputContainer}>
+                    <Text style={styles.fieldLabel}>Display Name</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder={getTranslation('name', language)}
+                      placeholder="Your display name"
                       placeholderTextColor="#666"
-                      value={name}
-                      onChangeText={setName}
+                      value={displayName}
+                      onChangeText={setDisplayName}
                       autoCapitalize="words"
                     />
+                    <Text style={styles.helperText}>
+                      This is the name that will be displayed to other users
+                    </Text>
                   </View>
                   <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder={getTranslation('username', language)}
-                      placeholderTextColor="#666"
-                      value={username}
-                      onChangeText={setUsername}
-                      autoCapitalize="none"
-                    />
+                    <Text style={styles.fieldLabel}>Tag Name</Text>
+                    <View style={styles.tagNameWarning}>
+                      <Ionicons name="warning-outline" size={16} color="#f59e0b" />
+                      <Text style={styles.tagNameWarningText}>
+                        ⚠️ This name cannot be changed later. Please write your name carefully.
+                      </Text>
+                    </View>
+                                         <TextInput
+                       style={styles.input}
+                       placeholder="Tag name"
+                       placeholderTextColor="#666"
+                       value={tagName}
+                       onChangeText={setTagName}
+                       autoCapitalize="none"
+                     />
+                    <Text style={styles.helperText}>
+                      Tag name must be 3-20 characters, letters, numbers, and underscores only
+                    </Text>
                   </View>
                 </>
               )}
@@ -390,27 +413,57 @@ const LoginScreen = ({ onLogin }) => {
                    secureTextEntry={!showPassword}
                    autoComplete="password"
                  />
-                 <TouchableOpacity
-                   style={styles.showPasswordButton}
-                   onPress={() => setShowPassword(!showPassword)}
-                 >
-                   <Ionicons 
-                     name={showPassword ? "eye-off" : "eye"} 
-                     size={20} 
-                     color="#666" 
-                   />
-                 </TouchableOpacity>
-                 {mode === 'register' && (
-                   <>
-                                           <Text style={styles.passwordHint}>
-                        Password must be 10+ characters with: uppercase, lowercase, numbers, and special characters
+                                   <TouchableOpacity
+                    style={styles.showPasswordButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Ionicons 
+                      name={showPassword ? "eye-off" : "eye"} 
+                      size={20} 
+                      color="#666" 
+                    />
+                  </TouchableOpacity>
+                </View>
+                
+                {mode === 'register' && (
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Confirm password"
+                      placeholderTextColor="#666"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showPassword}
+                      autoComplete="password"
+                    />
+                    <TouchableOpacity
+                      style={styles.showPasswordButton}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Ionicons 
+                        name={showPassword ? "eye-off" : "eye"} 
+                        size={20} 
+                        color="#666" 
+                      />
+                    </TouchableOpacity>
+                    {confirmPassword && password !== confirmPassword && (
+                      <Text style={styles.passwordMismatchError}>
+                        ❌ Passwords do not match
                       </Text>
-                     <Text style={styles.passwordWarning}>
-                       ✅ Special characters like @#$%^&*+= are now allowed for security!
-                     </Text>
-                   </>
-                 )}
-               </View>
+                    )}
+                  </View>
+                )}
+                
+                {mode === 'register' && (
+                  <>
+                    <Text style={styles.passwordHint}>
+                      Password must be 10+ characters with: uppercase, lowercase, numbers, and special characters
+                    </Text>
+                    <Text style={styles.passwordWarning}>
+                      ✅ Special characters like @#$%^&*+= are now allowed for security!
+                    </Text>
+                  </>
+                )}
               
               {error && typeof error === 'string' && error.length > 0 ? (
                 <View style={styles.errorContainer}>
@@ -463,6 +516,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#ffffff',
   },
   backgroundGradient: {
     position: 'absolute',
@@ -473,21 +527,21 @@ const styles = StyleSheet.create({
   },
   blob1: {
     position: 'absolute',
-    top: -100,
-    left: -100,
-    width: 200,
-    height: 200,
-    backgroundColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 100,
+    top: -60,
+    left: -60,
+    width: 120,
+    height: 120,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 60,
   },
   blob2: {
     position: 'absolute',
-    bottom: -100,
-    right: -100,
-    width: 200,
-    height: 200,
-    backgroundColor: 'rgba(192, 192, 192, 0.3)',
-    borderRadius: 100,
+    bottom: -60,
+    right: -60,
+    width: 120,
+    height: 120,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 60,
   },
   keyboardView: {
     flex: 1,
@@ -500,210 +554,270 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 0,
     padding: 32,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 360,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: 0,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderWidth: 0,
   },
   logoContainer: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 64,
+    height: 64,
   },
   title: {
     fontSize: 32,
-    fontWeight: '800',
-    color: '#000',
+    fontWeight: '300',
+    color: '#000000',
     marginBottom: 32,
     textAlign: 'center',
-    letterSpacing: 2,
+    letterSpacing: 8,
+    textShadowColor: 'transparent',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0,
   },
   modeSelector: {
     flexDirection: 'row',
-    marginBottom: 24,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
-    padding: 4,
+    marginBottom: 32,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    padding: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   modeButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 0,
     alignItems: 'center',
-    marginHorizontal: 2,
+    marginHorizontal: 0,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
   loginButton: {
     backgroundColor: 'transparent',
   },
   activeLoginButton: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 0,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderWidth: 0,
+    borderBottomColor: '#000000',
   },
   registerButton: {
     backgroundColor: 'transparent',
   },
   activeRegisterButton: {
-    backgroundColor: '#000',
-    shadowColor: '#000',
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 0,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderBottomColor: '#000000',
   },
   modeButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: '400',
+    color: '#999999',
   },
   activeModeButtonText: {
-    color: '#000',
+    color: '#000000',
+    fontWeight: '500',
   },
   registerButtonText: {
-    color: '#666',
+    color: '#999999',
   },
   activeRegisterButtonText: {
-    color: '#fff',
+    color: '#000000',
+    fontWeight: '500',
   },
   betaBadge: {
-    backgroundColor: 'rgba(255, 165, 0, 0.2)',
-    borderColor: 'rgba(255, 165, 0, 0.3)',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 20,
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    marginBottom: 32,
   },
   betaText: {
     fontSize: 12,
-    color: '#cc6600',
+    color: '#999999',
     textAlign: 'center',
+    fontWeight: '400',
   },
   betaBold: {
-    fontWeight: 'bold',
+    fontWeight: '500',
   },
   form: {
     width: '100%',
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 24,
+    position: 'relative',
   },
   input: {
     width: '100%',
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 0,
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomColor: '#e0e0e0',
     fontSize: 16,
-    color: '#000',
+    color: '#000000',
     backgroundColor: 'transparent',
+    fontWeight: '400',
   },
   errorText: {
-    color: '#ef4444',
+    color: '#000000',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
+    fontWeight: '400',
   },
   errorContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: '#ef4444',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    padding: 0,
     marginBottom: 16,
   },
   submitButton: {
-    backgroundColor: '#000',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginTop: 16,
+    backgroundColor: '#000000',
+    borderRadius: 0,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    marginTop: 24,
     marginBottom: 24,
-    shadowColor: '#000',
+    shadowColor: 'transparent',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 0,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   submitButtonRegister: {
-    backgroundColor: '#000',
-    shadowColor: '#000',
+    backgroundColor: '#000000',
+    shadowColor: 'transparent',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 0,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   submitButtonDisabled: {
-    backgroundColor: '#666',
-    shadowOpacity: 0.1,
+    backgroundColor: '#cccccc',
+    shadowOpacity: 0,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '400',
     textAlign: 'center',
+    letterSpacing: 1,
   },
   forgotPasswordButton: {
-    marginTop: 16,
-    paddingVertical: 8,
+    marginTop: 24,
+    paddingVertical: 12,
   },
   forgotPasswordText: {
-    color: '#333',
+    color: '#666666',
     fontSize: 14,
     textAlign: 'center',
-    textDecorationLine: 'underline',
+    textDecorationLine: 'none',
+    fontWeight: '400',
   },
   showPasswordButton: {
     position: 'absolute',
     right: 0,
-    top: 12,
+    top: 16,
     padding: 8,
     backgroundColor: 'transparent',
   },
-     showPasswordText: {
-     color: '#333',
-     fontSize: 14,
-   },
-   passwordHint: {
-     color: '#666',
-     fontSize: 12,
-     marginTop: 4,
-     fontStyle: 'italic',
-   },
-   passwordWarning: {
-     color: '#ef4444',
-     fontSize: 11,
-     marginTop: 2,
-     fontWeight: '500',
-   },
+  showPasswordText: {
+    color: '#666666',
+    fontSize: 14,
+  },
+  passwordHint: {
+    color: '#999999',
+    fontSize: 12,
+    marginTop: 8,
+    fontStyle: 'normal',
+    fontWeight: '400',
+  },
+  passwordWarning: {
+    color: '#000000',
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: '400',
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#000000',
+    marginBottom: 8,
+    letterSpacing: 0,
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 8,
+    fontStyle: 'normal',
+    fontWeight: '400',
+    lineHeight: 16,
+  },
+  tagNameWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    borderRadius: 0,
+    padding: 8,
+    marginBottom: 8,
+  },
+  tagNameWarningText: {
+    fontSize: 12,
+    color: '#666666',
+    marginLeft: 8,
+    flex: 1,
+    fontWeight: '400',
+    lineHeight: 16,
+  },
+  passwordMismatchError: {
+    color: '#000000',
+    fontSize: 12,
+    marginTop: 8,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
 });
 
 export default LoginScreen; 

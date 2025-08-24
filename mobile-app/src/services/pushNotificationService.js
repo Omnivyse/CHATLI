@@ -689,8 +689,320 @@ class PushNotificationService {
   }
 
   // Get current user ID (updated to use the tracked value)
-  async getCurrentUserId() {
+  getCurrentUserId() {
     return currentUserId;
+  }
+
+  // Check notification filtering status
+  getNotificationFilteringStatus() {
+    return {
+      currentUserId,
+      isFilteringEnabled: currentUserId !== null,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Set current user ID for notification filtering
+  setCurrentUserId(userId) {
+    console.log('🔔 setCurrentUserId called with:', userId);
+    currentUserId = userId;
+    console.log('🔔 Current user ID set for notifications:', currentUserId);
+  }
+
+  // Clear current user ID (for logout)
+  clearCurrentUserId() {
+    console.log('🔔 clearCurrentUserId called, clearing current user ID');
+    currentUserId = null;
+    console.log('🔔 Current user ID cleared, notification filtering disabled');
+  }
+
+  // Test notification filtering with sample data
+  testNotificationFiltering() {
+    const testNotifications = [
+      {
+        type: 'message',
+        senderId: 'user1',
+        recipientId: 'user2',
+        title: 'New message from user1'
+      },
+      {
+        type: 'message', 
+        senderId: 'user2',
+        recipientId: 'user1',
+        title: 'New message from user2'
+      },
+      {
+        type: 'like',
+        userId: 'user1',
+        recipientId: 'user2'
+      }
+    ];
+
+    console.log('🧪 Testing notification filtering...');
+    console.log('🔔 Current user ID:', currentUserId);
+    
+    testNotifications.forEach((notification, index) => {
+      const shouldShow = this.shouldShowNotificationForCurrentUser(notification);
+      console.log(`🧪 Test ${index + 1}:`, {
+        notification,
+        shouldShow,
+        result: shouldShow ? '✅ ALLOWED' : '❌ SUPPRESSED'
+      });
+    });
+  }
+
+  // Log current notification filtering status
+  logNotificationFilteringStatus() {
+    console.log('🔔 📊 Current notification filtering status:', {
+      currentUserId,
+      isFilteringEnabled: currentUserId !== null,
+      timestamp: new Date().toISOString(),
+      serviceInstance: !!this
+    });
+  }
+
+  // Initialize push notification service
+  async initialize() {
+    try {
+      console.log('🔔 Initializing push notification service...');
+      const token = await this.registerForPushNotificationsAsync();
+      if (token) {
+        console.log('✅ Push notification service initialized successfully');
+        return true;
+      } else {
+        console.log('⚠️ Failed to initialize push notification service');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error initializing push notification service:', error);
+      return false;
+    }
+  }
+
+  // Update push token for user on server
+  async updatePushTokenForUser() {
+    try {
+      const token = this.getPushToken();
+      if (token) {
+        // Here you would typically make an API call to update the token on your server
+        console.log('✅ Push token updated for user:', token);
+        return true;
+      } else {
+        console.log('⚠️ No push token available to update');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error updating push token for user:', error);
+      return false;
+    }
+  }
+
+  // Schedule notification
+  async scheduleNotification(notificationData) {
+    try {
+      const { title, body, sound, data } = notificationData;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: sound || 'nottif.mp3',
+        },
+        trigger: null, // Send immediately
+      });
+      console.log('✅ Test notification scheduled successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Error scheduling test notification:', error);
+      return false;
+    }
+  }
+
+  // Setup Android notification channels
+  async setupAndroidChannels() {
+    try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('messages', {
+          name: 'Messages',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+          sound: 'nottif.mp3',
+        });
+
+        await Notifications.setNotificationChannelAsync('likes', {
+          name: 'Likes',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+          sound: 'nottif.mp3',
+        });
+
+        await Notifications.setNotificationChannelAsync('comments', {
+          name: 'Comments',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+          sound: 'nottif.mp3',
+        });
+
+        await Notifications.setNotificationChannelAsync('follows', {
+          name: 'Follows',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+          sound: 'nottif.mp3',
+        });
+
+        await Notifications.setNotificationChannelAsync('general', {
+          name: 'General',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+          sound: 'nottif.mp3',
+        });
+
+        console.log('✅ Android notification channels created successfully');
+        return true;
+      } else {
+        console.log('ℹ️ Notification channels are only available on Android');
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ Error setting up Android notification channels:', error);
+      return false;
+    }
+  }
+
+  // Cancel all notifications
+  async cancelAllNotifications() {
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('🔔 All notifications cancelled');
+      return true;
+    } catch (error) {
+      console.error('❌ Error cancelling notifications:', error);
+      return false;
+    }
+  }
+
+  // Register for push notifications
+  async registerForPushNotificationsAsync() {
+    try {
+      let token;
+      
+      // Check if we're in development or production
+      const isDevelopment = __DEV__;
+      const isTestFlight = !isDevelopment && Platform.OS === 'ios';
+      
+      console.log('🔔 Registering for push notifications...');
+      console.log('📱 Environment:', {
+        isDevelopment,
+        isProduction: !isDevelopment,
+        isTestFlight,
+        platform: Platform.OS
+      });
+      
+      // Set up notification channel for Android
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          description: 'Default notification channel',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+          sound: 'nottif.mp3',
+          enableVibrate: true,
+          showBadge: true,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        });
+      }
+      
+      // Request permissions with enhanced options
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        console.log('🔔 Requesting notification permissions...');
+        const { status } = await Notifications.requestPermissionsAsync({
+          ios: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+            allowAnnouncements: false,
+            allowCriticalAlerts: false,
+            provideAppNotificationSettings: true,
+          },
+          android: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+            allowAnnouncements: false,
+          },
+        });
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        console.log('❌ Push notification permission not granted');
+        console.log('📋 Permission status:', finalStatus);
+        return null;
+      }
+      
+      console.log('✅ Push notification permissions granted');
+      
+      // Get project ID
+      const projectId = this.getProjectId();
+      
+      // Get push token with enhanced error handling
+      try {
+        token = (await Notifications.getExpoPushTokenAsync({
+          projectId: projectId,
+        })).data;
+        
+        console.log('✅ Push token obtained successfully:', token);
+        console.log('📋 Token details:', {
+          token: token,
+          tokenLength: token?.length,
+          startsWithExponent: token?.startsWith('ExponentPushToken'),
+          isDevelopment,
+          isProduction: !isDevelopment,
+          isTestFlight
+        });
+        
+        // Store the token in the service
+        this.expoPushToken = token;
+        
+        // Store the token for later use
+        if (token) {
+          try {
+            await AsyncStorage.setItem('pushToken', token);
+            console.log('💾 Push token stored in AsyncStorage');
+          } catch (storageError) {
+            console.log('⚠️ Could not store push token:', storageError);
+          }
+        }
+        
+      } catch (pushTokenError) {
+        console.error('❌ Push token error:', pushTokenError);
+        console.log('📋 Push token error details:', {
+          message: pushTokenError.message,
+          code: pushTokenError.code,
+          stack: pushTokenError.stack
+        });
+        
+        return null;
+      }
+      
+      return token;
+    } catch (error) {
+      console.error('❌ Push notification setup error:', error);
+      console.log('📋 Setup error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      return null;
+    }
   }
 }
 

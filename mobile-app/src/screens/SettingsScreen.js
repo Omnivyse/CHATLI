@@ -55,10 +55,10 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
         },
         {
           icon: 'notifications-outline',
-          title: getTranslation('notifications', language),
-          subtitle: getTranslation('notifications', language),
+          title: getTranslation('notificationSettings', language),
+          subtitle: getTranslation('notificationSettings', language),
           type: 'arrow',
-          onPress: () => navigation.navigate('Notifications'),
+          onPress: () => navigation.navigate('NotificationSettings'),
         },
         // Only show verify email option if user's email is not verified
         ...(user && !user.emailVerified ? [{

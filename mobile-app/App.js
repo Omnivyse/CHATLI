@@ -38,6 +38,7 @@ import UserSearchScreen from './src/screens/UserSearchScreen';
 import CreatePostScreen from './src/screens/CreatePostScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
 // import ClipsScreen from './src/screens/ClipsScreen'; // Temporarily hidden
 import HelpCenterScreen from './src/screens/HelpCenterScreen';
 import AppUpdateScreen from './src/screens/AppUpdateScreen';
@@ -338,6 +339,15 @@ function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerifica
         }}
       >
         {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowVerificationBanner={onShowVerificationBanner} />}
+      </Stack.Screen>
+      
+      <Stack.Screen 
+        name="NotificationSettings"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {(props) => <NotificationSettingsScreen {...props} user={user} />}
       </Stack.Screen>
       
       <Stack.Screen 
