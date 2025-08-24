@@ -556,7 +556,10 @@ const NotificationScreen = ({ navigation, user }) => {
                   {/* Post Text */}
                   {selectedPost.content && (
                     <Text style={[styles.postText, { color: colors.text }]}>
-                      {selectedPost.content}
+                      {selectedPost.isSecret && selectedPost.author._id !== user?._id && !Boolean(selectedPost.showDescription)
+                        ? getTranslation('descriptionLocked', language)
+                        : selectedPost.content
+                      }
                     </Text>
                   )}
 

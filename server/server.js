@@ -207,6 +207,39 @@ const performanceLogger = (req, res, next) => {
 
 app.use(performanceLogger);
 
+// Cleanup old secret post attempt records to prevent memory leaks
+const cleanupSecretPostAttempts = () => {
+  try {
+    const now = Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000);
+    
+    if (app.locals) {
+      const keysToRemove = [];
+      Object.keys(app.locals).forEach(key => {
+        if (key.startsWith('secret_post_attempts_')) {
+          const attempts = app.locals[key];
+          if (attempts && attempts.lastAttempt && attempts.lastAttempt < oneHourAgo) {
+            keysToRemove.push(key);
+          }
+        }
+      });
+      
+      keysToRemove.forEach(key => {
+        delete app.locals[key];
+      });
+      
+      if (keysToRemove.length > 0) {
+        console.log(`🧹 Cleaned up ${keysToRemove.length} old secret post attempt records`);
+      }
+    }
+  } catch (error) {
+    console.error('Error cleaning up secret post attempts:', error);
+  }
+};
+
+// Run cleanup every 30 minutes
+setInterval(cleanupSecretPostAttempts, 30 * 60 * 1000);
+
 // Body parsing with size limits
 app.use(express.json({ limit: '10mb' })); // Reduced from 20mb
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

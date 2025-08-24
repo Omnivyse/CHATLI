@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import socketService from '../services/socket';
 import { useTheme } from '../contexts/ThemeContext';
@@ -62,6 +63,7 @@ const ChatScreen = ({ navigation, route, user }) => {
   const [reactionAnimations, setReactionAnimations] = useState({});
   const [chatInfo, setChatInfo] = useState(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const lastReloadTimeRef = useRef(0); // Track last reload time to prevent blinking
   // Removed replyingTo state temporarily
 
   useEffect(() => {
@@ -180,10 +182,6 @@ const ChatScreen = ({ navigation, route, user }) => {
     
     setupChat();
     
-    // Enhanced socket status checking
-    console.log('Socket connection status:', socketService.getConnectionStatus());
-    console.log('Socket ready:', socketService.isReady());
-    
     // Enhanced message listeners with better error handling
     const messageHandler = (data) => {
       console.log('📨 New message received via socket:', data);
@@ -263,8 +261,30 @@ const ChatScreen = ({ navigation, route, user }) => {
       }
     }, 2000);
     
+    // Set up a periodic connection check for real-time functionality
+    const connectionCheckInterval = setInterval(() => {
+      // Only check if we're not already connected and not currently loading
+      // And only if we haven't checked recently to prevent blinking
+      if (!socketService.isReady() && !loading) {
+        console.log('⚠️ Socket connection lost, attempting to reconnect...');
+        socketService.connect(user.token);
+        
+        // Re-join chat room after reconnection only if not already in it
+        setTimeout(() => {
+          if (socketService.isReady() && !socketService.isInChatRoom(chatId)) {
+            console.log('🔄 Re-joining chat room after reconnection:', chatId);
+            socketService.joinChat(chatId);
+          }
+        }, 1000);
+      }
+    }, 120000); // Check every 2 minutes instead of 1 minute to reduce blinking
+    
     return () => {
       console.log('🧹 Cleaning up chat screen socket listeners...');
+      
+      // Clear the connection check interval
+      clearInterval(connectionCheckInterval);
+      
       socketService.off('new_message', messageHandler);
       socketService.off('user_typing', typingHandler);
       socketService.off('reaction_added', reactionHandler);
@@ -315,17 +335,40 @@ const ChatScreen = ({ navigation, route, user }) => {
   }, [messages.length, loading]);
 
   // Reload messages when screen is focused to ensure reactions are up-to-date
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+  useFocusEffect(
+    useCallback(() => {
       console.log('🎯 Chat screen focused, checking if messages need refresh...');
-      if (messages.length > 0 && !loading) {
-        console.log('🔄 Reloading messages to ensure reactions are current...');
+      
+      // Use the socket service's graceful focus handling
+      const needsAction = !socketService.handleScreenFocus(chatId);
+      
+      // Only reload messages if:
+      // 1. We have messages
+      // 2. We're not currently loading
+      // 3. No socket action was taken (to prevent double loading)
+      // 4. We haven't reloaded recently (to prevent blinking)
+      const now = Date.now();
+      const lastReloadTime = lastReloadTimeRef.current;
+      const minReloadInterval = 10000; // Minimum 10 seconds between reloads
+      
+      if (messages.length > 0 && !loading && !needsAction && (now - lastReloadTime) > minReloadInterval) {
+        console.log('🔄 Reloading messages to ensure they are current...');
+        lastReloadTimeRef.current = now;
         loadMessages();
+      } else if (needsAction) {
+        console.log('⏳ Socket action taken, skipping message reload to prevent blinking');
+      } else if ((now - lastReloadTime) <= minReloadInterval) {
+        console.log('⏳ Messages reloaded recently, skipping to prevent blinking');
       }
-    });
-
-    return unsubscribe;
-  }, [navigation, messages.length, loading]);
+      
+      // Cleanup function when screen loses focus
+      return () => {
+        console.log('🎯 Chat screen losing focus, cleaning up...');
+        // Don't leave the chat room here, just clean up temporary resources
+        // The socket will remain connected for real-time updates
+      };
+    }, [chatId, user._id, user.token, messages.length, loading])
+  );
 
   const animateReaction = (messageId, emoji) => {
     const animationKey = `${messageId}-${emoji}`;

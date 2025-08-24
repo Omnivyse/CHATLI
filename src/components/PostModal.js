@@ -49,16 +49,38 @@ const PostModal = ({ postId, user, onClose, onPostUpdate, show = true, settingsM
 
   const handleSecretPostPassword = async (password) => {
     try {
-      const response = await api.verifySecretPostPassword(postId, password);
+      console.log('🔐 Verifying password for post:', post._id);
+      const response = await api.verifySecretPostPassword(post._id, password);
+      console.log('🔐 Server response:', response);
       if (response.success) {
+        // Update local post with server response to include the user in passwordVerifiedUsers
+        console.log('✅ Password verified, updating local post with:', response.data.post);
+        setPost(response.data.post);
         setIsSecretPostUnlocked(true);
         setSecretPasswordModalOpen(false);
         setSecretPassword('');
-        // Refresh the post to get updated data
-        fetchPost();
       }
     } catch (error) {
-      alert(error.message || 'Failed to verify password');
+      console.error('❌ Password verification failed:', error);
+      
+      // Handle rate limiting responses
+      if (error.status === 429) {
+        // Rate limited - show retry after message
+        const retryAfter = error.data?.retryAfter || 480; // Default to 8 minutes
+        const minutes = Math.ceil(retryAfter / 60);
+        alert(`Too many attempts. Please try again in ${minutes} minutes.`);
+      } else if (error.status === 401) {
+        // Wrong password - show attempts remaining
+        const attemptsRemaining = error.data?.attemptsRemaining || 0;
+        if (attemptsRemaining > 0) {
+          alert(`Incorrect password. ${attemptsRemaining} attempts remaining.`);
+        } else {
+          alert(error.message || 'Failed to verify password');
+        }
+      } else {
+        // Other errors
+        alert(error.message || 'Failed to verify password');
+      }
     }
   };
 

@@ -117,7 +117,25 @@ const Post = ({ post, user, onPostUpdate, settingsModalOpen, onStartChat }) => {
       }
     } catch (error) {
       console.error('❌ Password verification failed:', error);
-      alert(error.message || 'Failed to verify password');
+      
+      // Handle rate limiting responses
+      if (error.status === 429) {
+        // Rate limited - show retry after message
+        const retryAfter = error.data?.retryAfter || 480; // Default to 8 minutes
+        const minutes = Math.ceil(retryAfter / 60);
+        alert(`Too many attempts. Please try again in ${minutes} minutes.`);
+      } else if (error.status === 401) {
+        // Wrong password - show attempts remaining
+        const attemptsRemaining = error.data?.attemptsRemaining || 0;
+        if (attemptsRemaining > 0) {
+          alert(`Incorrect password. ${attemptsRemaining} attempts remaining.`);
+        } else {
+          alert(error.message || 'Failed to verify password');
+        }
+      } else {
+        // Other errors
+        alert(error.message || 'Failed to verify password');
+      }
     }
   };
 

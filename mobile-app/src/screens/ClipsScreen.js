@@ -775,7 +775,12 @@ const ClipsScreen = ({ navigation, user, route }) => {
                     <Text style={styles.dot}>•</Text>
                     <Text style={styles.viewCount}>{safeText(formatViewCount(item.likes?.length || 0))} үзсэн</Text>
                   </View>
-                  <Text style={styles.postContent}>{safeText(item.content || '')}</Text>
+                  <Text style={styles.postContent}>
+                    {item.isSecret && item.author._id !== user?._id && !Boolean(item.showDescription)
+                      ? getTranslation('descriptionLocked', language)
+                      : safeText(item.content || '')
+                    }
+                  </Text>
                 </View>
               </View>
               {/* Only show follow button if it's not the current user's post */}

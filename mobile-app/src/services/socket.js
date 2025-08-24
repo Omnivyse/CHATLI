@@ -6,9 +6,14 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
+    this.isConnecting = false; // Track if we're currently connecting
     this.listeners = new Map();
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
+    this.activeChatRooms = new Set(); // Track active chat rooms
+    this.authToken = null; // Store auth token for reconnection
+    this.lastReconnectAttempt = 0; // Track last reconnection attempt time
+    this.reconnectDebounceMs = 5000; // Minimum 5 seconds between reconnection attempts
   }
 
   getSocketURL() {
@@ -22,9 +27,27 @@ class SocketService {
   }
 
   connect(token) {
-    if (this.socket && this.isConnected) {
+    // Prevent rapid reconnection attempts
+    const now = Date.now();
+    if (this.lastReconnectAttempt && (now - this.lastReconnectAttempt) < this.reconnectDebounceMs) {
+      console.log('⏳ Reconnection attempt blocked by debounce, waiting...');
       return;
     }
+    
+    if (this.socket && this.isConnected) {
+      console.log('✅ Already connected, skipping connection attempt');
+      return;
+    }
+    
+    if (this.isConnecting) {
+      console.log('⏳ Already connecting, skipping duplicate attempt');
+      return;
+    }
+
+    // Store the auth token for reconnection
+    this.authToken = token;
+    this.lastReconnectAttempt = now;
+    this.isConnecting = true;
 
     const socketURL = this.getSocketURL();
     console.log('🔌 Connecting to socket:', socketURL);
@@ -33,13 +56,13 @@ class SocketService {
     this.socket = io(socketURL, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnection: false, // Disable automatic reconnection to prevent blinking
+      reconnectionAttempts: 0,
       reconnectionDelay: 1000,
       timeout: 20000,
-      forceNew: true,
+      forceNew: false, // Don't force new connection
       upgrade: true,
-      rememberUpgrade: false,
+      rememberUpgrade: true, // Remember upgrade to prevent reconnection
       // Railway-specific settings
       path: '/socket.io/',
       withCredentials: true,
@@ -52,10 +75,11 @@ class SocketService {
       console.log('✅ Socket connected successfully');
       console.log('🔗 Socket ID:', this.socket.id);
       this.isConnected = true;
+      this.isConnecting = false;
       this.reconnectAttempts = 0;
       
-      // Authenticate with token
-      if (token) {
+      // Authenticate with token - ensure token is valid
+      if (token && typeof token === 'string' && token.trim().length > 0) {
         console.log('🔐 Authenticating socket with token...');
         this.socket.emit('authenticate', token);
         
@@ -66,9 +90,11 @@ class SocketService {
         
         this.socket.once('authentication_failed', (error) => {
           console.error('❌ Socket authentication failed:', error);
-          // Disconnect if authentication fails
-          this.disconnect();
+          // Don't disconnect immediately, just log the error
+          console.log('⚠️ Continuing with unauthenticated socket for now');
         });
+      } else {
+        console.warn('⚠️ Invalid token format, skipping authentication');
       }
 
       // Re-register all existing listeners
@@ -82,16 +108,19 @@ class SocketService {
     this.socket.on('disconnect', (reason) => {
       console.log('❌ Socket disconnected:', reason);
       this.isConnected = false;
+      this.isConnecting = false;
       
-      // Attempt to reconnect for certain disconnect reasons
-      if (reason === 'io server disconnect') {
-        // Server initiated disconnect, don't reconnect
+      // Only attempt to reconnect for specific reasons, not all disconnects
+      if (reason === 'io client disconnect' || reason === 'transport close') {
+        console.log('🔄 Client-initiated disconnect, will reconnect when needed');
+        // Don't auto-reconnect, let the app handle it
+      } else if (reason === 'io server disconnect') {
         console.log('🛑 Server initiated disconnect, not reconnecting');
-        return;
+      } else {
+        console.log('⚠️ Unexpected disconnect reason:', reason);
+        // Only attempt reconnection for unexpected disconnects
+        this.attemptReconnect();
       }
-      
-      // Auto-reconnect for other reasons
-      this.attemptReconnect();
     });
 
     this.socket.on('connect_error', (error) => {
@@ -102,37 +131,30 @@ class SocketService {
         context: error.context
       });
       this.isConnected = false;
-      this.attemptReconnect();
+      this.isConnecting = false;
+      
+      // Don't auto-reconnect on connection errors to prevent blinking
+      console.log('⚠️ Connection error, will reconnect when explicitly requested');
     });
 
-    this.socket.on('reconnect', (attemptNumber) => {
-      console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
-      this.isConnected = true;
-      this.reconnectAttempts = 0;
-    });
-
-    this.socket.on('reconnect_error', (error) => {
-      console.error('❌ Socket reconnection error:', error);
-    });
-
-    this.socket.on('reconnect_failed', () => {
-      console.error('💥 Socket reconnection failed after maximum attempts');
-      this.isConnected = false;
-    });
-
-    // Add Railway-specific event listeners
+    // Remove automatic reconnection events since we disabled auto-reconnection
     this.socket.on('error', (error) => {
       console.error('🚂 Railway socket error:', error);
-    });
-
-    this.socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`🔄 Reconnection attempt ${attemptNumber}/${this.maxReconnectAttempts}`);
+      this.isConnecting = false;
     });
   }
 
   attemptReconnect() {
+    // Prevent rapid reconnection attempts
+    const now = Date.now();
+    if (this.lastReconnectAttempt && (now - this.lastReconnectAttempt) < this.reconnectDebounceMs) {
+      console.log('⏳ Reconnection attempt blocked by debounce, waiting...');
+      return;
+    }
+    
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
+      this.lastReconnectAttempt = now;
       console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       
       setTimeout(() => {
@@ -158,6 +180,9 @@ class SocketService {
       console.log('🎯 Joining chat room:', chatId);
       this.socket.emit('join_chat', chatId);
       
+      // Track this chat room as active
+      this.activeChatRooms.add(chatId);
+      
       // Add confirmation listener
       this.socket.once('chat_joined', (data) => {
         console.log('✅ Successfully joined chat room:', data);
@@ -166,6 +191,8 @@ class SocketService {
       // Add error listener
       this.socket.once('chat_join_error', (error) => {
         console.error('❌ Failed to join chat room:', error);
+        // Remove from active rooms if join failed
+        this.activeChatRooms.delete(chatId);
       });
       
       console.log('📡 Join chat event emitted for:', chatId);
@@ -176,6 +203,25 @@ class SocketService {
         connected: this.isConnected,
         socketId: this.socket?.id
       });
+      
+      // Only attempt to reconnect if we don't have a socket instance
+      // This prevents aggressive reconnection attempts
+      if (!this.socket) {
+        console.log('🔄 No socket instance, creating new connection...');
+        this.connect(this.authToken);
+        
+        // Wait for connection and then join
+        const checkAndJoin = () => {
+          if (this.isConnected) {
+            console.log('✅ Socket connected, now joining chat room:', chatId);
+            this.joinChat(chatId);
+          } else if (this.socket) {
+            // Only retry if we still have a socket instance
+            setTimeout(checkAndJoin, 1000);
+          }
+        };
+        setTimeout(checkAndJoin, 1000);
+      }
     }
   }
 
@@ -185,6 +231,9 @@ class SocketService {
       this.socket.emit('leave_chat', chatId);
       console.log('Left chat:', chatId);
     }
+    
+    // Remove from active chat rooms
+    this.activeChatRooms.delete(chatId);
   }
 
   // Send message
@@ -300,9 +349,25 @@ class SocketService {
     }
   }
 
+  // Rejoin all active chat rooms after reconnection
+  rejoinActiveChatRooms() {
+    if (this.socket && this.isConnected && this.activeChatRooms.size > 0) {
+      console.log(`🔄 Rejoining ${this.activeChatRooms.size} active chat rooms after reconnection...`);
+      this.activeChatRooms.forEach(chatId => {
+        console.log(`🎯 Rejoining chat room: ${chatId}`);
+        this.socket.emit('join_chat', chatId);
+      });
+    }
+  }
+
   // Get connection status
   getConnectionStatus() {
     return this.isConnected;
+  }
+
+  // Get active chat rooms (for debugging)
+  getActiveChatRooms() {
+    return Array.from(this.activeChatRooms);
   }
 
   // Force reconnect
@@ -326,7 +391,52 @@ class SocketService {
 
   // Check if socket is ready
   isReady() {
-    return this.socket && this.isConnected;
+    return this.socket && this.isConnected && !this.isConnecting;
+  }
+
+  // Check if we're already in a specific chat room
+  isInChatRoom(chatId) {
+    return this.activeChatRooms.has(chatId);
+  }
+
+  // Check if we should attempt reconnection
+  shouldAttemptReconnect() {
+    return !this.isConnecting && !this.isConnected && this.authToken;
+  }
+
+  // Gracefully handle screen focus - only reconnect if actually needed
+  handleScreenFocus(chatId) {
+    // If we're already connected and in the chat room, do nothing
+    if (this.isReady() && this.isInChatRoom(chatId)) {
+      console.log('✅ Already connected and in chat room:', chatId);
+      return true; // No action needed
+    }
+    
+    // If we have a socket but it's not connected, try to reconnect gently
+    if (this.socket && !this.isConnected && !this.isConnecting) {
+      console.log('🔌 Socket exists but not connected, attempting gentle reconnect...');
+      // Don't create a new connection, just try to reconnect the existing one
+      if (this.socket.connect) {
+        this.socket.connect();
+        return false; // Action taken
+      }
+    }
+    
+    // If we don't have a socket at all and should attempt reconnection, create one
+    if (!this.socket && this.shouldAttemptReconnect()) {
+      console.log('🔌 No socket instance, creating new connection...');
+      this.connect(this.authToken);
+      return false; // Action taken
+    }
+    
+    // If we're connected but not in the chat room, join it
+    if (this.isReady() && !this.isInChatRoom(chatId)) {
+      console.log('🎯 Connected but not in chat room, joining:', chatId);
+      this.joinChat(chatId);
+      return false; // Action taken
+    }
+    
+    return true; // No action needed
   }
 
   // Like post

@@ -405,13 +405,61 @@ router.post('/:id/verify-password', auth, [
       });
     }
     
-    // Verify password
-    if (post.secretPassword !== req.body.password) {
-      return res.status(401).json({ 
+    // Check for rate limiting on failed attempts
+    const userKey = `secret_post_attempts_${req.user._id}`;
+    const currentAttempts = req.app.locals[userKey] || { count: 0, lastAttempt: 0, lockedUntil: 0 };
+    const now = Date.now();
+    
+    // Clean up old attempt data (older than 1 hour)
+    if (currentAttempts.lastAttempt && (now - currentAttempts.lastAttempt) > (60 * 60 * 1000)) {
+      delete req.app.locals[userKey];
+      currentAttempts.count = 0;
+      currentAttempts.lastAttempt = 0;
+      currentAttempts.lockedUntil = 0;
+    }
+    
+    // Check if user is currently locked out
+    if (currentAttempts.lockedUntil > now) {
+      const remainingTime = Math.ceil((currentAttempts.lockedUntil - now) / (1000 * 60));
+      return res.status(429).json({ 
         success: false, 
-        message: 'Incorrect password' 
+        message: `Too many failed attempts. Please try again in ${remainingTime} minutes.`,
+        retryAfter: remainingTime * 60
       });
     }
+    
+    // Verify password
+    if (post.secretPassword !== req.body.password) {
+      // Increment failed attempts
+      currentAttempts.count++;
+      currentAttempts.lastAttempt = now;
+      
+      // Lock user out after 5 failed attempts for 8 minutes
+      if (currentAttempts.count >= 5) {
+        currentAttempts.lockedUntil = now + (8 * 60 * 1000); // 8 minutes
+        currentAttempts.count = 0; // Reset counter
+        req.app.locals[userKey] = currentAttempts;
+        
+        return res.status(429).json({ 
+          success: false, 
+          message: 'Too many incorrect passwords. Please try again in 8 minutes.',
+          retryAfter: 8 * 60
+        });
+      }
+      
+      // Store attempt data
+      req.app.locals[userKey] = currentAttempts;
+      
+      const attemptsRemaining = 5 - currentAttempts.count;
+      return res.status(401).json({ 
+        success: false, 
+        message: `Incorrect password. ${attemptsRemaining} attempts remaining.`,
+        attemptsRemaining
+      });
+    }
+    
+    // Password is correct - reset failed attempts
+    delete req.app.locals[userKey];
     
     // Add user to verified users list
     console.log(`🔐 Adding user ${req.user._id} to passwordVerifiedUsers for post ${post._id}`);

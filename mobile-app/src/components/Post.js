@@ -317,8 +317,8 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
 
   const handleSecretPostPassword = async (password) => {
     try {
-      console.log('🔐 Verifying password for post:', post._id);
-      const response = await apiService.verifySecretPostPassword(post._id, password);
+      console.log('🔐 Verifying password for post:', localPost._id);
+      const response = await apiService.verifySecretPostPassword(localPost._id, password);
       console.log('🔐 Server response:', response);
       if (response.success) {
         // Update local post with server response to include the user in passwordVerifiedUsers
@@ -326,10 +326,43 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
         setLocalPost(response.data.post);
         setIsSecretPostUnlocked(true);
         setSecretPasswordModalVisible(false);
+        setSecretPassword('');
       }
     } catch (error) {
       console.error('❌ Password verification failed:', error);
-      throw new Error(error.message || 'Failed to verify password');
+      
+      // Handle rate limiting responses
+      if (error.status === 429) {
+        // Rate limited - show retry after message
+        const retryAfter = error.data?.retryAfter || 480; // Default to 8 minutes
+        const minutes = Math.ceil(retryAfter / 60);
+        Alert.alert(
+          getTranslation('tooManyAttempts', language),
+          getTranslation('tryAgainInMinutes', language).replace('{minutes}', minutes),
+          [{ text: getTranslation('ok', language) }]
+        );
+      } else if (error.status === 401) {
+        // Wrong password - show attempts remaining
+        const attemptsRemaining = error.data?.attemptsRemaining || 0;
+        if (attemptsRemaining > 0) {
+          Alert.alert(
+            getTranslation('incorrectPassword', language),
+            getTranslation('attemptsRemaining', language).replace('{count}', attemptsRemaining),
+            [{ text: getTranslation('ok', language) }]
+          );
+        } else {
+          Alert.alert(
+            getTranslation('error', language),
+            error.message || getTranslation('passwordVerificationFailed', language)
+          );
+        }
+      } else {
+        // Other errors
+        Alert.alert(
+          getTranslation('error', language),
+          error.message || getTranslation('passwordVerificationFailed', language)
+        );
+      }
     }
   };
 
@@ -823,7 +856,10 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
               </View>
             )}
             <Text style={[styles.content, { color: colors.text }]}>
-              {localPost.content}
+              {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) 
+                ? getTranslation('descriptionLocked', language) 
+                : localPost.content
+              }
             </Text>
             {/* Only show secret overlay if content should be hidden */}
             {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) && (
