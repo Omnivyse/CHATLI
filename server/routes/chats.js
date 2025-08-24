@@ -380,7 +380,8 @@ router.post('/:id/messages', auth, [
             req.user.name,
             messageText,
             chat._id.toString(),
-            req.user._id.toString()
+            req.user._id.toString(),
+            participantId.toString() // Add recipientId for proper notification filtering
           );
         }
       }

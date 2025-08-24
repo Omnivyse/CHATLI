@@ -277,59 +277,69 @@ class PushNotificationService {
       // Message notifications
       await Notifications.setNotificationChannelAsync('messages', {
         name: 'Messages',
+        description: 'Chat and message notifications',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
         sound: 'nottif.mp3',
         enableVibrate: true,
         showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
       // Like notifications
       await Notifications.setNotificationChannelAsync('likes', {
         name: 'Likes',
+        description: 'Post like notifications',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
         sound: 'nottif.mp3',
         enableVibrate: true,
         showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
       // Comment notifications
       await Notifications.setNotificationChannelAsync('comments', {
         name: 'Comments',
+        description: 'Post comment notifications',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
         sound: 'nottif.mp3',
         enableVibrate: true,
         showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
       // Follow notifications
       await Notifications.setNotificationChannelAsync('follows', {
         name: 'Follows',
+        description: 'User follow notifications',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
         sound: 'nottif.mp3',
         enableVibrate: true,
         showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
       // General notifications
       await Notifications.setNotificationChannelAsync('general', {
         name: 'General',
+        description: 'General app notifications',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
         sound: 'nottif.mp3',
         enableVibrate: true,
         showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
-      console.log('✅ Android notification channels configured');
+      console.log('✅ Android notification channels configured with enhanced settings');
     } catch (error) {
       console.log('⚠️ Error setting up Android channels:', error.message);
     }
@@ -521,8 +531,17 @@ class PushNotificationService {
 
   // Get sound file for notification type
   getSoundForType(type) {
-    // Use the uploaded nottif.mp3 for all notification types
-    return Platform.OS === 'ios' ? 'nottif.aiff' : 'nottif.mp3';
+    // Use platform-specific sound files for better compatibility
+    if (Platform.OS === 'ios') {
+      // iOS supports .aiff files better
+      return 'nottif.aiff';
+    } else if (Platform.OS === 'android') {
+      // Android supports .mp3 files better
+      return 'nottif.mp3';
+    } else {
+      // Web or other platforms
+      return 'nottif.mp3';
+    }
   }
 
   // Schedule notification with custom sound
@@ -612,7 +631,7 @@ class PushNotificationService {
         title: data.title
       });
       
-      // Check if the notification is for the current user
+      // Check if the notification is for the current user using recipientId
       if (data.recipientId && data.recipientId === currentUserId) {
         console.log('🔔 ✅ Message notification allowed - current user is recipient');
         return true;

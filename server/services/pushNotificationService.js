@@ -140,12 +140,13 @@ class PushNotificationService {
   }
 
   // Send message notification
-  async sendMessageNotification(pushToken, senderName, messageContent, chatId, senderId) {
+  async sendMessageNotification(pushToken, senderName, messageContent, chatId, senderId, recipientId) {
     console.log('💬 Sending message notification:', {
       senderName,
       messageContent: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
       chatId,
       senderId,
+      recipientId,
       tokenLength: pushToken?.length || 0
     });
     
@@ -158,7 +159,8 @@ class PushNotificationService {
         chatId: chatId,
         senderName: senderName,
         messageContent: messageContent,
-        senderId: senderId
+        senderId: senderId,
+        recipientId: recipientId // Include recipientId for proper filtering
       },
       'message'
     );

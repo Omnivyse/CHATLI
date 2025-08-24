@@ -980,7 +980,7 @@ router.delete('/delete-account', auth, async (req, res) => {
 });
 
 // Update push token
-router.post('/push-token', auth, async (req, res) => {
+router.put('/push-token', auth, async (req, res) => {
   try {
     const { pushToken } = req.body;
     
@@ -991,17 +991,26 @@ router.post('/push-token', auth, async (req, res) => {
       });
     }
 
+    // Validate push token format
+    if (!pushToken.startsWith('ExponentPushToken[') && !pushToken.startsWith('ExponentPushToken[')) {
+      console.log(`⚠️ Invalid push token format for user ${req.user._id}: ${pushToken.substring(0, 20)}...`);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid push token format' 
+      });
+    }
+
     // Update user's push token
     await User.findByIdAndUpdate(req.user._id, { pushToken });
     
-    console.log(`Push token updated for user ${req.user._id}: ${pushToken}`);
+    console.log(`✅ Push token updated for user ${req.user._id}: ${pushToken.substring(0, 20)}...`);
     
     res.json({ 
       success: true, 
       message: 'Push token updated successfully' 
     });
   } catch (error) {
-    console.error('Update push token error:', error);
+    console.error('❌ Update push token error:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to update push token' 

@@ -1157,13 +1157,18 @@ async function registerForPushNotificationsAsync() {
     if (RNPlatform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
+        description: 'Default notification channel',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
+        sound: 'nottif.mp3',
+        enableVibrate: true,
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
     
-    // Request permissions
+    // Request permissions with enhanced options
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     
@@ -1171,6 +1176,14 @@ async function registerForPushNotificationsAsync() {
       console.log('🔔 Requesting notification permissions...');
       const { status } = await Notifications.requestPermissionsAsync({
         ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: false,
+          allowCriticalAlerts: false,
+          provideAppNotificationSettings: true,
+        },
+        android: {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
@@ -1222,7 +1235,7 @@ async function registerForPushNotificationsAsync() {
       return null;
     }
     
-    // Get push token
+    // Get push token with enhanced error handling
     try {
       token = (await Notifications.getExpoPushTokenAsync({
         projectId: projectId,

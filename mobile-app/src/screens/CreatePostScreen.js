@@ -124,40 +124,47 @@ const CreatePostScreen = ({ navigation, user }) => {
         return;
       }
 
-      // Launch image picker
+      // Launch image picker with multiple selection enabled
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: true,
+        allowsEditing: false, // Disable editing for multiple selection
         aspect: [1, 1],
         quality: 0.8,
-        allowsMultipleSelection: false,
+        allowsMultipleSelection: true, // Enable multiple selection
+        selectionLimit: 5, // Allow up to 5 images/videos
       });
 
       if (!result.canceled && result.assets?.length > 0) {
-        const asset = result.assets[0];
+        // Handle multiple selected assets
+        const newMediaItems = [];
         
-        let thumbnail = null;
-        if (asset.type === 'video') {
-          try {
-            const { uri } = await VideoThumbnails.getThumbnailAsync(asset.uri, {
-              time: 1000,
-            });
-            thumbnail = uri;
-          } catch (e) {
-            console.log('Error generating thumbnail:', e);
+        for (const asset of result.assets) {
+          let thumbnail = null;
+          if (asset.type === 'video') {
+            try {
+              const { uri } = await VideoThumbnails.getThumbnailAsync(asset.uri, {
+                time: 1000,
+              });
+              thumbnail = uri;
+            } catch (e) {
+              console.log('Error generating thumbnail:', e);
+            }
           }
+
+          const newMedia = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // Unique ID
+            uri: asset.uri,
+            type: asset.type,
+            width: asset.width,
+            height: asset.height,
+            thumbnail: thumbnail,
+          };
+
+          newMediaItems.push(newMedia);
         }
 
-        const newMedia = {
-          id: Date.now().toString(),
-          uri: asset.uri,
-          type: asset.type,
-          width: asset.width,
-          height: asset.height,
-          thumbnail: thumbnail,
-        };
-
-        setSelectedMedia(prev => [...prev, newMedia]);
+        // Add all selected media to the existing selection
+        setSelectedMedia(prev => [...prev, ...newMediaItems]);
       }
     } catch (error) {
       console.error('Error selecting media:', error);
@@ -738,7 +745,9 @@ const CreatePostScreen = ({ navigation, user }) => {
             {/* Media Preview */}
             {selectedMedia.length > 0 && (
               <View style={styles.mediaSection}>
-                <Text style={[styles.mediaSectionTitle, { color: colors.text }]}>Media Files</Text>
+                <Text style={[styles.mediaSectionTitle, { color: colors.text }]}>
+                  Media Files ({selectedMedia.length})
+                </Text>
                 <ScrollView 
                   horizontal 
                   showsHorizontalScrollIndicator={false}
@@ -761,16 +770,16 @@ const CreatePostScreen = ({ navigation, user }) => {
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: colors.surfaceVariant }]}
               onPress={handleSelectMedia}
-              disabled={loading || selectedMedia.length >= 4}
+              disabled={loading || selectedMedia.length >= 5}
             >
-              <Ionicons name="image" size={22} color={colors.text} />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>Media</Text>
+              <Ionicons name="images" size={22} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>Gallery</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: colors.surfaceVariant }]}
               onPress={handleTakePhoto}
-              disabled={loading || selectedMedia.length >= 4}
+              disabled={loading || selectedMedia.length >= 5}
             >
               <Ionicons name="camera" size={22} color={colors.text} />
               <Text style={[styles.actionButtonText, { color: colors.text }]}>Camera</Text>
@@ -779,7 +788,7 @@ const CreatePostScreen = ({ navigation, user }) => {
           
           <View style={[styles.mediaCount, { backgroundColor: colors.surfaceVariant }]}>
             <Text style={[styles.mediaCountText, { color: colors.textSecondary }]}>
-                              {String(selectedMedia.length)}/4
+              {String(selectedMedia.length)}/5
             </Text>
           </View>
         </View>
