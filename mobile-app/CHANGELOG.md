@@ -1,6 +1,55 @@
 # CHATLI Mobile App Changelog
 
-## [1.5.0] - 2025-01-27
+## [1.7.0] - 2025-01-27
+
+### 🚀 New Features
+- **Persistent Authentication**: Users now stay logged in after closing and reopening the app
+- **Enhanced Token Management**: Improved JWT token storage and refresh mechanisms
+- **Automatic Token Refresh**: Seamless token renewal to maintain user sessions
+- **Robust Authentication Flow**: Better error handling and recovery for authentication issues
+
+### 🔧 Improvements
+- **API Service Initialization**: Proper async initialization to ensure tokens are loaded before authentication checks
+- **Token Validation**: Proactive token validation and automatic refresh when tokens are close to expiring
+- **Authentication Status Checking**: New `getAuthStatus()` method for reliable authentication state verification
+- **Enhanced Error Handling**: Better handling of network issues and authentication failures
+- **Comprehensive Logging**: Detailed console logs for debugging authentication issues
+
+### 🐛 Bug Fixes
+- **Authentication Persistence**: Fixed issue where users were required to login again after app restart
+- **Token Storage**: Resolved token initialization timing issues that prevented proper authentication
+- **Token Refresh**: Fixed automatic token refresh mechanism for expired tokens
+- **Session Management**: Improved cleanup of authentication data on logout and errors
+
+### 🔒 Security Improvements
+- **Token Security**: Enhanced token validation and secure storage practices
+- **Authentication Flow**: Improved security of the authentication process with better error handling
+- **Session Security**: Better session management and cleanup procedures
+
+### 📱 Technical Improvements
+- **App Version**: Updated to version 1.7.0 with build numbers 23 (iOS) and 15 (Android)
+- **API Service**: Enhanced API service with better token management and authentication methods
+- **Error Recovery**: Improved error recovery mechanisms for authentication failures
+- **Debugging Tools**: Added global test functions for debugging authentication state
+
+### 🧪 Testing & Debugging
+- **Authentication Testing**: Added `testAuthState()` global function for debugging authentication
+- **Token Validation**: Enhanced token validation testing and error reporting
+- **Console Logging**: Comprehensive logging throughout the authentication process
+- **Debug Functions**: Global debugging functions available in development mode
+
+### 📋 Breaking Changes
+- **Version Update**: App version updated from 1.6.0 to 1.7.0
+- **Build Numbers**: iOS build number increased to 23, Android version code to 15
+
+### 🔄 Migration Notes
+- Existing users will benefit from persistent authentication immediately
+- No user action required - authentication persistence works automatically
+- Improved user experience with seamless app restarts
+
+---
+
+## [1.6.0] - 2025-01-27
 
 ### 🚀 New Features
 - **App Update System**: Complete overhaul of the app update recommendation system

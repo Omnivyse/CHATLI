@@ -547,7 +547,11 @@ function App() {
 
   const checkAuth = async () => {
     try {
-      // First, test the connection
+      // First, ensure API service is properly initialized
+      console.log('🔍 Initializing API service...');
+      await apiService.initializeToken();
+      
+      // Test the connection
       console.log('🔍 Testing server connection...');
       const healthCheck = await apiService.healthCheck();
       if (!healthCheck.success) {
@@ -557,10 +561,23 @@ function App() {
         console.log('✅ Server connection successful');
       }
 
-      const token = await AsyncStorage.getItem('token');
-      if (token) {
+      // Check authentication status
+      const authStatus = await apiService.getAuthStatus();
+      console.log('🔍 Authentication status:', authStatus);
+      
+      if (authStatus.isAuthenticated) {
         console.log('🔍 Checking authentication with stored token...');
         try {
+          // Ensure token is valid before making the request
+          const isValid = await apiService.ensureValidToken();
+          if (!isValid) {
+            console.log('❌ Token validation failed, clearing tokens');
+            await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('refreshToken');
+            await apiService.clearToken();
+            return;
+          }
+          
           const response = await apiService.getCurrentUser();
           if (response.success) {
             console.log('✅ Authentication successful');
@@ -568,25 +585,46 @@ function App() {
             // Set current user ID for notification filtering
             setCurrentUserId(response.data.user._id);
             // Connect to socket
-            socketService.connect(token);
+            socketService.connect(authStatus.token);
           } else {
             console.log('❌ Authentication failed, removing token');
             await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('refreshToken');
             await apiService.clearToken();
           }
         } catch (authError) {
           console.log('❌ Authentication error:', authError.message);
-          // Clear token for any auth-related errors
-          await AsyncStorage.removeItem('token');
-          await apiService.clearToken();
           
-          // If it's a token expiration, log it specifically
+          // Check if it's a token expiration error
           if (authError.message.includes('Token has expired')) {
-            console.log('🔐 Expired token cleared, user needs to login again');
+            console.log('🔐 Token expired, attempting refresh...');
+            try {
+              const refreshed = await apiService.refreshAccessToken();
+              if (refreshed) {
+                console.log('✅ Token refreshed successfully, retrying authentication...');
+                // Retry the authentication with the new token
+                const retryResponse = await apiService.getCurrentUser();
+                if (retryResponse.success) {
+                  console.log('✅ Authentication successful after token refresh');
+                  setUser(retryResponse.data.user);
+                  setCurrentUserId(retryResponse.data.user._id);
+                  const newToken = await AsyncStorage.getItem('token');
+                  socketService.connect(newToken);
+                  return;
+                }
+              }
+            } catch (refreshError) {
+              console.log('❌ Token refresh failed:', refreshError.message);
+            }
           }
+          
+          // Clear tokens for any auth-related errors
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.removeItem('refreshToken');
+          await apiService.clearToken();
         }
       } else {
-        console.log('ℹ️ No stored token found');
+        console.log(`ℹ️ Not authenticated: ${authStatus.reason}`);
       }
     } catch (error) {
       console.error('Auth check error:', error);
@@ -597,10 +635,12 @@ function App() {
       } else if (error.message.includes('Token has expired')) {
         console.log('🔐 Token expired, clearing authentication data');
         await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('refreshToken');
         await apiService.clearToken();
       } else {
         // Just clear token for other auth errors
         await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('refreshToken');
         await apiService.clearToken();
       }
       // Don't show error to user for auth check failures
@@ -711,9 +751,26 @@ function App() {
   if (__DEV__) {
     global.testUpdateLogic = testUpdateLogic;
     global.triggerUpdateCheck = triggerUpdateCheck;
+    global.testAuthState = async () => {
+      console.log('🧪 Testing authentication state...');
+      const token = await AsyncStorage.getItem('token');
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      const authStatus = await apiService.getAuthStatus();
+      
+      console.log('🧪 Auth test results:', {
+        hasToken: !!token,
+        hasRefreshToken: !!refreshToken,
+        tokenLength: token?.length || 0,
+        authStatus,
+        user: user ? { id: user._id, email: user.email } : null
+      });
+      
+      return { token, refreshToken, authStatus, user };
+    };
     console.log('🧪 Update test functions available globally:');
     console.log('🧪 - testUpdateLogic() - Test version comparison logic');
     console.log('🧪 - triggerUpdateCheck() - Manually trigger update check');
+    console.log('🧪 - testAuthState() - Test authentication state');
   }
 
   const handleUpdateSkip = async () => {
@@ -731,6 +788,23 @@ function App() {
 
   const handleLogin = async (userData, loginInfo = {}) => {
     try {
+      console.log('🔐 Login successful, setting up user session...');
+      
+      // Ensure tokens are properly stored
+      const token = await AsyncStorage.getItem('token');
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      
+      console.log('🔍 Token storage check:', {
+        hasToken: !!token,
+        hasRefreshToken: !!refreshToken,
+        tokenLength: token?.length || 0
+      });
+      
+      // If no tokens are stored, this might be an issue
+      if (!token) {
+        console.warn('⚠️ No token found in storage after login');
+      }
+      
       setUser(userData);
       
       // Set current user ID for notification filtering
@@ -739,7 +813,7 @@ function App() {
       // Show welcome modal for new users or on app update
       const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
       const appVersion = await AsyncStorage.getItem('appVersion');
-      const currentVersion = '1.5.0'; // Update this when you release new versions
+      const currentVersion = '1.7.0'; // Update this when you release new versions
       
       // For testing: Force show welcome modal (remove this line after testing)
       await AsyncStorage.removeItem('hasSeenWelcome');
@@ -766,7 +840,7 @@ function App() {
       
       // Initialize services with error handling
       try {
-        await socketService.connect(userData.token);
+        await socketService.connect(token || userData.token);
       } catch (socketError) {
         console.error('Socket connection error:', socketError);
       }

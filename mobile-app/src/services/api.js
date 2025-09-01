@@ -54,10 +54,40 @@ class ApiService {
     this.onTokenExpiration = handler;
   }
 
+  // Check if the API service is ready (has been initialized)
+  isReady() {
+    return this.baseURL !== null;
+  }
+
+  // Get current authentication status
+  async getAuthStatus() {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        return { isAuthenticated: false, reason: 'No token found' };
+      }
+      
+      if (this.isTokenExpired(token)) {
+        return { isAuthenticated: false, reason: 'Token expired' };
+      }
+      
+      return { isAuthenticated: true, token };
+    } catch (error) {
+      return { isAuthenticated: false, reason: 'Error checking auth status' };
+    }
+  }
+
   async initializeToken() {
     try {
       this.token = await AsyncStorage.getItem('token');
       const refreshToken = await AsyncStorage.getItem('refreshToken');
+      
+      if (__DEV__) {
+        console.log('🔍 Initializing API service tokens...', {
+          hasToken: !!this.token,
+          hasRefreshToken: !!refreshToken
+        });
+      }
       
       if (this.token) {
         // Validate the token immediately
@@ -74,6 +104,10 @@ class ApiService {
                 console.log('🔐 Token refresh failed, clearing all tokens');
               }
               await this.clearToken();
+            } else {
+              if (__DEV__) {
+                console.log('✅ Token refreshed successfully during initialization');
+              }
             }
           } else {
             if (__DEV__) {
@@ -82,10 +116,14 @@ class ApiService {
             await this.clearToken();
           }
         } else {
-          if (__DEV__) console.log('🔍 Valid token found in storage');
+          if (__DEV__) console.log('✅ Valid token found in storage');
         }
       } else {
         if (__DEV__) console.log('ℹ️ No token found in storage');
+      }
+      
+      if (__DEV__) {
+        console.log('🔍 API service initialization complete');
       }
     } catch (error) {
       if (__DEV__) console.error('Error initializing token:', error);
