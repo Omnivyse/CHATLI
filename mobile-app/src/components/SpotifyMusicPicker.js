@@ -235,7 +235,7 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
               <ActivityIndicator size="small" color={colors.textInverse} />
             ) : (
               <>
-                <Ionicons name="logo-spotify" size={20} color={colors.textInverse} />
+                <Ionicons name="musical-notes" size={20} color={colors.textInverse} />
                 <Text style={[styles.authButtonText, { color: colors.textInverse }]}>
                   Connect Spotify
                 </Text>

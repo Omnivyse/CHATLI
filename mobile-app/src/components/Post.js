@@ -564,20 +564,22 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
                 onError={(error) => handleVideoError(mediaItem.url, error)}
               />
               
-              {/* Video Controls Overlay */}
-              <TouchableOpacity 
-                onPress={() => handleVideoPress(mediaItem.url)}
-                activeOpacity={0.9}
-                style={styles.videoControlsOverlay}
-              >
-                <View style={styles.videoPlayButton}>
-                  <Ionicons 
-                    name="play-circle" 
-                    size={48} 
-                    color="#ffffff" 
-                  />
-                </View>
-              </TouchableOpacity>
+              {/* Video Controls Overlay - Only show play button when video is not playing */}
+              {!videoPlaying[mediaItem.url] && (
+                <TouchableOpacity 
+                  onPress={() => handleVideoPress(mediaItem.url)}
+                  activeOpacity={0.9}
+                  style={styles.videoControlsOverlay}
+                >
+                  <View style={styles.videoPlayButton}>
+                    <Ionicons 
+                      name="play-circle" 
+                      size={48} 
+                      color="#ffffff" 
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -672,20 +674,22 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
                    onError={(error) => handleVideoError(firstItem.url, error)}
                  />
                  
-                 {/* Video Controls Overlay */}
-                 <TouchableOpacity 
-                   onPress={() => handleVideoPress(firstItem.url)}
-                   activeOpacity={0.9}
-                   style={styles.videoControlsOverlay}
-                 >
-                   <View style={styles.videoPlayButton}>
-                     <Ionicons 
-                       name="play-circle" 
-                       size={48} 
-                       color="#ffffff" 
-                     />
-                   </View>
-                 </TouchableOpacity>
+                 {/* Video Controls Overlay - Only show play button when video is not playing */}
+                 {!videoPlaying[firstItem.url] && (
+                   <TouchableOpacity 
+                     onPress={() => handleVideoPress(firstItem.url)}
+                     activeOpacity={0.9}
+                     style={styles.videoControlsOverlay}
+                   >
+                     <View style={styles.videoPlayButton}>
+                       <Ionicons 
+                         name="play-circle" 
+                         size={48} 
+                         color="#ffffff" 
+                       />
+                     </View>
+                   </TouchableOpacity>
+                 )}
                </View>
              )}
             {/* Show dots for multiple media */}
@@ -899,7 +903,10 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       )}
 
       {/* Spotify Track */}
-      {localPost.spotifyTrack && (
+      {localPost.spotifyTrack && 
+       typeof localPost.spotifyTrack === 'object' && 
+       localPost.spotifyTrack.name && 
+       localPost.spotifyTrack.artist && (
         <View style={styles.spotifyContainer}>
           <SpotifyTrack track={localPost.spotifyTrack} />
         </View>

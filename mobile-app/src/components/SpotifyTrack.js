@@ -18,6 +18,15 @@ const SpotifyTrack = ({ track, onPress }) => {
   
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // Validate track data - don't render if incomplete
+  if (!track || 
+      typeof track !== 'object' || 
+      !track.name || 
+      !track.artist || 
+      !track.albumArt) {
+    return null;
+  }
+
   const handlePlayPreview = () => {
     if (track.previewUrl) {
       setIsPlaying(true);
@@ -100,7 +109,7 @@ const SpotifyTrack = ({ track, onPress }) => {
       
       {/* Spotify Logo */}
       <View style={styles.spotifyLogo}>
-        <Ionicons name="logo-spotify" size={16} color="#1DB954" />
+        <Ionicons name="musical-notes" size={16} color="#1DB954" />
       </View>
       
       {/* Duration */}
