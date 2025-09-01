@@ -23,6 +23,7 @@ import CommentSection from './CommentSection';
 import ImageViewerModal from './ImageViewerModal';
 // import TempClipsModal from './TempClipsModal'; // Temporarily hidden
 import SecretPostPasswordModal from './SecretPostPasswordModal';
+import SpotifyTrack from './SpotifyTrack';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -897,6 +898,13 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
         renderMedia()
       )}
 
+      {/* Spotify Track */}
+      {localPost.spotifyTrack && (
+        <View style={styles.spotifyContainer}>
+          <SpotifyTrack track={localPost.spotifyTrack} />
+        </View>
+      )}
+
       {/* Post Actions */}
       <View style={styles.actions}>
         <TouchableOpacity
@@ -1595,6 +1603,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginLeft: 12,
+  },
+  spotifyContainer: {
+    marginTop: 12,
+    marginHorizontal: 16,
   },
 });
 

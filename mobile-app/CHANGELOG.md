@@ -7,6 +7,13 @@
 - **Enhanced Token Management**: Improved JWT token storage and refresh mechanisms
 - **Automatic Token Refresh**: Seamless token renewal to maintain user sessions
 - **Robust Authentication Flow**: Better error handling and recovery for authentication issues
+- **🎵 Spotify Integration**: Share music from Spotify in your posts
+  - Search for any song, artist, or album
+  - Add Spotify tracks to posts with album art and play buttons
+  - Access recently played and top tracks
+  - 30-second preview playback
+  - Direct links to open tracks in Spotify app
+  - Secure OAuth 2.0 authentication with refresh tokens
 
 ### 🔧 Improvements
 - **API Service Initialization**: Proper async initialization to ensure tokens are loaded before authentication checks

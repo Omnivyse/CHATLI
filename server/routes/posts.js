@@ -26,7 +26,7 @@ router.post('/', auth, [
       return res.status(400).json({ success: false, message: 'Оролтын алдаа', errors: errors.array() });
     }
     
-    const { content, media, isSecret, secretPassword, showDescription } = req.body;
+    const { content, media, spotifyTrack, isSecret, secretPassword, showDescription } = req.body;
     
     console.log('📥 Received post creation request:', {
       contentLength: content?.length || 0,
@@ -69,6 +69,7 @@ router.post('/', auth, [
       author: req.user._id,
       content,
       media: Array.isArray(media) ? media : [],
+      spotifyTrack: spotifyTrack || null,
       isSecret: isSecret || false,
       secretPassword: isSecret ? secretPassword : undefined,
       showDescription: isSecret ? Boolean(showDescription) : false

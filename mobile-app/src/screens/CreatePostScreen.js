@@ -24,6 +24,8 @@ import { getThemeColors } from '../utils/themeUtils';
 import ImageViewerModal from '../components/ImageViewerModal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getTranslation } from '../utils/translations';
+import SpotifyMusicPicker from '../components/SpotifyMusicPicker';
+import SpotifyTrack from '../components/SpotifyTrack';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -46,6 +48,8 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [testCounter, setTestCounter] = useState(0);
   const [privacySettings, setPrivacySettings] = useState(null);
   const [loadingPrivacySettings, setLoadingPrivacySettings] = useState(false);
+  const [selectedSpotifyTrack, setSelectedSpotifyTrack] = useState(null);
+  const [showSpotifyPicker, setShowSpotifyPicker] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -290,6 +294,7 @@ const CreatePostScreen = ({ navigation, user }) => {
       const postData = {
         content: content.trim(),
         media: uploadedMedia,
+        spotifyTrack: selectedSpotifyTrack,
         isSecret: isSecretPost,
         secretPassword: isSecretPost ? secretPassword : undefined,
         showDescription: isSecretPost ? showDescription : undefined
@@ -315,6 +320,7 @@ const CreatePostScreen = ({ navigation, user }) => {
               onPress: () => {
                 setContent('');
                 setSelectedMedia([]);
+                setSelectedSpotifyTrack(null);
                 setIsSecretPost(false);
                 setSecretPassword('');
                 setShowPasswordInput(false);
@@ -757,6 +763,27 @@ const CreatePostScreen = ({ navigation, user }) => {
                 </ScrollView>
               </View>
             )}
+
+            {/* Spotify Track Preview */}
+            {selectedSpotifyTrack && (
+              <View style={styles.spotifySection}>
+                <View style={styles.spotifySectionHeader}>
+                  <Text style={[styles.mediaSectionTitle, { color: colors.text }]}>
+                    Music
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setSelectedSpotifyTrack(null)}
+                    style={styles.removeSpotifyButton}
+                  >
+                    <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                <SpotifyTrack 
+                  track={selectedSpotifyTrack} 
+                  onPress={() => setShowSpotifyPicker(true)}
+                />
+              </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
 
@@ -784,6 +811,15 @@ const CreatePostScreen = ({ navigation, user }) => {
               <Ionicons name="camera" size={22} color={colors.text} />
               <Text style={[styles.actionButtonText, { color: colors.text }]}>Camera</Text>
             </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.surfaceVariant }]}
+              onPress={() => setShowSpotifyPicker(true)}
+              disabled={loading}
+            >
+              <Ionicons name="musical-notes" size={22} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>Music</Text>
+            </TouchableOpacity>
           </View>
           
           <View style={[styles.mediaCount, { backgroundColor: colors.surfaceVariant }]}>
@@ -799,6 +835,13 @@ const CreatePostScreen = ({ navigation, user }) => {
           initialIndex={selectedImageIndex}
           onClose={() => setImageViewerVisible(false)}
           visible={imageViewerVisible}
+        />
+
+        {/* Spotify Music Picker Modal */}
+        <SpotifyMusicPicker
+          visible={showSpotifyPicker}
+          onClose={() => setShowSpotifyPicker(false)}
+          onTrackSelect={setSelectedSpotifyTrack}
         />
       </View>
     </>
@@ -995,6 +1038,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     marginLeft: 6,
+  },
+  mediaCount: {
+    backgroundColor: '#f0f0f0',
+  },
+  spotifySection: {
+    paddingVertical: 12,
+  },
+  spotifySectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  removeSpotifyButton: {
+    padding: 4,
   },
   mediaCount: {
     backgroundColor: '#f0f0f0',

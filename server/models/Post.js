@@ -29,6 +29,24 @@ const postSchema = new mongoose.Schema({
       size: Number
     }
   ],
+  // Spotify track data
+  spotifyTrack: {
+    type: {
+      type: String,
+      enum: ['spotify_track'],
+      default: 'spotify_track'
+    },
+    trackId: String,
+    name: String,
+    artist: String,
+    album: String,
+    albumArt: String,
+    previewUrl: String,
+    externalUrl: String,
+    duration: Number,
+    formattedDuration: String,
+    popularity: Number
+  },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [commentSchema],
   // Secret post fields
