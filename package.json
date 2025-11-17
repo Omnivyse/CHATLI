@@ -4,6 +4,7 @@
   "description": "Modern threaded chat app inspired by Instagram Threads with Mongolian language support",
   "private": true,
   "dependencies": {
+    "@vercel/analytics": "^1.5.0",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",

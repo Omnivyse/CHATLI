@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { initializeTheme } from './utils/themeUtils';
 import api from './services/api';
 import socketService from './services/socket';
@@ -425,7 +426,8 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark relative">
+    <>
+      <div className="flex h-screen bg-background dark:bg-background-dark text-foreground dark:text-foreground-dark relative">
       {/* Email Verification Banner */}
       <EmailVerificationBanner
         user={user}
@@ -813,7 +815,9 @@ function App() {
         onClose={() => setShowReportModal(false)}
       />
 
-    </div>
+      </div>
+      <Analytics />
+    </>
   );
 }
 
