@@ -52,7 +52,8 @@
     "socket.io-client": "^4.7.4"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2"
+    "@babel/core": "^7.25.2",
+    "babel-preset-expo": "^54.0.7"
   },
   "private": true,
   "expo": {
