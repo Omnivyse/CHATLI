@@ -1,4 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { decode as base64Decode, encode as base64Encode } from 'base-64';
+
+// Ensure atob/btoa exist in React Native environment for JWT parsing
+if (typeof global.atob === 'undefined') {
+  global.atob = base64Decode;
+}
+
+if (typeof global.btoa === 'undefined') {
+  global.btoa = base64Encode;
+}
 
 // Fallback API URLs if environment variables are not loaded
 const FALLBACK_API_URL = 'https://chatli-production.up.railway.app/api';
