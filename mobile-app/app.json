@@ -2,7 +2,7 @@
   "expo": {
     "name": "CHATLI",
     "slug": "chatli-mobile",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.chatli.mobile",
-      "buildNumber": "25",
+      "buildNumber": "26",
       "icon": "./assets/appicon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to take photos for posts and profile pictures.",
@@ -37,7 +37,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.chatli.mobile",
-      "versionCode": 17,
+      "versionCode": 18,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
