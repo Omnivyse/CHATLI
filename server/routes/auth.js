@@ -216,6 +216,11 @@ router.post('/register', [
 
     // Send verification email
     const emailResult = await emailService.sendVerificationEmail(user.email, user.username, user.verificationCode);
+    
+    if (!emailResult.success) {
+      console.error('⚠️ Failed to send verification email during registration:', emailResult.error);
+      // Still allow registration, but warn about email
+    }
 
     res.status(201).json({
       success: true,
@@ -227,6 +232,8 @@ router.post('/register', [
           username: user.username,
           email: user.email,
           emailVerified: user.emailVerified,
+          // Include verification code in development if email failed
+          verificationCode: (process.env.NODE_ENV === 'development' && !emailResult.success) ? user.verificationCode : undefined,
           avatar: user.avatar,
           coverImage: user.coverImage,
           bio: user.bio,
@@ -1149,9 +1156,14 @@ router.post('/resend-verification', [
 
     res.json({
       success: true,
-      message: 'Баталгаажуулах имэйл дахин илгээгдлээ',
+      message: emailResult.success 
+        ? 'Баталгаажуулах имэйл дахин илгээгдлээ' 
+        : 'Баталгаажуулах код үүсгэгдлээ (имэйл илгээхэд алдаа гарсан)',
       data: {
-        verificationCode: process.env.NODE_ENV === 'development' ? verificationCode : undefined
+        verificationCode: (process.env.NODE_ENV === 'development' || !emailResult.success) 
+          ? verificationCode 
+          : undefined,
+        emailSent: emailResult.success
       }
     });
   } catch (error) {
