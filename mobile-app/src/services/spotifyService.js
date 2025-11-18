@@ -283,6 +283,44 @@ class SpotifyService {
     }
   }
 
+  // Public search (no auth required, using iTunes Search API)
+  async searchPublicTracks(query, limit = 20) {
+    try {
+      const response = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=${limit}`
+      );
+      const data = await response.json();
+      if (data.results) {
+        return {
+          success: true,
+          tracks: data.results.map(item => this.mapItunesTrack(item))
+        };
+      }
+      throw new Error('No tracks found');
+    } catch (error) {
+      console.error('❌ iTunes search error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get trending tracks (iTunes top songs feed)
+  async getTrendingTracks(limit = 20) {
+    try {
+      const response = await fetch(`https://itunes.apple.com/us/rss/topsongs/limit=${limit}/json`);
+      const data = await response.json();
+      if (data.feed?.entry) {
+        return {
+          success: true,
+          tracks: data.feed.entry.map((entry, index) => this.mapItunesFeedEntry(entry, index))
+        };
+      }
+      throw new Error('No trending tracks found');
+    } catch (error) {
+      console.error('❌ Trending tracks error:', error);
+      return { success: false, error: error.message, tracks: this.getFallbackTrendingTracks() };
+    }
+  }
+
   // Get user's recently played tracks
   async getRecentlyPlayed(limit = 20) {
     try {
@@ -408,16 +446,86 @@ class SpotifyService {
     return {
       type: 'spotify_track',
       trackId: track.id,
-      name: track.name,
-      artist: track.artist,
-      album: track.album,
+      name: track.name || 'Unknown Song',
+      artist: track.artist || 'Unknown Artist',
+      album: track.album || 'Unknown Album',
       albumArt: track.albumArt,
       previewUrl: track.previewUrl,
       externalUrl: track.externalUrl,
-      duration: track.duration,
-      formattedDuration: this.formatDuration(track.duration),
-      popularity: track.popularity
+      duration: track.duration || 0,
+      formattedDuration: this.formatDuration(track.duration || 0),
+      popularity: track.popularity ?? 0,
+      source: track.source || 'spotify'
     };
+  }
+
+  mapItunesTrack(item) {
+    const albumArt = item.artworkUrl100
+      ? item.artworkUrl100.replace('100x100bb', '512x512bb')
+      : undefined;
+    return {
+      id: item.trackId ? `itunes_${item.trackId}` : `itunes_${item.collectionId || item.trackName}`,
+      name: item.trackName,
+      artist: item.artistName,
+      album: item.collectionName,
+      albumArt,
+      previewUrl: item.previewUrl,
+      externalUrl: item.trackViewUrl,
+      duration: item.trackTimeMillis || 0,
+      popularity: item.trackExplicitness === 'explicit' ? 60 : 70,
+      source: 'itunes'
+    };
+  }
+
+  mapItunesFeedEntry(entry, index = 0) {
+    const id =
+      entry.id?.attributes?.['im:id'] ||
+      entry.id?.label ||
+      `${entry.title?.label || 'song'}_${index}`;
+    const images = entry['im:image'] || [];
+    const albumArt = images.length ? images[images.length - 1].label : undefined;
+    const link = Array.isArray(entry.link) ? entry.link.find(l => l.attributes?.href) : entry.link;
+    return {
+      id: `itunes_${id}`,
+      name: entry['im:name']?.label || entry.title?.label || 'Unknown Song',
+      artist: entry['im:artist']?.label || 'Unknown Artist',
+      album: entry['im:collection']?.['im:name']?.label || entry['im:name']?.label || 'Unknown Album',
+      albumArt,
+      previewUrl: null,
+      externalUrl: link?.attributes?.href || entry.id?.label,
+      duration: 0,
+      popularity: 80 - index,
+      source: 'itunes'
+    };
+  }
+
+  getFallbackTrendingTracks() {
+    return [
+      {
+        id: 'itunes_fallback_1',
+        name: 'Blinding Lights',
+        artist: 'The Weeknd',
+        album: 'After Hours',
+        albumArt: 'https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/ab/8b/25/ab8b25ee-1d83-9728-86bc-97d877144ef6/source/512x512bb.jpg',
+        previewUrl: null,
+        externalUrl: 'https://music.apple.com/us/album/blinding-lights/1499378108?i=1499378115',
+        duration: 200000,
+        popularity: 75,
+        source: 'itunes'
+      },
+      {
+        id: 'itunes_fallback_2',
+        name: 'Flowers',
+        artist: 'Miley Cyrus',
+        album: 'Endless Summer Vacation',
+        albumArt: 'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/6b/0e/4d/6b0e4dec-6dc9-62b9-3f99-54e0da148a70/source/512x512bb.jpg',
+        previewUrl: null,
+        externalUrl: 'https://music.apple.com/us/album/flowers/1663973567?i=1663973570',
+        duration: 210000,
+        popularity: 70,
+        source: 'itunes'
+      }
+    ];
   }
 }
 

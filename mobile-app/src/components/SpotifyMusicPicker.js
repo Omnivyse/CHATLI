@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
@@ -30,20 +31,36 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [trendingTracks, setTrendingTracks] = useState([]);
   const [recentTracks, setRecentTracks] = useState([]);
   const [topTracks, setTopTracks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState('search'); // 'search', 'recent', 'top'
+  const [activeTab, setActiveTab] = useState('trending'); // 'trending', 'search', 'recent', 'top'
+  const [trendingLoading, setTrendingLoading] = useState(false);
+  const [trendingError, setTrendingError] = useState('');
   const [selectedTrack, setSelectedTrack] = useState(null);
+  const previewSoundRef = useRef(null);
+  const previewTimeoutRef = useRef(null);
   
   const searchTimeoutRef = useRef(null);
   const searchInputRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
+      setActiveTab('trending');
       initializeSpotify();
+      loadTrendingTracks();
+    } else {
+      if (previewSoundRef.current) {
+        previewSoundRef.current.unloadAsync();
+        previewSoundRef.current = null;
+      }
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = null;
+      }
     }
   }, [visible]);
 
@@ -110,11 +127,16 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
   };
 
   const performSearch = async () => {
-    if (!searchQuery.trim() || !isAuthenticated) return;
+    if (!searchQuery.trim()) return;
     
     try {
       setIsSearching(true);
-      const result = await spotifyService.searchTracks(searchQuery, 20);
+      let result;
+      if (isAuthenticated) {
+        result = await spotifyService.searchTracks(searchQuery, 20);
+      } else {
+        result = await spotifyService.searchPublicTracks(searchQuery, 20);
+      }
       
       if (result.success) {
         setSearchResults(result.tracks);
@@ -152,7 +174,51 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
     }
   };
 
-  const handleTrackSelect = (track) => {
+  useEffect(() => {
+    return () => {
+      if (previewSoundRef.current) {
+        previewSoundRef.current.unloadAsync();
+      }
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const playPreview = async (track) => {
+    try {
+      if (previewSoundRef.current) {
+        await previewSoundRef.current.unloadAsync();
+        previewSoundRef.current = null;
+      }
+      if (!track?.previewUrl) return;
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: track.previewUrl },
+        { shouldPlay: true, volume: 1 }
+      );
+      previewSoundRef.current = sound;
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+      previewTimeoutRef.current = setTimeout(async () => {
+        if (previewSoundRef.current) {
+          await previewSoundRef.current.stopAsync();
+        }
+      }, 15000);
+    } catch (error) {
+      console.error('Preview playback error:', error);
+    }
+  };
+
+  const handleTrackSelect = async (track) => {
+    if (previewSoundRef.current) {
+      await previewSoundRef.current.unloadAsync();
+      previewSoundRef.current = null;
+    }
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
     setSelectedTrack(track);
     const trackData = spotifyService.createTrackShareData(track);
     onTrackSelect(trackData);
@@ -160,37 +226,73 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
   };
 
   const renderTrackItem = ({ item, index }) => (
-    <TouchableOpacity
-      style={[styles.trackItem, { backgroundColor: colors.surface }]}
-      onPress={() => handleTrackSelect(item)}
-      activeOpacity={0.7}
-    >
-      <Image
-        source={{ uri: item.albumArt }}
-        style={styles.trackAlbumArt}
-        resizeMode="cover"
-      />
-      
-      <View style={styles.trackInfo}>
-        <Text style={[styles.trackName, { color: colors.text }]} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={[styles.trackArtist, { color: colors.textSecondary }]} numberOfLines={1}>
-          {item.artist}
-        </Text>
-        <Text style={[styles.trackAlbum, { color: colors.textTertiary }]} numberOfLines={1}>
-          {item.album}
-        </Text>
+    <View style={[styles.trackItem, { backgroundColor: colors.surface }]}>
+      <TouchableOpacity
+        style={styles.trackPressArea}
+        onPress={() => handleTrackSelect(item)}
+        activeOpacity={0.7}
+      >
+        <Image
+          source={{ uri: item.albumArt }}
+          style={styles.trackAlbumArt}
+          resizeMode="cover"
+        />
+        
+        <View style={styles.trackInfo}>
+          <Text style={[styles.trackName, { color: colors.text }]} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={[styles.trackArtist, { color: colors.textSecondary }]} numberOfLines={1}>
+            {item.artist}
+          </Text>
+          <Text style={[styles.trackAlbum, { color: colors.textTertiary }]} numberOfLines={1}>
+            {item.album}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      <View style={styles.trackActions}>
+        {item.previewUrl && (
+          <TouchableOpacity
+            onPress={() => playPreview(item)}
+            style={styles.listenButton}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="play" size={14} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={styles.listenButtonText}>Listen</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          onPress={() => handleTrackSelect(item)}
+          style={styles.selectButton}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.selectButtonText, { color: colors.primary }]}>Use</Text>
+        </TouchableOpacity>
       </View>
-      
-      <View style={styles.trackMeta}>
-        <Text style={[styles.trackDuration, { color: colors.textSecondary }]}>
-          {spotifyService.formatDuration(item.duration)}
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-      </View>
-    </TouchableOpacity>
+    </View>
   );
+
+  const loadTrendingTracks = async () => {
+    try {
+      setTrendingLoading(true);
+      setTrendingError('');
+      const result = await spotifyService.getTrendingTracks(25);
+      if (result.success && result.tracks) {
+        setTrendingTracks(result.tracks);
+      } else {
+        if (result.tracks) {
+          setTrendingTracks(result.tracks);
+        }
+        setTrendingError(result.error || 'Unable to load trending music.');
+      }
+    } catch (error) {
+      console.error('❌ Error loading trending tracks:', error);
+      setTrendingError('Unable to load trending music.');
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
 
   const renderTabButton = (tabKey, title, icon) => (
     <TouchableOpacity
@@ -215,123 +317,154 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
     </TouchableOpacity>
   );
 
-  const renderContent = () => {
-    if (!isAuthenticated) {
+  const renderTrendingTab = () => {
+    if (trendingLoading) {
       return (
-        <View style={styles.authContainer}>
-          <Ionicons name="musical-notes" size={64} color={colors.primary} />
-          <Text style={[styles.authTitle, { color: colors.text }]}>
-            Connect Spotify
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary, marginTop: 12 }]}>
+            Loading trending music...
           </Text>
-          <Text style={[styles.authSubtitle, { color: colors.textSecondary }]}>
-            Share your favorite music with friends
+        </View>
+      );
+    }
+
+    if (trendingError && trendingTracks.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="refresh" size={48} color={colors.textTertiary} />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            {trendingError}
           </Text>
-          <TouchableOpacity
-            style={[styles.authButton, { backgroundColor: colors.primary }]}
-            onPress={handleSpotifyAuth}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={colors.textInverse} />
-            ) : (
-              <>
-                <Ionicons name="musical-notes" size={20} color={colors.textInverse} />
-                <Text style={[styles.authButtonText, { color: colors.textInverse }]}>
-                  Connect Spotify
-                </Text>
-              </>
-            )}
+          <TouchableOpacity style={[styles.authButton, { backgroundColor: colors.primary, marginTop: 16 }]} onPress={loadTrendingTracks}>
+            <Text style={[styles.authButtonText, { color: colors.textInverse }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       );
     }
 
     return (
-      <View style={styles.contentContainer}>
-        {/* Search Tab */}
-        {activeTab === 'search' && (
-          <View style={styles.searchContainer}>
-            <View style={[styles.searchInputContainer, { backgroundColor: colors.surfaceVariant }]}>
-              <Ionicons name="search" size={20} color={colors.textSecondary} />
-              <TextInput
-                ref={searchInputRef}
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search for songs, artists, or albums..."
-                placeholderTextColor={colors.placeholder}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoFocus
-              />
-              {isSearching && (
-                <ActivityIndicator size="small" color={colors.primary} />
-              )}
-            </View>
-            
-            {searchResults.length > 0 ? (
-              <FlatList
-                data={searchResults}
-                renderItem={renderTrackItem}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.trackList}
-              />
-            ) : searchQuery.trim() && !isSearching ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="search" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                  No tracks found
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        )}
-
-        {/* Recent Tracks Tab */}
-        {activeTab === 'recent' && (
-          <View style={styles.recentContainer}>
-            {recentTracks.length > 0 ? (
-              <FlatList
-                data={recentTracks}
-                renderItem={renderTrackItem}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.trackList}
-              />
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="time" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                  No recently played tracks
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Top Tracks Tab */}
-        {activeTab === 'top' && (
-          <View style={styles.topContainer}>
-            {topTracks.length > 0 ? (
-              <FlatList
-                data={topTracks}
-                renderItem={renderTrackItem}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.trackList}
-              />
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="trending-up" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
-                  No top tracks available
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+      <FlatList
+        data={trendingTracks}
+        renderItem={renderTrackItem}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.trackList}
+      />
     );
   };
+
+  const renderSearchTab = () => (
+    <View style={styles.searchContainer}>
+      <View style={[styles.searchInputContainer, { backgroundColor: colors.surfaceVariant }]}>
+        <Ionicons name="search" size={20} color={colors.textSecondary} />
+        <TextInput
+          ref={searchInputRef}
+          style={[styles.searchInput, { color: colors.text }]}
+          placeholder="Search for songs, artists, or albums..."
+          placeholderTextColor={colors.placeholder}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoFocus
+        />
+        {isSearching && (
+          <ActivityIndicator size="small" color={colors.primary} />
+        )}
+      </View>
+      
+      {searchResults.length > 0 ? (
+        <FlatList
+          data={searchResults}
+          renderItem={renderTrackItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.trackList}
+        />
+      ) : searchQuery.trim() && !isSearching ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="search" size={48} color={colors.textTertiary} />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            No tracks found
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const renderRecentTab = () => (
+    <View style={styles.recentContainer}>
+      {recentTracks.length > 0 ? (
+        <FlatList
+          data={recentTracks}
+          renderItem={renderTrackItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.trackList}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="time" size={48} color={colors.textTertiary} />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            No recently played tracks
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderTopTab = () => (
+    <View style={styles.topContainer}>
+      {topTracks.length > 0 ? (
+        <FlatList
+          data={topTracks}
+          renderItem={renderTrackItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.trackList}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="trending-up" size={48} color={colors.textTertiary} />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            No top tracks available
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderContent = () => (
+    <View style={styles.contentContainer}>
+      {!isAuthenticated && (
+        <View style={[styles.infoBanner, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.infoTitle, { color: colors.text }]}>
+              Connect Spotify for personal mixes
+            </Text>
+            <Text style={[styles.infoSubtitle, { color: colors.textSecondary }]}>
+              Searching and trending work without login. Connect to see your recent and top songs.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.infoButton, { backgroundColor: colors.primary }]}
+            onPress={handleSpotifyAuth}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.textInverse} />
+            ) : (
+              <Text style={[styles.infoButtonText, { color: colors.textInverse }]}>Connect</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activeTab === 'trending' && renderTrendingTab()}
+      {activeTab === 'search' && renderSearchTab()}
+      {activeTab === 'recent' && isAuthenticated && renderRecentTab()}
+      {activeTab === 'top' && isAuthenticated && renderTopTab()}
+    </View>
+  );
 
   return (
     <Modal
@@ -358,24 +491,22 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
         </View>
 
         {/* Tabs */}
-        {isAuthenticated && (
-          <View style={[styles.tabContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            {renderTabButton('search', 'Search', 'search')}
-            {renderTabButton('recent', 'Recent', 'time')}
-            {renderTabButton('top', 'Top', 'trending-up')}
-          </View>
-        )}
+        <View style={[styles.tabContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          {renderTabButton('trending', 'Trending', 'flame')}
+          {renderTabButton('search', 'Search', 'search')}
+          {isAuthenticated && renderTabButton('recent', 'Recent', 'time')}
+          {isAuthenticated && renderTabButton('top', 'Top', 'trending-up')}
+        </View>
 
         {/* Content */}
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
+        {renderContent()}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            <Text style={[styles.loadingText, { color: colors.textInverse }]}>
               Loading...
             </Text>
           </View>
-        ) : (
-          renderContent()
         )}
       </KeyboardAvoidingView>
     </Modal>
@@ -466,6 +597,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
+  trackPressArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   trackAlbumArt: {
     width: 48,
     height: 48,
@@ -489,6 +625,69 @@ const styles = StyleSheet.create({
   },
   trackMeta: {
     alignItems: 'flex-end',
+  },
+  trackActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    columnGap: 8,
+  },
+  listenButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  listenButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  selectButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  infoSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  infoButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  infoButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   trackDuration: {
     fontSize: 12,
@@ -532,6 +731,12 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     marginTop: 12,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
   emptyState: {
     flex: 1,

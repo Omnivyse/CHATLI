@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,19 @@ import {
   Linking,
   Alert,
 } from 'react-native';
+import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
 
-const SpotifyTrack = ({ track, onPress }) => {
+const SpotifyTrack = ({ track, onPress, autoPlayPreview = false }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
   const [isPlaying, setIsPlaying] = useState(false);
+  const previewSoundRef = useRef(null);
+  const previewTimeoutRef = useRef(null);
+  const autoPlayRef = useRef(false);
 
   // Validate track data - don't render if incomplete
   if (!track || 
@@ -27,27 +31,92 @@ const SpotifyTrack = ({ track, onPress }) => {
     return null;
   }
 
-  const handlePlayPreview = () => {
-    if (track.previewUrl) {
-      setIsPlaying(true);
-      // Here you would implement audio playback
-      // For now, we'll just show an alert
-      Alert.alert(
-        'Preview Available',
-        `Playing preview of "${track.name}" by ${track.artist}`,
-        [
-          {
-            text: 'Open in Spotify',
-            onPress: () => openInSpotify(),
-          },
-          {
-            text: 'OK',
-            onPress: () => setIsPlaying(false),
-          },
-        ]
+  useEffect(() => {
+    autoPlayRef.current = autoPlayPreview;
+  }, [autoPlayPreview]);
+
+  useEffect(() => {
+    const autoPreview = async () => {
+      if (autoPlayPreview && track?.previewUrl) {
+        await startPreview();
+      } else {
+        await stopPreview();
+      }
+    };
+    autoPreview();
+    return () => {
+      stopPreview();
+    };
+  }, [track?.id]);
+
+  const startPreview = async () => {
+    try {
+      if (!track.previewUrl) {
+        openInSpotify();
+        return;
+      }
+      await stopPreview();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+        playsInSilentModeIOS: true,
+        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DUCK_OTHERS,
+        shouldDuckAndroid: true,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DUCK_OTHERS,
+        playThroughEarpieceAndroid: false,
+      });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: track.previewUrl },
+        { shouldPlay: true, volume: 1 }
       );
-    } else {
+      previewSoundRef.current = sound;
+      setIsPlaying(true);
+
+      sound.setOnPlaybackStatusUpdate(async (status) => {
+        if (status.didJustFinish || status.positionMillis >= 15000) {
+          await stopPreview();
+        }
+      });
+
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+      previewTimeoutRef.current = setTimeout(async () => {
+        await stopPreview();
+      }, 15000);
+    } catch (error) {
+      console.error('Preview playback error:', error);
       openInSpotify();
+    }
+  };
+
+  const stopPreview = async () => {
+    try {
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = null;
+      }
+      if (previewSoundRef.current) {
+        await previewSoundRef.current.stopAsync();
+        await previewSoundRef.current.unloadAsync();
+        previewSoundRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error stopping preview:', error);
+    } finally {
+      setIsPlaying(false);
+    }
+  };
+
+  const handlePlayPreview = async () => {
+    if (!track.previewUrl) {
+      openInSpotify();
+      return;
+    }
+    if (isPlaying) {
+      await stopPreview();
+    } else {
+      await startPreview();
     }
   };
 
@@ -105,6 +174,9 @@ const SpotifyTrack = ({ track, onPress }) => {
           size={16} 
           color={colors.textInverse} 
         />
+        <Text style={[styles.playButtonLabel, { color: colors.textInverse }]}>
+          {isPlaying ? 'Stop' : 'Listen'}
+        </Text>
       </TouchableOpacity>
       
       {/* Spotify Logo */}
@@ -159,12 +231,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   playButton: {
-    width: 32,
+    paddingHorizontal: 12,
     height: 32,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+  },
+  playButtonLabel: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '600',
   },
   spotifyLogo: {
     marginRight: 8,

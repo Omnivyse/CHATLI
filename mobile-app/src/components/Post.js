@@ -881,14 +881,32 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
        )}
 
       {/* Post Content */}
-      {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (
-        <TouchableOpacity
-          onPress={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? handleSecretPostPress : undefined}
-          activeOpacity={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? 0.7 : 1}
-          style={localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? styles.secretContentContainer : null}
-        >
+      {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (() => {
+        const isLockedPost = localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id;
+        const shouldHideContent = isLockedPost && !Boolean(localPost.showDescription);
+
+        if (shouldHideContent) {
+          return (
+            <View style={[styles.lockedContentContainer, { backgroundColor: colors.surfaceVariant }]}>
+              <Ionicons name="lock-closed" size={20} color={colors.textSecondary} />
+              <Text style={[styles.lockedContentText, { color: colors.text }]}>
+                {getTranslation('descriptionLocked', language)}
+              </Text>
+              <TouchableOpacity
+                style={[styles.unlockButton, { backgroundColor: colors.primary }]}
+                onPress={handleSecretPostPress}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="key-outline" size={16} color="#fff" style={styles.unlockButtonIcon} />
+                <Text style={styles.unlockButtonText}>{getTranslation('unlock', language) || 'Unlock'}</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
+        return (
           <View style={styles.contentContainer}>
-            {localPost.isSecret && localPost.author._id !== user?._id && !isSecretPostUnlocked && (
+            {isLockedPost && (
               <View style={styles.lockIconContainer}>
                 <Ionicons 
                   name="lock-closed" 
@@ -898,23 +916,11 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
               </View>
             )}
             <Text style={[styles.content, { color: colors.text }]}>
-              {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) 
-                ? getTranslation('descriptionLocked', language) 
-                : localPost.content
-              }
+              {localPost.content}
             </Text>
-            {/* Only show secret overlay if content should be hidden */}
-            {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id && !Boolean(localPost.showDescription) && (
-              <View style={styles.secretOverlay}>
-                <View style={styles.secretOverlayContent}>
-                  <Ionicons name="lock-closed" size={24} color="#ffffff" />
-                  <Text style={[styles.secretText, { color: "#ffffff" }]}>Tap to enter password</Text>
-                </View>
-              </View>
-            )}
           </View>
-        </TouchableOpacity>
-      )}
+        );
+      })()}
 
       {/* Post Media */}
       {localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id ? (
@@ -1250,6 +1256,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     marginBottom: 8,
+  },
+  lockedContentContainer: {
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+  },
+  lockedContentText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  unlockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: 8,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  unlockButtonIcon: {
+    marginRight: 6,
+  },
+  unlockButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   mediaContainer: {
     marginBottom: 8,

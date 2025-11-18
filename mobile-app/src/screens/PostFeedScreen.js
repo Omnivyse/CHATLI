@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   StyleSheet,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Alert,
   Dimensions,
   SafeAreaView,
@@ -22,7 +21,6 @@ import apiService from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigationState } from '../contexts/NavigationContext';
-import { useBottomTab } from '../contexts/BottomTabContext';
 import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 import Toast from 'react-native-toast-message';
@@ -33,7 +31,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { updateNavigationState } = useNavigationState();
-  const { updateBottomTabVisibility, showBottomTab } = useBottomTab();
   const colors = getThemeColors(theme);
   const [posts, setPosts] = useState([]);
   const [topWeeklyPosts, setTopWeeklyPosts] = useState([]);
@@ -49,88 +46,9 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
   const [showEventModal, setShowEventModal] = useState(false);
   const [topPostsLastUpdated, setTopPostsLastUpdated] = useState(null);
   const flatListRef = useRef(null);
-  const scrollTimeoutRef = useRef(null);
   const [highlightedPostId, setHighlightedPostId] = useState(null);
   const [filteredPosts, setFilteredPosts] = useState([]);
 
-  const safeScrollHandler = (event) => {
-    try {
-      // Persist the event to prevent it from being reused
-      event.persist();
-      
-      // Check if event and nativeEvent exist to prevent errors
-      if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) {
-        return;
-      }
-      
-      const currentScrollY = event.nativeEvent.contentOffset.y;
-      
-      // Validate scroll position
-      if (typeof currentScrollY !== 'number' || isNaN(currentScrollY)) {
-        return;
-      }
-      
-      // Show bottom tab immediately when at the top or very close to top
-      if (currentScrollY <= 50) {
-        showBottomTab();
-      } else {
-        // Update visibility for all other scrolls
-        updateBottomTabVisibility(currentScrollY);
-      }
-    } catch (error) {
-      // Silently handle any scroll errors to prevent crashes
-      console.warn('Scroll handler error:', error);
-    }
-  };
-
-  const debouncedScrollHandler = (event) => {
-    // Check if event exists before processing
-    if (!event) {
-      return;
-    }
-    
-    // Persist the event immediately to prevent synthetic event issues
-    event.persist();
-    
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    scrollTimeoutRef.current = setTimeout(() => {
-      safeScrollHandler(event);
-    }, 10); // Very short delay for responsiveness
-  };
-
-  // Alternative scroll handler that doesn't use debouncing to avoid synthetic event issues
-  const directScrollHandler = (event) => {
-    try {
-      // Persist the event immediately
-      event.persist();
-      
-      // Check if event and nativeEvent exist
-      if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) {
-        return;
-      }
-      
-      const currentScrollY = event.nativeEvent.contentOffset.y;
-      
-      // Validate scroll position
-      if (typeof currentScrollY !== 'number' || isNaN(currentScrollY)) {
-        return;
-      }
-      
-      // Show bottom tab immediately when at the top or very close to top
-      if (currentScrollY <= 50) {
-        showBottomTab();
-      } else {
-        // Update visibility for all other scrolls
-        updateBottomTabVisibility(currentScrollY);
-      }
-    } catch (error) {
-      // Silently handle any scroll errors to prevent crashes
-      console.warn('Direct scroll handler error:', error);
-    }
-  };
 
   const removeDuplicatePosts = (postsArray) => {
     if (!Array.isArray(postsArray)) {
@@ -242,16 +160,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
     fetchPosts();
     // Update navigation state when post feed screen is focused
     updateNavigationState('PostFeed', null);
-    updateBottomTabVisibility(true); // Ensure tab is visible on mount
-    
-    // Cleanup function
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-        scrollTimeoutRef.current = null;
-      }
-    };
-  }, [user, user?.emailVerified, updateNavigationState, updateBottomTabVisibility]);
+  }, [user, user?.emailVerified, updateNavigationState]);
 
   useEffect(() => {
     fetchEvents();
@@ -301,25 +210,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
     if (!loadingMore && hasMore && !loading) {
       setLoadingMore(true);
       fetchPosts(page + 1);
-    }
-  };
-
-  const handleScrollBeginDrag = () => {
-    // Show bottom tab when user starts scrolling
-    showBottomTab();
-  };
-
-  const handleScrollEndDrag = () => {
-    // Optional: Add any logic when user stops scrolling
-  };
-
-  const handleScreenTap = () => {
-    // Show bottom tab when user taps on the screen
-    showBottomTab();
-    
-    // Close dropdown if it's open
-    if (showDropdown) {
-      setShowDropdown(false);
     }
   };
 
@@ -685,8 +575,12 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-      <TouchableWithoutFeedback onPress={handleScreenTap}>
         <View style={[styles.content, { backgroundColor: 'transparent' }]}>
+          {showDropdown && (
+            <View style={styles.dropdownOverlay}>
+              <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowDropdown(false)} />
+            </View>
+          )}
           {/* Header with Glass Effect */}
           <View style={[
             styles.header, 
@@ -801,8 +695,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.topPostsContainer}
-                onScroll={directScrollHandler}
-                scrollEventThrottle={32}
               />
             </View>
           )}
@@ -823,10 +715,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
             }
             onEndReached={selectedFilter === 'CHATLI' ? handleLoadMore : null}
             onEndReachedThreshold={selectedFilter === 'CHATLI' ? 0.1 : null}
-            onScroll={directScrollHandler}
-            onScrollBeginDrag={handleScrollBeginDrag}
-            onScrollEndDrag={handleScrollEndDrag}
-            scrollEventThrottle={32}
             ListEmptyComponent={renderEmptyState}
             ListFooterComponent={
               loadingMore && selectedFilter === 'CHATLI' ? (
@@ -875,7 +763,6 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
             onCreateEvent={handleCreateEvent}
           />
         </View>
-      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 };
@@ -887,6 +774,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: 'transparent', // This will inherit from parent
+  },
+  dropdownOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9997,
   },
   header: {
     paddingTop: 10,

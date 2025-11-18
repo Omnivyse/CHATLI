@@ -781,6 +781,7 @@ const CreatePostScreen = ({ navigation, user }) => {
                 <SpotifyTrack 
                   track={selectedSpotifyTrack} 
                   onPress={() => setShowSpotifyPicker(true)}
+                  autoPlayPreview
                 />
               </View>
             )}
