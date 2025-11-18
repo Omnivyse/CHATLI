@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import socketService from '../services/socket';
@@ -523,8 +524,32 @@ const ChatListScreen = ({ navigation, user }) => {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top', 'left', 'right']} // Don't include bottom to avoid tab bar overlap
     >
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      {/* Header with Glass Effect */}
+      <View style={[
+        styles.header, 
+        { 
+          borderBottomColor: colors.border,
+          backgroundColor: theme === 'dark' 
+            ? 'rgba(15, 15, 25, 0.6)' 
+            : 'rgba(255, 255, 255, 0.75)'
+        }
+      ]}>
+        <BlurView
+          pointerEvents="none"
+          intensity={80}
+          tint={theme === 'dark' ? 'dark' : 'light'}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderBottomWidth: 0.5,
+            borderBottomColor: theme === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(0, 0, 0, 0.1)',
+          }}
+        />
         <View style={styles.headerLeft}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
           <View style={styles.connectionStatus}>
@@ -645,17 +670,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 0,
+    overflow: 'hidden',
   },
   headerTitle: {
     fontSize: 28,

@@ -10,6 +10,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import Toast from 'react-native-toast-message';
@@ -28,6 +29,7 @@ import SpotifyTrack from './SpotifyTrack';
 const { width: screenWidth } = Dimensions.get('window');
 
 const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHighlighted }) => {
+  const insets = useSafeAreaInsets();
   // Debug: Validate props
   if (!post || typeof post !== 'object') {
     console.warn('Post component: Invalid post prop:', post);
@@ -65,6 +67,9 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
   // Video view modal state
   const [videoViewModalVisible, setVideoViewModalVisible] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const modalVideoRef = useRef(null);
+  const [modalVideoPlaying, setModalVideoPlaying] = useState(true);
+  const [modalVideoMuted, setModalVideoMuted] = useState(false);
   
   const videoRef = useRef(null);
   const likeTimeoutRef = useRef(null);
@@ -436,7 +441,39 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       title: localPost.content || 'Untitled Video',
       author: localPost.author
     });
+    setModalVideoPlaying(true);
+    setModalVideoMuted(false);
     setVideoViewModalVisible(true);
+  };
+
+  const handleModalVideoStatus = (status) => {
+    if (!status.isLoaded) {
+      return;
+    }
+    setModalVideoPlaying(status.isPlaying);
+    setModalVideoMuted(status.isMuted);
+    if (status.didJustFinish) {
+      setModalVideoPlaying(false);
+      // Reset to start so play button restarts video
+      if (modalVideoRef.current) {
+        modalVideoRef.current.setPositionAsync(0);
+      }
+    }
+  };
+
+  const toggleModalVideoPlay = () => {
+    if (!modalVideoRef.current) return;
+    if (modalVideoPlaying) {
+      modalVideoRef.current.pauseAsync();
+    } else {
+      modalVideoRef.current.playAsync();
+    }
+  };
+
+  const toggleModalVideoMute = () => {
+    if (!modalVideoRef.current) return;
+    modalVideoRef.current.setIsMutedAsync(!modalVideoMuted);
+    setModalVideoMuted(!modalVideoMuted);
   };
 
   const handleVideoViewComment = () => {
@@ -1047,7 +1084,7 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       >
         <View style={styles.videoViewModalContainer}>
           {/* Video View Header */}
-          <View style={styles.videoViewHeader}>
+          <View style={[styles.videoViewHeader, { paddingTop: insets.top + 12 }]}>
             <TouchableOpacity
               style={styles.videoViewCloseButton}
               onPress={() => setVideoViewModalVisible(false)}
@@ -1070,23 +1107,40 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
           {selectedVideo && (
             <View style={styles.videoViewPlayerContainer}>
               <Video
+                ref={modalVideoRef}
                 source={{ uri: selectedVideo.url }}
                 style={styles.videoViewPlayer}
-                useNativeControls={true}
+                useNativeControls={false}
                 resizeMode="contain"
-                shouldPlay={true}
+                shouldPlay={videoViewModalVisible}
                 isLooping={false}
-                isMuted={false}
-                shouldCorrectPitch={false}
-                onLoad={(status) => {
-                  if (status.isLoaded) {
-                    console.log('Video loaded in view modal:', status);
-                  }
-                }}
+                onPlaybackStatusUpdate={handleModalVideoStatus}
                 onError={(error) => {
                   console.error('Video error in view modal:', error);
                 }}
               />
+              <View style={styles.videoViewControls}>
+                <TouchableOpacity
+                  style={styles.videoViewControlButton}
+                  onPress={toggleModalVideoPlay}
+                >
+                  <Ionicons
+                    name={modalVideoPlaying ? 'pause' : 'play'}
+                    size={20}
+                    color="#ffffff"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.videoViewControlButton}
+                  onPress={toggleModalVideoMute}
+                >
+                  <Ionicons
+                    name={modalVideoMuted ? 'volume-mute' : 'volume-high'}
+                    size={20}
+                    color="#ffffff"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -1526,6 +1580,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#000',
+  },
+  videoViewControls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    columnGap: 12,
+  },
+  videoViewControlButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   videoViewActions: {
     position: 'absolute',

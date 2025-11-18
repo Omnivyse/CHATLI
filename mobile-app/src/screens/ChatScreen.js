@@ -17,6 +17,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -1264,8 +1265,32 @@ const ChatScreen = ({ navigation, route, user }) => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }] }>
+      {/* Header with Glass Effect */}
+      <View style={[
+        styles.header, 
+        { 
+          borderBottomColor: colors.border,
+          backgroundColor: theme === 'dark' 
+            ? 'rgba(15, 15, 25, 0.6)' 
+            : 'rgba(255, 255, 255, 0.75)'
+        }
+      ] }>
+        <BlurView
+          pointerEvents="none"
+          intensity={80}
+          tint={theme === 'dark' ? 'dark' : 'light'}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderBottomWidth: 0.5,
+            borderBottomColor: theme === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(0, 0, 0, 0.1)',
+          }}
+        />
         <TouchableOpacity
           style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
           onPress={() => {
@@ -1472,7 +1497,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    overflow: 'hidden',
   },
   backButton: {
     width: 40,

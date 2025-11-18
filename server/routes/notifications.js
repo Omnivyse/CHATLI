@@ -76,4 +76,27 @@ router.post('/read-all', auth, async (req, res) => {
   }
 });
 
+// Delete a notification
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    if (!req.params.id || req.params.id === 'undefined') {
+      return res.status(400).json({ success: false, message: 'Invalid notification ID' });
+    }
+
+    const notification = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id
+    });
+
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Мэдэгдэл олдсонгүй' });
+    }
+
+    res.json({ success: true, message: 'Notification deleted' });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({ success: false, message: 'Серверийн алдаа' });
+  }
+});
+
 module.exports = router; 

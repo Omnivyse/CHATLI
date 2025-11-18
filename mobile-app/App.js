@@ -3,7 +3,8 @@ import { StatusBar, Platform } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, Alert, LogBox, Platform as RNPlatform, Image } from 'react-native';
+import { View, Text, Alert, LogBox, Platform as RNPlatform, Image, TouchableOpacity } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
@@ -14,7 +15,7 @@ import Constants from 'expo-constants';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './src/contexts/LanguageContext';
 import { NavigationProvider, useNavigationState } from './src/contexts/NavigationContext';
-import { BottomTabProvider, useBottomTab } from './src/contexts/BottomTabContext';
+import { BottomTabProvider } from './src/contexts/BottomTabContext';
 import { getTranslation } from './src/utils/translations';
 import { getStatusBarStyle, getStatusBarBackgroundColor, getTabBarColors, getNavigationColors, getThemeColors } from './src/utils/themeUtils';
 
@@ -66,11 +67,137 @@ SplashScreen.preventAutoHideAsync();
 function MainTabNavigator({ user, onLogout, onGoToVerification, onTestPushNotification }) {
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { translateY } = useBottomTab();
   const tabBarColors = getTabBarColors(theme);
+
+  // Custom Tab Bar with Glass Effect
+  const CustomTabBar = (props) => {
+    // Filter out hidden routes (like Clips)
+    const visibleRoutes = props.state.routes.filter(route => route.name !== 'Clips');
+    
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: RNPlatform.OS === 'ios' ? 72 : 68,
+          overflow: 'hidden',
+          zIndex: 1000,
+        }}
+      >
+        <BlurView
+          intensity={80}
+          tint={theme === 'dark' ? 'dark' : 'light'}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderTopWidth: 0.5,
+            borderTopColor: theme === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(0, 0, 0, 0.1)',
+          }}
+        />
+        <View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            paddingTop: RNPlatform.OS === 'ios' ? 6 : 4,
+            paddingBottom: RNPlatform.OS === 'ios' ? 6 : 12,
+            paddingHorizontal: RNPlatform.OS === 'android' ? 6 : 0,
+          }}
+        >
+          {visibleRoutes.map((route, index) => {
+            const { options } = props.descriptors[route.key];
+            // Find the actual index in the full routes array for focus check
+            const actualIndex = props.state.routes.findIndex(r => r.key === route.key);
+            const isFocused = props.state.index === actualIndex;
+
+            const onPress = () => {
+              const event = props.navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+
+              if (!isFocused && !event.defaultPrevented) {
+                props.navigation.navigate(route.name);
+              }
+            };
+
+            const onLongPress = () => {
+              props.navigation.emit({
+                type: 'tabLongPress',
+                target: route.key,
+              });
+            };
+
+            let iconName;
+            if (route.name === 'Feed') {
+              iconName = isFocused ? 'home' : 'home-outline';
+            } else if (route.name === 'Chats') {
+              iconName = isFocused ? 'chatbubbles' : 'chatbubbles-outline';
+            } else if (route.name === 'Notifications') {
+              iconName = isFocused ? 'notifications' : 'notifications-outline';
+            } else if (route.name === 'Profile') {
+              iconName = isFocused ? 'person' : 'person-outline';
+            }
+
+            const color = isFocused 
+              ? tabBarColors.activeTintColor 
+              : tabBarColors.inactiveTintColor;
+
+            return (
+              <TouchableOpacity
+                key={route.key}
+                accessibilityRole="button"
+                accessibilityState={isFocused ? { selected: true } : {}}
+                accessibilityLabel={options.tabBarAccessibilityLabel}
+                testID={options.tabBarTestID}
+                onPress={onPress}
+                onLongPress={onLongPress}
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  minHeight: RNPlatform.OS === 'ios' ? 38 : 44,
+                  paddingHorizontal: 10,
+                  paddingVertical: RNPlatform.OS === 'ios' ? 6 : 4,
+                }}
+              >
+                {route.name === 'Profile' && user?.avatar ? (
+                  <Image
+                    source={{ uri: user.avatar }}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      borderWidth: isFocused ? 2 : 0,
+                      borderColor: isFocused ? color : 'transparent',
+                    }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons 
+                    name={iconName} 
+                    size={28} 
+                    color={color}
+                  />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
   
   return (
     <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
@@ -158,38 +285,7 @@ function MainTabNavigator({ user, onLogout, onGoToVerification, onTestPushNotifi
         tabBarActiveTintColor: tabBarColors.activeTintColor,
         tabBarInactiveTintColor: tabBarColors.inactiveTintColor,
         tabBarStyle: {
-          backgroundColor: tabBarColors.backgroundColor,
-          borderTopWidth: 1,
-          borderTopColor: tabBarColors.borderTopColor,
-          paddingTop: RNPlatform.OS === 'ios' ? 8 : 4,
-          paddingBottom: RNPlatform.OS === 'ios' ? 8 : 16, // Extra padding for Android
-          height: RNPlatform.OS === 'ios' ? 72 : 80, // Taller for Android
-          shadowColor: '#000000',
-          shadowOffset: {
-            width: 0,
-            height: -1,
-          },
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 8, // Higher elevation for Android
-          // Android specific styles
-          ...(RNPlatform.OS === 'android' && {
-            paddingHorizontal: 8,
-            paddingVertical: 8,
-          }),
-          // Smooth animated hide/show based on scroll direction
-          opacity: translateY.interpolate({
-            inputRange: [0, 120],
-            outputRange: [1, 0],
-            extrapolate: 'clamp',
-          }),
-          transform: [{ translateY: translateY }],
-          // Ensure background is properly handled when hidden
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
+          display: 'none', // Hide default tab bar since we're using custom one
         },
         tabBarLabelStyle: {
           display: 'none',

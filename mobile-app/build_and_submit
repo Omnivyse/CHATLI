@@ -1,0 +1,10 @@
+# 1. Navigate to mobile app directory
+cd mobile-app
+
+# 2. Build the app
+npx eas build --platform ios --profile production
+
+# 3. Wait for build to complete (check EAS dashboard or terminal)
+
+# 4. Submit to App Store
+npx eas submit --platform ios --latest

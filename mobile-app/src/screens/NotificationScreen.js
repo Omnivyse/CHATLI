@@ -7,12 +7,14 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   Alert,
   Modal,
   ScrollView,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -359,6 +361,28 @@ const NotificationScreen = ({ navigation, user }) => {
     }
   };
 
+  const handleDeleteNotification = async (notificationId) => {
+    if (!notificationId) return;
+    try {
+      await api.deleteNotification(notificationId);
+      setNotifications(prev => prev.filter(notification => notification._id !== notificationId));
+    } catch (error) {
+      console.error('Delete notification error:', error);
+      Alert.alert('Error', 'Failed to delete notification');
+    }
+  };
+
+  const handleNotificationLongPress = (notification) => {
+    Alert.alert(
+      'Delete notification',
+      'Are you sure you want to delete this notification?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => handleDeleteNotification(notification._id) }
+      ]
+    );
+  };
+
   const renderNotification = ({ item: notification, index }) => {
     // Validate notification data
     if (!notification || !notification._id) {
@@ -380,20 +404,22 @@ const NotificationScreen = ({ navigation, user }) => {
     }
     
     return (
-      <TouchableOpacity
-        style={[
-          styles.notificationItem,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-          !notification.isRead && { 
-            backgroundColor: colors.surfaceVariant,
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
-            elevation: 4,
-          }
-        ]}
+      <TouchableWithoutFeedback
         onPress={() => handleNotificationPress(notification)}
-        activeOpacity={0.7}
+        onLongPress={() => handleNotificationLongPress(notification)}
       >
+        <View
+          style={[
+            styles.notificationItem,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            !notification.isRead && { 
+              backgroundColor: colors.surfaceVariant,
+              shadowOpacity: 0.08,
+              shadowRadius: 12,
+              elevation: 4,
+            }
+          ]}
+        >
         <View style={[
           styles.notificationIcon,
           { backgroundColor: !notification.isRead ? colors.surfaceVariant : colors.surface }
@@ -437,14 +463,39 @@ const NotificationScreen = ({ navigation, user }) => {
             { backgroundColor: colors.primary }
           ]} />
         )}
-      </TouchableOpacity>
+        </View>
+      </TouchableWithoutFeedback>
     );
   };
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[
+          styles.header, 
+          { 
+            borderBottomColor: colors.border,
+            backgroundColor: theme === 'dark' 
+              ? 'rgba(15, 15, 25, 0.6)' 
+              : 'rgba(255, 255, 255, 0.75)'
+          }
+        ]}>
+          <BlurView
+            pointerEvents="none"
+            intensity={80}
+            tint={theme === 'dark' ? 'dark' : 'light'}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderBottomWidth: 0.5,
+              borderBottomColor: theme === 'dark' 
+                ? 'rgba(255, 255, 255, 0.1)' 
+                : 'rgba(0, 0, 0, 0.1)',
+            }}
+          />
           <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
         </View>
         <View style={styles.loadingContainer}>
@@ -458,8 +509,32 @@ const NotificationScreen = ({ navigation, user }) => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      {/* Header with Glass Effect */}
+      <View style={[
+        styles.header, 
+        { 
+          borderBottomColor: colors.border,
+          backgroundColor: theme === 'dark' 
+            ? 'rgba(15, 15, 25, 0.6)' 
+            : 'rgba(255, 255, 255, 0.75)'
+        }
+      ]}>
+        <BlurView
+          pointerEvents="none"
+          intensity={80}
+          tint={theme === 'dark' ? 'dark' : 'light'}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderBottomWidth: 0.5,
+            borderBottomColor: theme === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(0, 0, 0, 0.1)',
+          }}
+        />
         <View style={styles.headerLeft}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             {getTranslation('notifications', language) || 'Notifications'}
@@ -623,17 +698,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 0,
+    overflow: 'hidden',
   },
   headerLeft: {
     flexDirection: 'row',

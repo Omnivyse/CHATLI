@@ -875,6 +875,15 @@ class ApiService {
     });
   }
 
+  async deleteNotification(notificationId) {
+    if (!notificationId) {
+      throw new Error('Invalid notification ID');
+    }
+    return this.request(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // User search
   async searchUsers(query) {
     return this.request(`/auth/users/search?q=${encodeURIComponent(query)}`);
