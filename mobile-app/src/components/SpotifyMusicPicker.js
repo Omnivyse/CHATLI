@@ -34,13 +34,16 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
   const [trendingTracks, setTrendingTracks] = useState([]);
   const [recentTracks, setRecentTracks] = useState([]);
   const [topTracks, setTopTracks] = useState([]);
+  const [forYouTracks, setForYouTracks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState('trending'); // 'trending', 'search', 'recent', 'top'
+  const [activeTab, setActiveTab] = useState('trending'); // 'trending', 'search', 'recent', 'top', 'foryou'
   const [trendingLoading, setTrendingLoading] = useState(false);
   const [trendingError, setTrendingError] = useState('');
   const [selectedTrack, setSelectedTrack] = useState(null);
+  const [selectedTrackId, setSelectedTrackId] = useState(null);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
   const previewSoundRef = useRef(null);
   const previewTimeoutRef = useRef(null);
   
@@ -49,18 +52,15 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
 
   useEffect(() => {
     if (visible) {
-      setActiveTab('trending');
+      setActiveTab('foryou'); // Default to For You tab
       initializeSpotify();
       loadTrendingTracks();
+      // Reset selection when opening
+      setSelectedTrackId(null);
+      setSelectedTrack(null);
     } else {
-      if (previewSoundRef.current) {
-        previewSoundRef.current.unloadAsync();
-        previewSoundRef.current = null;
-      }
-      if (previewTimeoutRef.current) {
-        clearTimeout(previewTimeoutRef.current);
-        previewTimeoutRef.current = null;
-      }
+      // Stop any playing preview when modal closes
+      stopPreview();
     }
   }, [visible]);
 
@@ -93,10 +93,18 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
       const authenticated = spotifyService.isAuthenticated();
       setIsAuthenticated(authenticated);
       
+      // Always load For You section (works with or without auth)
+      loadForYouTracks();
+      
       if (authenticated) {
-        // Load recent and top tracks
+        // Load recent and top tracks if authenticated
         loadRecentTracks();
         loadTopTracks();
+        // Set default tab to "For You" if authenticated
+        setActiveTab('foryou');
+      } else {
+        // Set default tab to "For You" even if not authenticated
+        setActiveTab('foryou');
       }
     } catch (error) {
       console.error('❌ Error initializing Spotify:', error);
@@ -114,6 +122,8 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
         setIsAuthenticated(true);
         loadRecentTracks();
         loadTopTracks();
+        loadForYouTracks(); // Load For You tracks after authentication
+        setActiveTab('foryou'); // Switch to For You tab after connecting
         Alert.alert('Success', 'Spotify connected successfully!');
       } else {
         Alert.alert('Error', result.error || 'Failed to connect Spotify');
@@ -174,6 +184,45 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
     }
   };
 
+  const loadForYouTracks = async () => {
+    try {
+      if (isAuthenticated) {
+        // If authenticated, combine recent and top tracks
+        const [recentResult, topResult] = await Promise.all([
+          spotifyService.getRecentlyPlayed(5),
+          spotifyService.getTopTracks(5, 'short_term')
+        ]);
+        
+        const forYouTracksList = [];
+        
+        // Add recent tracks
+        if (recentResult.success && recentResult.tracks) {
+          forYouTracksList.push(...recentResult.tracks.slice(0, 5));
+        }
+        
+        // Add top tracks (avoid duplicates)
+        if (topResult.success && topResult.tracks) {
+          const existingIds = new Set(forYouTracksList.map(t => t.id));
+          topResult.tracks.forEach(track => {
+            if (!existingIds.has(track.id) && forYouTracksList.length < 10) {
+              forYouTracksList.push(track);
+            }
+          });
+        }
+        
+        setForYouTracks(forYouTracksList);
+      } else {
+        // If not authenticated, show trending tracks as "For You"
+        const trendingResult = await spotifyService.getTrendingTracks(10);
+        if (trendingResult.success && trendingResult.tracks) {
+          setForYouTracks(trendingResult.tracks.slice(0, 10));
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading for you tracks:', error);
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (previewSoundRef.current) {
@@ -185,85 +234,202 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
     };
   }, []);
 
-  const playPreview = async (track) => {
+  const stopPreview = async () => {
     try {
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = null;
+      }
       if (previewSoundRef.current) {
+        await previewSoundRef.current.stopAsync();
         await previewSoundRef.current.unloadAsync();
         previewSoundRef.current = null;
       }
+      setCurrentlyPlayingId(null);
+    } catch (error) {
+      console.error('Error stopping preview:', error);
+      setCurrentlyPlayingId(null);
+    }
+  };
+
+  const playPreview = async (track) => {
+    try {
+      // If clicking the same track that's playing, stop it
+      if (currentlyPlayingId === track.id && previewSoundRef.current) {
+        await stopPreview();
+        return;
+      }
+
+      // Stop any currently playing track
+      await stopPreview();
+
       if (!track?.previewUrl) return;
+
       const { sound } = await Audio.Sound.createAsync(
         { uri: track.previewUrl },
         { shouldPlay: true, volume: 1 }
       );
       previewSoundRef.current = sound;
+      setCurrentlyPlayingId(track.id);
+
+      // Auto-stop after 15 seconds
       if (previewTimeoutRef.current) {
         clearTimeout(previewTimeoutRef.current);
       }
       previewTimeoutRef.current = setTimeout(async () => {
-        if (previewSoundRef.current) {
-          await previewSoundRef.current.stopAsync();
-        }
+        await stopPreview();
       }, 15000);
+
+      // Stop when playback finishes
+      sound.setOnPlaybackStatusUpdate(async (status) => {
+        if (status.didJustFinish) {
+          await stopPreview();
+        }
+      });
     } catch (error) {
       console.error('Preview playback error:', error);
+      setCurrentlyPlayingId(null);
     }
   };
 
   const handleTrackSelect = async (track) => {
-    if (previewSoundRef.current) {
-      await previewSoundRef.current.unloadAsync();
-      previewSoundRef.current = null;
-    }
-    if (previewTimeoutRef.current) {
-      clearTimeout(previewTimeoutRef.current);
-      previewTimeoutRef.current = null;
-    }
+    // Stop any playing preview when selecting a track
+    await stopPreview();
     setSelectedTrack(track);
-    const trackData = spotifyService.createTrackShareData(track);
-    onTrackSelect(trackData);
-    onClose();
+    setSelectedTrackId(track.id); // Set selected track ID to show overlay
+    
+    // Ensure we have duration - fetch from API if missing
+    let trackWithDuration = { ...track };
+    
+    // Check if duration is missing or 0
+    const hasDuration = (track.duration || track.durationMs || track.trackTimeMillis) > 0;
+    
+    if (!hasDuration && track.id) {
+      if (track.id.startsWith('itunes_')) {
+        // For iTunes tracks, try to fetch from iTunes API using the track ID
+        // Extract the numeric ID from itunes_ prefix
+        const itunesId = track.id.replace('itunes_', '');
+        try {
+          // Try to fetch track details from iTunes API
+          const response = await fetch(
+            `https://itunes.apple.com/lookup?id=${itunesId}`
+          );
+          const data = await response.json();
+          if (data.results && data.results.length > 0 && data.results[0].trackTimeMillis) {
+            trackWithDuration.duration = data.results[0].trackTimeMillis;
+            trackWithDuration.trackTimeMillis = data.results[0].trackTimeMillis;
+            console.log('✅ Fetched duration for iTunes track:', data.results[0].trackTimeMillis);
+          }
+        } catch (error) {
+          console.log('⚠️ Could not fetch iTunes duration:', error);
+        }
+      } else {
+        // For Spotify tracks, fetch from Spotify API
+        try {
+          const response = await spotifyService.getTrack(track.id);
+          if (response.success && response.track && response.track.duration) {
+            trackWithDuration.duration = response.track.duration;
+            console.log('✅ Fetched duration for Spotify track:', response.track.duration);
+          }
+        } catch (error) {
+          console.log('⚠️ Could not fetch Spotify duration:', error);
+        }
+      }
+    }
+    
+    // Ensure previewUrl is preserved
+    trackWithDuration.previewUrl = track.previewUrl || trackWithDuration.previewUrl;
+    
+    const trackData = spotifyService.createTrackShareData(trackWithDuration);
+    console.log('📦 Created track share data:', {
+      name: trackData.name,
+      duration: trackData.duration,
+      formattedDuration: trackData.formattedDuration,
+      previewUrl: trackData.previewUrl ? 'exists' : 'missing'
+    });
+    
+    // Show overlay briefly before closing
+    // Small delay to ensure overlay is visible
+    setTimeout(() => {
+      onTrackSelect(trackData);
+      onClose();
+    }, 300);
   };
 
-  const renderTrackItem = ({ item, index }) => (
-    <View style={[styles.trackItem, { backgroundColor: colors.surface }]}>
-      <TouchableOpacity
-        style={styles.trackPressArea}
-        onPress={() => handleTrackSelect(item)}
-        activeOpacity={0.7}
-      >
-        <Image
-          source={{ uri: item.albumArt }}
-          style={styles.trackAlbumArt}
-          resizeMode="cover"
-        />
-        
-        <View style={styles.trackInfo}>
-          <Text style={[styles.trackName, { color: colors.text }]} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={[styles.trackArtist, { color: colors.textSecondary }]} numberOfLines={1}>
-            {item.artist}
-          </Text>
-          <Text style={[styles.trackAlbum, { color: colors.textTertiary }]} numberOfLines={1}>
-            {item.album}
-          </Text>
-        </View>
-      </TouchableOpacity>
+  const renderTrackItem = ({ item, index }) => {
+    const isSelected = selectedTrackId === item.id;
+    
+    return (
+      <View style={[styles.trackItem, { backgroundColor: colors.surface }]}>
+        <TouchableOpacity
+          style={styles.trackPressArea}
+          onPress={() => {
+            setSelectedTrackId(item.id);
+            handleTrackSelect(item);
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.albumArtContainer}>
+            <Image
+              source={{ uri: item.albumArt }}
+              style={styles.trackAlbumArt}
+              resizeMode="cover"
+            />
+            {isSelected && (
+              <View style={[styles.selectionOverlay, { backgroundColor: colors.primary }]}>
+                <Ionicons name="checkmark" size={20} color={colors.textInverse} />
+                <Text style={[styles.selectionText, { color: colors.textInverse }]}>
+                  {index + 1}
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.trackInfo}>
+            <Text style={[styles.trackName, { color: colors.text }]} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={[styles.trackArtist, { color: colors.textSecondary }]} numberOfLines={1}>
+              {item.artist}
+            </Text>
+            <Text style={[styles.trackAlbum, { color: colors.textTertiary }]} numberOfLines={1}>
+              {item.album}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
       <View style={styles.trackActions}>
-        {item.previewUrl && (
-          <TouchableOpacity
-            onPress={() => playPreview(item)}
-            style={styles.listenButton}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="play" size={14} color="#fff" style={{ marginRight: 4 }} />
-            <Text style={styles.listenButtonText}>Listen</Text>
-          </TouchableOpacity>
-        )}
+        {/* Always show listen button - if no preview, it will show message */}
         <TouchableOpacity
-          onPress={() => handleTrackSelect(item)}
+          onPress={() => {
+            if (item.previewUrl) {
+              playPreview(item);
+            } else {
+              Alert.alert(
+                'No Preview Available',
+                'This track does not have a preview available.',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
+          style={[styles.listenButton, !item.previewUrl && { opacity: 0.6 }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons 
+            name={currentlyPlayingId === item.id ? "pause" : "play"} 
+            size={14} 
+            color="#fff" 
+            style={{ marginRight: 4 }} 
+          />
+          <Text style={styles.listenButtonText}>
+            {currentlyPlayingId === item.id ? "Stop" : "Listen"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedTrackId(item.id);
+            handleTrackSelect(item);
+          }}
           style={styles.selectButton}
           activeOpacity={0.8}
         >
@@ -271,7 +437,8 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
         </TouchableOpacity>
       </View>
     </View>
-  );
+    );
+  };
 
   const loadTrendingTracks = async () => {
     try {
@@ -344,13 +511,15 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
     }
 
     return (
-      <FlatList
-        data={trendingTracks}
-        renderItem={renderTrackItem}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.trackList}
-      />
+      <View style={styles.topContainer}>
+        <FlatList
+          data={trendingTracks}
+          renderItem={renderTrackItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.trackList}
+        />
+      </View>
     );
   };
 
@@ -433,6 +602,42 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
     </View>
   );
 
+  const renderForYouTab = () => {
+    if (isLoading && forYouTracks.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary, marginTop: 12 }]}>
+            {isAuthenticated ? 'Loading your recommendations...' : 'Loading trending music...'}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.topContainer}>
+        {forYouTracks.length > 0 ? (
+          <FlatList
+            data={forYouTracks}
+            renderItem={renderTrackItem}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.trackList}
+          />
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="heart" size={48} color={colors.textTertiary} />
+            <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+              {isAuthenticated 
+                ? 'No recommendations available yet. Start listening to music to see personalized tracks!'
+                : 'Connect Spotify to see personalized recommendations based on your listening history'}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const renderContent = () => (
     <View style={styles.contentContainer}>
       {!isAuthenticated && (
@@ -459,6 +664,7 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
         </View>
       )}
 
+      {activeTab === 'foryou' && renderForYouTab()}
       {activeTab === 'trending' && renderTrendingTab()}
       {activeTab === 'search' && renderSearchTab()}
       {activeTab === 'recent' && isAuthenticated && renderRecentTab()}
@@ -492,6 +698,7 @@ const SpotifyMusicPicker = ({ visible, onClose, onTrackSelect }) => {
 
         {/* Tabs */}
         <View style={[styles.tabContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          {renderTabButton('foryou', 'For You', 'heart')}
           {renderTabButton('trending', 'Trending', 'flame')}
           {renderTabButton('search', 'Search', 'search')}
           {isAuthenticated && renderTabButton('recent', 'Recent', 'time')}
@@ -602,10 +809,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  albumArtContainer: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+  },
   trackAlbumArt: {
     width: 48,
     height: 48,
     borderRadius: 6,
+  },
+  selectionOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  selectionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
   },
   trackInfo: {
     flex: 1,

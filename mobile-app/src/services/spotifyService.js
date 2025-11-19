@@ -303,15 +303,44 @@ class SpotifyService {
     }
   }
 
-  // Get trending tracks (iTunes top songs feed)
+  // Get trending tracks (iTunes top songs feed) - Mongolia
   async getTrendingTracks(limit = 20) {
     try {
-      const response = await fetch(`https://itunes.apple.com/us/rss/topsongs/limit=${limit}/json`);
+      // Use Mongolia (MN) country code for iTunes feed
+      const response = await fetch(`https://itunes.apple.com/mn/rss/topsongs/limit=${limit}/json`);
       const data = await response.json();
       if (data.feed?.entry) {
+        const tracks = await Promise.all(
+          data.feed.entry.map(async (entry, index) => {
+            const mappedTrack = this.mapItunesFeedEntry(entry, index);
+            
+            // Try to fetch preview URL from iTunes API if not available
+            if (!mappedTrack.previewUrl && mappedTrack.id) {
+              try {
+                const trackId = mappedTrack.id.replace('itunes_', '');
+                const lookupResponse = await fetch(
+                  `https://itunes.apple.com/lookup?id=${trackId}&country=mn`
+                );
+                const lookupData = await lookupResponse.json();
+                if (lookupData.results && lookupData.results.length > 0) {
+                  const trackData = lookupData.results[0];
+                  mappedTrack.previewUrl = trackData.previewUrl || null;
+                  if (trackData.trackTimeMillis && !mappedTrack.duration) {
+                    mappedTrack.duration = trackData.trackTimeMillis;
+                  }
+                }
+              } catch (lookupError) {
+                console.log('⚠️ Could not fetch preview for track:', mappedTrack.name);
+              }
+            }
+            
+            return mappedTrack;
+          })
+        );
+        
         return {
           success: true,
-          tracks: data.feed.entry.map((entry, index) => this.mapItunesFeedEntry(entry, index))
+          tracks: tracks
         };
       }
       throw new Error('No trending tracks found');
@@ -443,6 +472,19 @@ class SpotifyService {
 
   // Create shareable track data for posts
   createTrackShareData(track) {
+    // Get duration - check multiple possible fields
+    const duration = track.duration || 
+                    track.durationMs || 
+                    track.duration_ms ||
+                    track.trackTimeMillis || // iTunes format
+                    0;
+    
+    // Only format if we have a valid duration
+    const formattedDur = duration > 0 ? this.formatDuration(duration) : '0:00';
+    
+    // Preserve previewUrl - check multiple possible fields
+    const previewUrl = track.previewUrl || track.preview_url || null;
+    
     return {
       type: 'spotify_track',
       trackId: track.id,
@@ -450,10 +492,10 @@ class SpotifyService {
       artist: track.artist || 'Unknown Artist',
       album: track.album || 'Unknown Album',
       albumArt: track.albumArt,
-      previewUrl: track.previewUrl,
+      previewUrl: previewUrl, // Preserve preview URL
       externalUrl: track.externalUrl,
-      duration: track.duration || 0,
-      formattedDuration: this.formatDuration(track.duration || 0),
+      duration: duration,
+      formattedDuration: formattedDur,
       popularity: track.popularity ?? 0,
       source: track.source || 'spotify'
     };

@@ -647,43 +647,57 @@ function App() {
       console.log('🔍 Initializing API service...');
       await apiService.initializeToken();
       
-      // Test the connection
-      console.log('🔍 Testing server connection...');
-      const healthCheck = await apiService.healthCheck();
-      if (!healthCheck.success) {
-        console.error('❌ Server connection failed:', healthCheck.message);
-        // Still continue with auth check, but log the issue
-      } else {
-        console.log('✅ Server connection successful');
-      }
-
-      // Check authentication status
-      const authStatus = await apiService.getAuthStatus();
-      console.log('🔍 Authentication status:', authStatus);
+      // Check if we have stored tokens first
+      const storedToken = await AsyncStorage.getItem('token');
+      const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
       
-      if (authStatus.isAuthenticated) {
-        console.log('🔍 Checking authentication with stored token...');
+      console.log('🔍 Stored tokens check:', {
+        hasToken: !!storedToken,
+        hasRefreshToken: !!storedRefreshToken,
+        tokenLength: storedToken?.length || 0
+      });
+      
+      // If we have tokens, try to restore session even if network check fails
+      if (storedToken || storedRefreshToken) {
+        console.log('🔍 Found stored tokens, attempting to restore session...');
+        
         try {
           // Ensure token is valid before making the request
           const isValid = await apiService.ensureValidToken();
-          if (!isValid) {
-            console.log('❌ Token validation failed, clearing tokens');
+          if (!isValid && storedRefreshToken) {
+            console.log('🔐 Token expired, attempting refresh...');
+            const refreshed = await apiService.refreshAccessToken();
+            if (!refreshed) {
+              console.log('❌ Token refresh failed, user needs to login again');
+              await AsyncStorage.removeItem('token');
+              await AsyncStorage.removeItem('refreshToken');
+              await apiService.clearToken();
+              return;
+            }
+            console.log('✅ Token refreshed successfully');
+          } else if (!isValid) {
+            console.log('❌ Token invalid and no refresh token, user needs to login');
             await AsyncStorage.removeItem('token');
             await AsyncStorage.removeItem('refreshToken');
             await apiService.clearToken();
             return;
           }
           
+          // Try to get current user to verify authentication
           const response = await apiService.getCurrentUser();
-          if (response.success) {
-            console.log('✅ Authentication successful');
+          if (response.success && response.data && response.data.user) {
+            console.log('✅ Authentication successful - user session restored');
             setUser(response.data.user);
             // Set current user ID for notification filtering
             setCurrentUserId(response.data.user._id);
-            // Connect to socket
-            socketService.connect(authStatus.token);
+            // Get the current token (might have been refreshed)
+            const currentToken = await AsyncStorage.getItem('token');
+            if (currentToken) {
+              socketService.connect(currentToken);
+            }
+            return; // Successfully restored session
           } else {
-            console.log('❌ Authentication failed, removing token');
+            console.log('❌ getCurrentUser failed, clearing tokens');
             await AsyncStorage.removeItem('token');
             await AsyncStorage.removeItem('refreshToken');
             await apiService.clearToken();
@@ -691,55 +705,63 @@ function App() {
         } catch (authError) {
           console.log('❌ Authentication error:', authError.message);
           
-          // Check if it's a token expiration error
-          if (authError.message.includes('Token has expired')) {
-            console.log('🔐 Token expired, attempting refresh...');
-            try {
-              const refreshed = await apiService.refreshAccessToken();
-              if (refreshed) {
-                console.log('✅ Token refreshed successfully, retrying authentication...');
-                // Retry the authentication with the new token
-                const retryResponse = await apiService.getCurrentUser();
-                if (retryResponse.success) {
-                  console.log('✅ Authentication successful after token refresh');
-                  setUser(retryResponse.data.user);
-                  setCurrentUserId(retryResponse.data.user._id);
-                  const newToken = await AsyncStorage.getItem('token');
-                  socketService.connect(newToken);
-                  return;
+          // Only clear tokens if it's an actual auth failure, not a network error
+          if (authError.message.includes('401') || 
+              authError.message.includes('Unauthorized') ||
+              authError.message.includes('Token has expired') ||
+              authError.message.includes('Invalid token')) {
+            
+            // Try to refresh token one more time if we have refresh token
+            if (storedRefreshToken && authError.message.includes('Token has expired')) {
+              console.log('🔐 Attempting final token refresh...');
+              try {
+                const refreshed = await apiService.refreshAccessToken();
+                if (refreshed) {
+                  const retryResponse = await apiService.getCurrentUser();
+                  if (retryResponse.success && retryResponse.data && retryResponse.data.user) {
+                    console.log('✅ Authentication successful after token refresh');
+                    setUser(retryResponse.data.user);
+                    setCurrentUserId(retryResponse.data.user._id);
+                    const newToken = await AsyncStorage.getItem('token');
+                    if (newToken) {
+                      socketService.connect(newToken);
+                    }
+                    return;
+                  }
                 }
+              } catch (refreshError) {
+                console.log('❌ Final token refresh failed:', refreshError.message);
               }
-            } catch (refreshError) {
-              console.log('❌ Token refresh failed:', refreshError.message);
             }
+            
+            // Clear tokens only on actual auth failures
+            console.log('❌ Authentication failed, clearing tokens');
+            await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('refreshToken');
+            await apiService.clearToken();
+          } else {
+            // Network or other errors - don't clear tokens, just log
+            console.log('⚠️ Network or other error during auth check, keeping tokens for retry');
+            // Don't clear tokens on network errors - user might be offline
           }
-          
-          // Clear tokens for any auth-related errors
-          await AsyncStorage.removeItem('token');
-          await AsyncStorage.removeItem('refreshToken');
-          await apiService.clearToken();
         }
       } else {
-        console.log(`ℹ️ Not authenticated: ${authStatus.reason}`);
+        console.log('ℹ️ No stored tokens found, user needs to login');
       }
     } catch (error) {
       console.error('Auth check error:', error);
-      // Clear all data on critical errors
-      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
-        console.log('🌐 Network error detected, clearing data...');
-        await clearAllData();
-      } else if (error.message.includes('Token has expired')) {
-        console.log('🔐 Token expired, clearing authentication data');
+      // Don't clear tokens on network errors - user might be offline
+      // Only clear on actual authentication errors
+      if (error.message.includes('401') || 
+          error.message.includes('Unauthorized') ||
+          error.message.includes('Invalid token')) {
+        console.log('🔐 Authentication error, clearing tokens');
         await AsyncStorage.removeItem('token');
         await AsyncStorage.removeItem('refreshToken');
         await apiService.clearToken();
       } else {
-        // Just clear token for other auth errors
-        await AsyncStorage.removeItem('token');
-        await AsyncStorage.removeItem('refreshToken');
-        await apiService.clearToken();
+        console.log('⚠️ Non-auth error during check, keeping tokens');
       }
-      // Don't show error to user for auth check failures
     } finally {
       setLoading(false);
     }
@@ -886,19 +908,35 @@ function App() {
     try {
       console.log('🔐 Login successful, setting up user session...');
       
-      // Ensure tokens are properly stored
-      const token = await AsyncStorage.getItem('token');
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      // Ensure tokens are properly stored - check immediately after login
+      let token = await AsyncStorage.getItem('token');
+      let refreshToken = await AsyncStorage.getItem('refreshToken');
       
-      console.log('🔍 Token storage check:', {
+      console.log('🔍 Token storage check after login:', {
         hasToken: !!token,
         hasRefreshToken: !!refreshToken,
         tokenLength: token?.length || 0
       });
       
-      // If no tokens are stored, this might be an issue
+      // If no tokens are stored, try to get them from API service
       if (!token) {
-        console.warn('⚠️ No token found in storage after login');
+        console.warn('⚠️ No token found in storage after login, checking API service...');
+        token = apiService.token;
+        if (token) {
+          await AsyncStorage.setItem('token', token);
+          console.log('✅ Token restored from API service and stored');
+        } else {
+          console.error('❌ No token available in API service either');
+        }
+      }
+      
+      // Verify tokens are stored for persistence
+      if (token) {
+        console.log('✅ Authentication token confirmed stored for persistence');
+        // Re-initialize API service to ensure it has the token
+        await apiService.initializeToken();
+      } else {
+        console.error('❌ CRITICAL: No authentication token available after login');
       }
       
       setUser(userData);
@@ -1024,7 +1062,10 @@ function App() {
       }, 100);
       
       socketService.disconnect();
+      // Clear both access and refresh tokens
       await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('refreshToken');
+      await apiService.clearToken();
       console.log('✅ Logout cleanup complete');
     } catch (error) {
       console.error('❌ Logout error:', error);
@@ -1036,7 +1077,10 @@ function App() {
         clearCurrentUserId();
       }, 100);
       socketService.disconnect();
+      // Clear both access and refresh tokens
       await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('refreshToken');
+      await apiService.clearToken();
       console.log('✅ Logout cleanup complete');
     }
   };

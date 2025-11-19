@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,10 +14,12 @@ import {
   Platform,
   Keyboard,
   StatusBar,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { Audio } from 'expo-av';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getThemeColors } from '../utils/themeUtils';
@@ -50,6 +52,16 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [loadingPrivacySettings, setLoadingPrivacySettings] = useState(false);
   const [selectedSpotifyTrack, setSelectedSpotifyTrack] = useState(null);
   const [showSpotifyPicker, setShowSpotifyPicker] = useState(false);
+  const [showMusicEdit, setShowMusicEdit] = useState(false);
+  const [musicStartTime, setMusicStartTime] = useState(0); // Start time in seconds
+  const [musicPosition, setMusicPosition] = useState(0); // Current playback position
+  const [musicDuration, setMusicDuration] = useState(0); // Total track duration
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const musicSoundRef = useRef(null);
+  const musicPositionIntervalRef = useRef(null);
+  const progressBarRef = useRef(null);
+  const progressBarWidth = useRef(0);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -80,6 +92,170 @@ const CreatePostScreen = ({ navigation, user }) => {
   useEffect(() => {
     console.log('testCounter state changed to:', testCounter);
   }, [testCounter]);
+
+  // Initialize music duration when track is selected
+  useEffect(() => {
+    if (selectedSpotifyTrack) {
+      const duration = selectedSpotifyTrack.duration || 
+                      selectedSpotifyTrack.durationMs || 
+                      selectedSpotifyTrack.trackTimeMillis || 
+                      30000; // Default 30 seconds for preview
+      setMusicDuration(duration / 1000); // Convert to seconds
+      setMusicStartTime(0);
+      setMusicPosition(0);
+    }
+  }, [selectedSpotifyTrack]);
+
+  // Cleanup music playback when component unmounts or track changes
+  useEffect(() => {
+    return () => {
+      stopMusicPlayback();
+    };
+  }, []);
+
+  // Format time helper
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Handle music play/pause
+  const handleMusicPlayPause = async () => {
+    if (!selectedSpotifyTrack?.previewUrl) {
+      Alert.alert('No Preview', 'This track does not have a preview available.');
+      return;
+    }
+
+    if (isMusicPlaying) {
+      await pauseMusicPlayback();
+    } else {
+      await startMusicPlayback();
+    }
+  };
+
+  // Start music playback
+  const startMusicPlayback = async () => {
+    try {
+      if (!selectedSpotifyTrack?.previewUrl) return;
+
+      // If sound exists, resume it
+      if (musicSoundRef.current) {
+        await musicSoundRef.current.playAsync();
+        setIsMusicPlaying(true);
+        startPositionTracking();
+        return;
+      }
+
+      // Create new sound
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: selectedSpotifyTrack.previewUrl },
+        { shouldPlay: true, volume: 1 }
+      );
+      musicSoundRef.current = sound;
+      setIsMusicPlaying(true);
+
+      // Seek to start position
+      if (musicStartTime > 0) {
+        await sound.setPositionAsync(musicStartTime * 1000);
+      }
+
+      // Set up playback status updates
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded) {
+          const positionSeconds = status.positionMillis / 1000;
+          setMusicPosition(positionSeconds);
+
+          // Stop if reached end of 15-second segment or end of track
+          if (positionSeconds >= musicStartTime + 15 || status.didJustFinish) {
+            pauseMusicPlayback();
+          }
+        }
+      });
+
+      startPositionTracking();
+    } catch (error) {
+      console.error('Error playing music:', error);
+      Alert.alert('Playback Error', 'Could not play the preview.');
+    }
+  };
+
+  // Pause music playback
+  const pauseMusicPlayback = async () => {
+    try {
+      if (musicSoundRef.current) {
+        await musicSoundRef.current.pauseAsync();
+        setIsMusicPlaying(false);
+        stopPositionTracking();
+      }
+    } catch (error) {
+      console.error('Error pausing music:', error);
+    }
+  };
+
+  // Stop music playback
+  const stopMusicPlayback = async () => {
+    try {
+      if (musicPositionIntervalRef.current) {
+        clearInterval(musicPositionIntervalRef.current);
+        musicPositionIntervalRef.current = null;
+      }
+      if (musicSoundRef.current) {
+        await musicSoundRef.current.stopAsync();
+        await musicSoundRef.current.unloadAsync();
+        musicSoundRef.current = null;
+      }
+      setIsMusicPlaying(false);
+      setMusicPosition(0);
+    } catch (error) {
+      console.error('Error stopping music:', error);
+    }
+  };
+
+  // Seek to position
+  const seekToPosition = async (seconds) => {
+    try {
+      if (musicSoundRef.current) {
+        await musicSoundRef.current.setPositionAsync(seconds * 1000);
+        setMusicPosition(seconds);
+      }
+    } catch (error) {
+      console.error('Error seeking:', error);
+    }
+  };
+
+  // Start position tracking
+  const startPositionTracking = () => {
+    if (musicPositionIntervalRef.current) {
+      clearInterval(musicPositionIntervalRef.current);
+    }
+    musicPositionIntervalRef.current = setInterval(async () => {
+      if (musicSoundRef.current && isMusicPlaying) {
+        try {
+          const status = await musicSoundRef.current.getStatusAsync();
+          if (status.isLoaded) {
+            const positionSeconds = status.positionMillis / 1000;
+            setMusicPosition(positionSeconds);
+
+            // Auto-pause if reached end of 15-second segment
+            if (positionSeconds >= musicStartTime + 15) {
+              await pauseMusicPlayback();
+            }
+          }
+        } catch (error) {
+          console.error('Error getting position:', error);
+        }
+      }
+    }, 100); // Update every 100ms
+  };
+
+  // Stop position tracking
+  const stopPositionTracking = () => {
+    if (musicPositionIntervalRef.current) {
+      clearInterval(musicPositionIntervalRef.current);
+      musicPositionIntervalRef.current = null;
+    }
+  };
 
   // Load user's privacy settings
   useEffect(() => {
@@ -117,6 +293,93 @@ const CreatePostScreen = ({ navigation, user }) => {
       setShowDescription(false);
     }
   }, [privacySettings?.isPrivateAccount, isSecretPost]);
+
+  // Initialize music duration when track is selected
+  useEffect(() => {
+    if (selectedSpotifyTrack) {
+      const duration = selectedSpotifyTrack.duration || 
+                      selectedSpotifyTrack.durationMs || 
+                      selectedSpotifyTrack.trackTimeMillis || 
+                      30000; // Default 30 seconds for preview
+      setMusicDuration(duration / 1000); // Convert to seconds
+      setMusicStartTime(0);
+      setMusicPosition(0);
+    }
+  }, [selectedSpotifyTrack]);
+
+  // Cleanup music playback when component unmounts
+  useEffect(() => {
+    return () => {
+      stopMusicPlayback();
+    };
+  }, []);
+
+  // Handle progress bar touch
+  const handleProgressBarPress = (evt) => {
+    if (progressBarWidth.current > 0 && musicDuration > 15) {
+      const x = evt.nativeEvent.locationX;
+      const percentage = Math.max(0, Math.min(1, x / progressBarWidth.current));
+      // Map percentage to full duration, then clamp to ensure 15-second segment fits
+      const maxStartTime = Math.max(0, musicDuration - 15);
+      const newStartTime = Math.max(0, Math.min(maxStartTime, percentage * musicDuration));
+      console.log('Progress bar touch - x:', x, 'percentage:', percentage, 'newStartTime:', newStartTime, 'duration:', musicDuration);
+      setMusicStartTime(newStartTime);
+      seekToPosition(newStartTime);
+    }
+  };
+
+  // Store initial touch position and container position for drag calculation
+  const initialTouchX = useRef(0);
+  const initialStartTime = useRef(0);
+  const containerX = useRef(0);
+  const progressBarContainerRef = useRef(null);
+
+  // PanResponder for dragging the progress bar
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (evt) => {
+        // Get container position
+        if (progressBarContainerRef.current) {
+          progressBarContainerRef.current.measure((x, y, width, height, pageX, pageY) => {
+            containerX.current = pageX;
+          });
+        }
+        console.log('PanResponder Grant - locationX:', evt.nativeEvent.locationX, 'pageX:', evt.nativeEvent.pageX);
+        setIsDragging(true);
+        if (isMusicPlaying) {
+          pauseMusicPlayback();
+        }
+        // Store initial values - use locationX for container-relative position
+        initialTouchX.current = evt.nativeEvent.locationX;
+        initialStartTime.current = musicStartTime;
+        handleProgressBarPress(evt);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (progressBarWidth.current > 0 && musicDuration > 15) {
+          // Calculate new position based on drag distance from initial touch
+          const currentX = initialTouchX.current + gestureState.dx;
+          const clampedX = Math.max(0, Math.min(progressBarWidth.current, currentX));
+          const percentage = Math.max(0, Math.min(1, clampedX / progressBarWidth.current));
+          const maxStartTime = Math.max(0, musicDuration - 15);
+          const newStartTime = Math.max(0, Math.min(maxStartTime, percentage * musicDuration));
+          console.log('Dragging - dx:', gestureState.dx, 'currentX:', currentX, 'newStartTime:', newStartTime);
+          setMusicStartTime(newStartTime);
+          seekToPosition(newStartTime);
+        }
+      },
+      onPanResponderRelease: () => {
+        console.log('PanResponder Release');
+        setIsDragging(false);
+      },
+      onPanResponderTerminate: () => {
+        console.log('PanResponder Terminate');
+        setIsDragging(false);
+      },
+    })
+  ).current;
 
   const handleSelectMedia = async () => {
     try {
@@ -305,7 +568,15 @@ const CreatePostScreen = ({ navigation, user }) => {
         isSecret: postData.isSecret,
         showDescription: postData.showDescription,
         showDescriptionType: typeof postData.showDescription,
-        hasPassword: !!postData.secretPassword
+        hasPassword: !!postData.secretPassword,
+        spotifyTrack: selectedSpotifyTrack ? {
+          name: selectedSpotifyTrack.name,
+          artist: selectedSpotifyTrack.artist,
+          duration: selectedSpotifyTrack.duration,
+          formattedDuration: selectedSpotifyTrack.formattedDuration,
+          trackId: selectedSpotifyTrack.trackId,
+          allKeys: Object.keys(selectedSpotifyTrack)
+        } : null
       });
 
       const response = await api.createPost(postData);
@@ -771,18 +1042,140 @@ const CreatePostScreen = ({ navigation, user }) => {
                   <Text style={[styles.mediaSectionTitle, { color: colors.text }]}>
                     Music
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => setSelectedSpotifyTrack(null)}
-                    style={styles.removeSpotifyButton}
-                  >
-                    <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
+                  <View style={styles.spotifyHeaderActions}>
+                    <TouchableOpacity
+                      onPress={() => setShowMusicEdit(!showMusicEdit)}
+                      style={styles.editMusicButton}
+                    >
+                      <Ionicons 
+                        name={showMusicEdit ? "checkmark" : "create-outline"} 
+                        size={18} 
+                        color={colors.primary} 
+                      />
+                      <Text style={[styles.editMusicButtonText, { color: colors.primary }]}>
+                        {showMusicEdit ? "Done" : "Edit"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await stopMusicPlayback();
+                        setSelectedSpotifyTrack(null);
+                        setShowMusicEdit(false);
+                        setMusicStartTime(0);
+                        setMusicPosition(0);
+                      }}
+                      style={styles.removeSpotifyButton}
+                    >
+                      <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 <SpotifyTrack 
                   track={selectedSpotifyTrack} 
                   onPress={() => setShowSpotifyPicker(true)}
                   autoPlayPreview
                 />
+                
+                {/* Music Edit Section - 15 Second Selection */}
+                {showMusicEdit && selectedSpotifyTrack?.previewUrl && (
+                  <View style={[styles.musicEditSection, { backgroundColor: colors.surfaceVariant }]}>
+                    <Text style={[styles.musicEditTitle, { color: colors.text }]}>
+                      Choose 15-second segment
+                    </Text>
+                    <Text style={[styles.musicEditSubtitle, { color: colors.textSecondary }]}>
+                      Drag to select start position
+                    </Text>
+                    
+                    {/* Playback Controls */}
+                    <View style={styles.playbackControls}>
+                      <TouchableOpacity
+                        onPress={handleMusicPlayPause}
+                        style={[styles.playPauseButton, { backgroundColor: colors.primary }]}
+                      >
+                        <Ionicons 
+                          name={isMusicPlaying ? "pause" : "play"} 
+                          size={20} 
+                          color={colors.textInverse} 
+                        />
+                      </TouchableOpacity>
+                      <View style={styles.progressContainer}>
+                        {/* Progress Bar with 15-second selection */}
+                        <View
+                          ref={progressBarContainerRef}
+                          style={styles.progressBarContainer}
+                          onLayout={(event) => {
+                            progressBarWidth.current = event.nativeEvent.layout.width;
+                            console.log('Progress bar width set to:', progressBarWidth.current);
+                          }}
+                          {...panResponder.panHandlers}
+                        >
+                          {/* Background track */}
+                          <View style={[styles.progressTrack, { backgroundColor: colors.border }]} pointerEvents="none" />
+                          
+                          {/* 15-second selection indicator */}
+                          <View 
+                            style={[
+                              styles.selectionIndicator,
+                              {
+                                left: `${(musicStartTime / Math.max(1, musicDuration)) * 100}%`,
+                                width: `${(15 / Math.max(1, musicDuration)) * 100}%`,
+                                backgroundColor: colors.primary + '40',
+                              }
+                            ]} 
+                            pointerEvents="none"
+                          />
+                          
+                          {/* Progress indicator (current position) */}
+                          {!isDragging && (
+                            <View 
+                              style={[
+                                styles.progressIndicator,
+                                {
+                                  left: `${(musicPosition / Math.max(1, musicDuration)) * 100}%`,
+                                  backgroundColor: colors.primary,
+                                }
+                              ]} 
+                              pointerEvents="none"
+                            />
+                          )}
+                          
+                          {/* Draggable thumb */}
+                          <View 
+                            style={[
+                              styles.progressThumb,
+                              {
+                                left: `${(musicStartTime / Math.max(1, musicDuration)) * 100}%`,
+                                backgroundColor: colors.primary,
+                              }
+                            ]} 
+                          />
+                        </View>
+                        
+                        {/* Time Labels */}
+                        <View style={styles.timeLabelsRow}>
+                          <Text style={[styles.timeText, { color: colors.textSecondary }]}>
+                            {formatTime(musicStartTime)}
+                          </Text>
+                          <Text style={[styles.timeText, { color: colors.textSecondary }]}>
+                            {formatTime(Math.min(musicStartTime + 15, musicDuration))}
+                          </Text>
+                        </View>
+                        
+                        {/* Current Position */}
+                        <Text style={[styles.currentPositionText, { color: colors.text }]}>
+                          Current: {formatTime(musicPosition)} / {formatTime(musicDuration)}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {/* Selected Segment Display */}
+                    <View style={[styles.selectedSegmentDisplay, { backgroundColor: colors.surface }]}>
+                      <Text style={[styles.selectedSegmentLabel, { color: colors.text }]}>
+                        Selected Segment: {formatTime(musicStartTime)} - {formatTime(Math.min(musicStartTime + 15, musicDuration))}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </ScrollView>
@@ -1053,8 +1446,163 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 8,
   },
+  spotifyHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editMusicButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  editMusicButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   removeSpotifyButton: {
     padding: 4,
+  },
+  musicEditSection: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  musicEditTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  musicEditSubtitle: {
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  timeSelectorContainer: {
+    width: '100%',
+  },
+  timeLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  timeLabel: {
+    fontSize: 11,
+  },
+  timeButtonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  timeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  timeButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  selectedTimeDisplay: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    alignItems: 'center',
+  },
+  selectedTimeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  playbackControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  playPauseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressContainer: {
+    flex: 1,
+  },
+  progressBarContainer: {
+    position: 'relative',
+    height: 50,
+    marginBottom: 8,
+    justifyContent: 'center',
+    width: '100%',
+    paddingVertical: 15,
+    backgroundColor: 'transparent',
+  },
+  progressTrack: {
+    position: 'absolute',
+    height: 4,
+    width: '100%',
+    borderRadius: 2,
+  },
+  selectionIndicator: {
+    position: 'absolute',
+    height: 4,
+    borderRadius: 2,
+    top: 18,
+    pointerEvents: 'none',
+  },
+  progressIndicator: {
+    position: 'absolute',
+    width: 2,
+    height: 20,
+    top: 10,
+    borderRadius: 1,
+    pointerEvents: 'none',
+  },
+  progressThumb: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    top: 8,
+    marginLeft: -12,
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+    zIndex: 10,
+  },
+  timeLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  timeText: {
+    fontSize: 12,
+  },
+  currentPositionText: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  selectedSegmentDisplay: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  selectedSegmentLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   mediaCount: {
     backgroundColor: '#f0f0f0',
