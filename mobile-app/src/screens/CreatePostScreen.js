@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,8 @@ import SpotifyTrack from '../components/SpotifyTrack';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+const isSeekingInterruptionError = (error) =>
+  typeof error?.message === 'string' && error.message.includes('Seeking interrupted');
 
 const CreatePostScreen = ({ navigation, user }) => {
   const { theme } = useTheme();
@@ -58,9 +60,9 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [musicDuration, setMusicDuration] = useState(0); // Total track duration
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const isScreenMountedRef = useRef(true);
   const musicSoundRef = useRef(null);
   const musicPositionIntervalRef = useRef(null);
-  const progressBarRef = useRef(null);
   const progressBarWidth = useRef(0);
 
   useEffect(() => {
@@ -181,7 +183,7 @@ const CreatePostScreen = ({ navigation, user }) => {
   };
 
   // Pause music playback
-  const pauseMusicPlayback = async () => {
+  const pauseMusicPlayback = useCallback(async () => {
     try {
       if (musicSoundRef.current) {
         await musicSoundRef.current.pauseAsync();
@@ -191,41 +193,79 @@ const CreatePostScreen = ({ navigation, user }) => {
     } catch (error) {
       console.error('Error pausing music:', error);
     }
-  };
+  }, [stopPositionTracking]);
 
   // Stop music playback
-  const stopMusicPlayback = async () => {
-    try {
-      if (musicPositionIntervalRef.current) {
-        clearInterval(musicPositionIntervalRef.current);
-        musicPositionIntervalRef.current = null;
+  const stopMusicPlayback = useCallback(
+    async ({ skipStateReset = false } = {}) => {
+      try {
+        stopPositionTracking();
+        if (musicSoundRef.current) {
+          const sound = musicSoundRef.current;
+          const status = await sound.getStatusAsync().catch(() => null);
+
+          try {
+            sound.setOnPlaybackStatusUpdate(null);
+          } catch (error) {
+            // Ignore errors from removing status update
+          }
+
+          if (status?.isLoaded) {
+            try {
+              await sound.stopAsync();
+            } catch (error) {
+              if (!isSeekingInterruptionError(error)) {
+                throw error;
+              }
+            }
+          }
+
+          try {
+            await sound.unloadAsync();
+          } catch (error) {
+            if (!isSeekingInterruptionError(error)) {
+              throw error;
+            }
+          }
+
+          musicSoundRef.current = null;
+        }
+      } catch (error) {
+        if (!isSeekingInterruptionError(error)) {
+          console.error('Error stopping music:', error);
+        }
+      } finally {
+        if (!skipStateReset && isScreenMountedRef.current) {
+          setIsMusicPlaying(false);
+          setMusicPosition(0);
+        }
       }
-      if (musicSoundRef.current) {
-        await musicSoundRef.current.stopAsync();
-        await musicSoundRef.current.unloadAsync();
-        musicSoundRef.current = null;
-      }
-      setIsMusicPlaying(false);
-      setMusicPosition(0);
-    } catch (error) {
-      console.error('Error stopping music:', error);
-    }
-  };
+    },
+    [stopPositionTracking]
+  );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isScreenMountedRef.current = false;
+      stopMusicPlayback({ skipStateReset: true });
+    };
+  }, [stopMusicPlayback]);
 
   // Seek to position
-  const seekToPosition = async (seconds) => {
+  const seekToPosition = useCallback(async (seconds) => {
     try {
       if (musicSoundRef.current) {
         await musicSoundRef.current.setPositionAsync(seconds * 1000);
-        setMusicPosition(seconds);
       }
+      setMusicPosition(seconds);
     } catch (error) {
       console.error('Error seeking:', error);
     }
-  };
+  }, []);
 
   // Start position tracking
-  const startPositionTracking = () => {
+  const startPositionTracking = useCallback(() => {
     if (musicPositionIntervalRef.current) {
       clearInterval(musicPositionIntervalRef.current);
     }
@@ -247,15 +287,15 @@ const CreatePostScreen = ({ navigation, user }) => {
         }
       }
     }, 100); // Update every 100ms
-  };
+  }, [isMusicPlaying, musicStartTime, pauseMusicPlayback]);
 
   // Stop position tracking
-  const stopPositionTracking = () => {
+  const stopPositionTracking = useCallback(() => {
     if (musicPositionIntervalRef.current) {
       clearInterval(musicPositionIntervalRef.current);
       musicPositionIntervalRef.current = null;
     }
-  };
+  }, []);
 
   // Load user's privacy settings
   useEffect(() => {
@@ -297,89 +337,112 @@ const CreatePostScreen = ({ navigation, user }) => {
   // Initialize music duration when track is selected
   useEffect(() => {
     if (selectedSpotifyTrack) {
-      const duration = selectedSpotifyTrack.duration || 
-                      selectedSpotifyTrack.durationMs || 
-                      selectedSpotifyTrack.trackTimeMillis || 
-                      30000; // Default 30 seconds for preview
+      const duration =
+        selectedSpotifyTrack.duration ||
+        selectedSpotifyTrack.durationMs ||
+        selectedSpotifyTrack.trackTimeMillis ||
+        30000; // Default 30 seconds for preview
       setMusicDuration(duration / 1000); // Convert to seconds
       setMusicStartTime(0);
       setMusicPosition(0);
     }
   }, [selectedSpotifyTrack]);
 
-  // Cleanup music playback when component unmounts
-  useEffect(() => {
-    return () => {
-      stopMusicPlayback();
-    };
-  }, []);
+  const usableSelectionRange = Math.max(0, musicDuration - 15);
+  const canAdjustSegment = usableSelectionRange > 0;
+  const clampPercentage = (value) => Math.max(0, Math.min(100, value));
+  const selectionWidthPercent =
+    musicDuration > 0
+      ? clampPercentage((Math.min(15, musicDuration) / musicDuration) * 100)
+      : 0;
+  const selectionStartPercent =
+    musicDuration > 0 ? clampPercentage((musicStartTime / musicDuration) * 100) : 0;
+  const currentPositionPercent =
+    musicDuration > 0 ? clampPercentage((musicPosition / musicDuration) * 100) : 0;
+  const progressThumbPercent =
+    canAdjustSegment && usableSelectionRange > 0
+      ? clampPercentage((musicStartTime / usableSelectionRange) * 100)
+      : 0;
+
+  const updateSegmentStartFromPercentage = useCallback(
+    (percentage) => {
+      if (!canAdjustSegment) {
+        return;
+      }
+
+      const clampedPercentage = Math.max(0, Math.min(1, percentage));
+      const newStartTime = clampedPercentage * usableSelectionRange;
+      setMusicStartTime(newStartTime);
+
+      if (!isMusicPlaying) {
+        setMusicPosition(newStartTime);
+      }
+
+      seekToPosition(newStartTime);
+    },
+    [canAdjustSegment, isMusicPlaying, seekToPosition, usableSelectionRange]
+  );
 
   // Handle progress bar touch
-  const handleProgressBarPress = (evt) => {
-    if (progressBarWidth.current > 0 && musicDuration > 15) {
+  const handleProgressBarPress = useCallback(
+    (evt) => {
+      if (!canAdjustSegment || progressBarWidth.current <= 0) {
+        return;
+      }
+
       const x = evt.nativeEvent.locationX;
       const percentage = Math.max(0, Math.min(1, x / progressBarWidth.current));
-      // Map percentage to full duration, then clamp to ensure 15-second segment fits
-      const maxStartTime = Math.max(0, musicDuration - 15);
-      const newStartTime = Math.max(0, Math.min(maxStartTime, percentage * musicDuration));
-      console.log('Progress bar touch - x:', x, 'percentage:', percentage, 'newStartTime:', newStartTime, 'duration:', musicDuration);
-      setMusicStartTime(newStartTime);
-      seekToPosition(newStartTime);
-    }
-  };
+      updateSegmentStartFromPercentage(percentage);
+    },
+    [canAdjustSegment, updateSegmentStartFromPercentage]
+  );
 
   // Store initial touch position and container position for drag calculation
   const initialTouchX = useRef(0);
-  const initialStartTime = useRef(0);
-  const containerX = useRef(0);
   const progressBarContainerRef = useRef(null);
 
   // PanResponder for dragging the progress bar
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (evt) => {
-        // Get container position
-        if (progressBarContainerRef.current) {
-          progressBarContainerRef.current.measure((x, y, width, height, pageX, pageY) => {
-            containerX.current = pageX;
-          });
-        }
-        console.log('PanResponder Grant - locationX:', evt.nativeEvent.locationX, 'pageX:', evt.nativeEvent.pageX);
-        setIsDragging(true);
-        if (isMusicPlaying) {
-          pauseMusicPlayback();
-        }
-        // Store initial values - use locationX for container-relative position
-        initialTouchX.current = evt.nativeEvent.locationX;
-        initialStartTime.current = musicStartTime;
-        handleProgressBarPress(evt);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (progressBarWidth.current > 0 && musicDuration > 15) {
-          // Calculate new position based on drag distance from initial touch
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => canAdjustSegment,
+        onMoveShouldSetPanResponder: () => canAdjustSegment,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: (evt) => {
+          if (!canAdjustSegment) {
+            return;
+          }
+          setIsDragging(true);
+          initialTouchX.current = evt.nativeEvent.locationX;
+          if (isMusicPlaying) {
+            pauseMusicPlayback();
+          }
+          handleProgressBarPress(evt);
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          if (!canAdjustSegment || progressBarWidth.current <= 0) {
+            return;
+          }
           const currentX = initialTouchX.current + gestureState.dx;
           const clampedX = Math.max(0, Math.min(progressBarWidth.current, currentX));
-          const percentage = Math.max(0, Math.min(1, clampedX / progressBarWidth.current));
-          const maxStartTime = Math.max(0, musicDuration - 15);
-          const newStartTime = Math.max(0, Math.min(maxStartTime, percentage * musicDuration));
-          console.log('Dragging - dx:', gestureState.dx, 'currentX:', currentX, 'newStartTime:', newStartTime);
-          setMusicStartTime(newStartTime);
-          seekToPosition(newStartTime);
-        }
-      },
-      onPanResponderRelease: () => {
-        console.log('PanResponder Release');
-        setIsDragging(false);
-      },
-      onPanResponderTerminate: () => {
-        console.log('PanResponder Terminate');
-        setIsDragging(false);
-      },
-    })
-  ).current;
+          const percentage = clampedX / progressBarWidth.current;
+          updateSegmentStartFromPercentage(percentage);
+        },
+        onPanResponderRelease: () => {
+          setIsDragging(false);
+        },
+        onPanResponderTerminate: () => {
+          setIsDragging(false);
+        },
+      }),
+    [
+      canAdjustSegment,
+      handleProgressBarPress,
+      isMusicPlaying,
+      pauseMusicPlayback,
+      updateSegmentStartFromPercentage,
+    ]
+  );
 
   const handleSelectMedia = async () => {
     try {
@@ -588,7 +651,8 @@ const CreatePostScreen = ({ navigation, user }) => {
           [
             {
               text: 'OK',
-              onPress: () => {
+              onPress: async () => {
+                await stopMusicPlayback();
                 setContent('');
                 setSelectedMedia([]);
                 setSelectedSpotifyTrack(null);
@@ -596,6 +660,9 @@ const CreatePostScreen = ({ navigation, user }) => {
                 setSecretPassword('');
                 setShowPasswordInput(false);
                 setShowDescription(false);
+                setShowMusicEdit(false);
+                setMusicStartTime(0);
+                setMusicPosition(0);
                 navigation.goBack();
               }
             }
@@ -611,6 +678,14 @@ const CreatePostScreen = ({ navigation, user }) => {
       setLoading(false);
     }
   };
+
+  const handleCancelCreatePost = useCallback(async () => {
+    try {
+      await stopMusicPlayback();
+    } finally {
+      navigation.goBack();
+    }
+  }, [navigation, stopMusicPlayback]);
 
   const handleImagePress = (index) => {
     setSelectedImageIndex(index);
@@ -653,7 +728,7 @@ const CreatePostScreen = ({ navigation, user }) => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.cancelButton}
-          onPress={() => navigation.goBack()}
+          onPress={handleCancelCreatePost}
           disabled={loading}
         >
           <Ionicons name="close" size={24} color="#666" />
@@ -1085,6 +1160,11 @@ const CreatePostScreen = ({ navigation, user }) => {
                     <Text style={[styles.musicEditSubtitle, { color: colors.textSecondary }]}>
                       Drag to select start position
                     </Text>
+                    {!canAdjustSegment && (
+                      <Text style={[styles.musicEditWarning, { color: colors.textSecondary }]}>
+                        This preview is shorter than 15 seconds, so the full clip will be used.
+                      </Text>
+                    )}
                     
                     {/* Playback Controls */}
                     <View style={styles.playbackControls}>
@@ -1102,10 +1182,13 @@ const CreatePostScreen = ({ navigation, user }) => {
                         {/* Progress Bar with 15-second selection */}
                         <View
                           ref={progressBarContainerRef}
-                          style={styles.progressBarContainer}
+                          style={[
+                            styles.progressBarContainer,
+                            !canAdjustSegment && styles.progressBarDisabled,
+                          ]}
+                          pointerEvents={canAdjustSegment ? 'auto' : 'none'}
                           onLayout={(event) => {
                             progressBarWidth.current = event.nativeEvent.layout.width;
-                            console.log('Progress bar width set to:', progressBarWidth.current);
                           }}
                           {...panResponder.panHandlers}
                         >
@@ -1117,8 +1200,8 @@ const CreatePostScreen = ({ navigation, user }) => {
                             style={[
                               styles.selectionIndicator,
                               {
-                                left: `${(musicStartTime / Math.max(1, musicDuration)) * 100}%`,
-                                width: `${(15 / Math.max(1, musicDuration)) * 100}%`,
+                                left: `${selectionStartPercent}%`,
+                                width: `${selectionWidthPercent}%`,
                                 backgroundColor: colors.primary + '40',
                               }
                             ]} 
@@ -1131,7 +1214,7 @@ const CreatePostScreen = ({ navigation, user }) => {
                               style={[
                                 styles.progressIndicator,
                                 {
-                                  left: `${(musicPosition / Math.max(1, musicDuration)) * 100}%`,
+                                  left: `${currentPositionPercent}%`,
                                   backgroundColor: colors.primary,
                                 }
                               ]} 
@@ -1144,10 +1227,11 @@ const CreatePostScreen = ({ navigation, user }) => {
                             style={[
                               styles.progressThumb,
                               {
-                                left: `${(musicStartTime / Math.max(1, musicDuration)) * 100}%`,
+                                left: `${canAdjustSegment ? progressThumbPercent : selectionStartPercent}%`,
                                 backgroundColor: colors.primary,
                               }
-                            ]} 
+                            ]}
+                            pointerEvents="none"
                           />
                         </View>
                         
@@ -1481,6 +1565,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 16,
   },
+  musicEditWarning: {
+    fontSize: 12,
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
   timeSelectorContainer: {
     width: '100%',
   },
@@ -1544,6 +1633,9 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 15,
     backgroundColor: 'transparent',
+  },
+  progressBarDisabled: {
+    opacity: 0.5,
   },
   progressTrack: {
     position: 'absolute',
