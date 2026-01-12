@@ -215,11 +215,16 @@ router.post('/register', [
     const refreshToken = generateRefreshTokenForUser(user._id, req);
 
     // Send verification email
+    console.log('📧 Sending verification email to:', user.email);
     const emailResult = await emailService.sendVerificationEmail(user.email, user.username, user.verificationCode);
     
     if (!emailResult.success) {
       console.error('⚠️ Failed to send verification email during registration:', emailResult.error);
+      console.error('⚠️ User can still register, but email verification will need to be resent');
+      console.error('⚠️ Verification code for user:', user.verificationCode);
       // Still allow registration, but warn about email
+    } else {
+      console.log('✅ Verification email sent successfully to:', user.email);
     }
 
     res.status(201).json({
@@ -1115,10 +1120,17 @@ router.post('/resend-verification', [
       });
     }
 
-    const { email } = req.body;
+    let { email } = req.body;
+
+    // Normalize email (lowercase, trim)
+    if (email) {
+      email = email.toLowerCase().trim();
+    }
+
+    console.log('📧 Resend verification request for email:', email);
 
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email });
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -1136,23 +1148,42 @@ router.post('/resend-verification', [
 
     // Generate new verification code
     const verificationCode = emailService.generateVerificationCode();
-    const verificationExpires = new Date(Date.now() + 60 * 1000); // 1 minute
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours (same as registration)
 
     // Update user with new code
     user.verificationCode = verificationCode;
     user.verificationExpires = verificationExpires;
     await user.save();
 
-    // Send verification email
-    const emailResult = await emailService.sendVerificationEmail(email, user.name, verificationCode);
+    console.log('📧 Resending verification email to:', email);
+    console.log('📧 User:', user.username || user.name);
+    console.log('📧 Verification code:', verificationCode);
+    
+    // Send verification email - use username if available, otherwise use name
+    const emailResult = await emailService.sendVerificationEmail(
+      email, 
+      user.username || user.name, 
+      verificationCode
+    );
     
     if (!emailResult.success) {
-      console.error('Failed to resend verification email:', emailResult.error);
+      console.error('⚠️ Failed to resend verification email:', emailResult.error);
+      console.error('⚠️ Verification code for manual entry:', verificationCode);
       return res.status(500).json({
         success: false,
-        message: 'Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.'
+        message: 'Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.',
+        // Include code in development or if email failed
+        data: {
+          verificationCode: (process.env.NODE_ENV === 'development' || !emailResult.success) 
+            ? verificationCode 
+            : undefined,
+          emailSent: false,
+          error: emailResult.error
+        }
       });
     }
+    
+    console.log('✅ Verification email resent successfully to:', email);
 
     res.json({
       success: true,
@@ -1163,7 +1194,9 @@ router.post('/resend-verification', [
         verificationCode: (process.env.NODE_ENV === 'development' || !emailResult.success) 
           ? verificationCode 
           : undefined,
-        emailSent: emailResult.success
+        emailSent: emailResult.success,
+        messageId: emailResult.messageId,
+        accepted: emailResult.accepted
       }
     });
   } catch (error) {

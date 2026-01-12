@@ -187,32 +187,69 @@ const EmailVerificationModal = ({
   };
 
   const handleResendVerification = async () => {
-    if (!user.email || countdown > 0) return;
+    if (!user || !user.email || countdown > 0) {
+      console.log('⚠️ Cannot resend: missing user or email, or countdown active', {
+        hasUser: !!user,
+        email: user?.email,
+        countdown
+      });
+      return;
+    }
 
     setResendLoading(true);
     setError('');
 
     try {
+      console.log('📧 Resending verification code to:', user.email);
       const response = await apiService.resendVerificationCode(user.email);
+      console.log('📧 Resend verification response:', response);
       
       if (response.success) {
         // Show success message with the new code if available
         const message = response.data?.verificationCode 
           ? `New verification code: ${response.data.verificationCode}`
-          : 'Verification email sent again';
+          : response.data?.emailSent 
+            ? 'Verification email sent successfully! Check your inbox.'
+            : 'Verification email sent again';
         
         Alert.alert('Success', message);
         setCountdown(60); // Start countdown
         setVerificationCode(['', '', '', '', '']);
         setError('');
         // Focus first input
-        inputRefs.current[0]?.focus();
+        setTimeout(() => {
+          inputRefs.current[0]?.focus();
+        }, 100);
       } else {
-        setError(response.message || 'Failed to send email');
+        const errorMessage = response.message || response.data?.error || 'Failed to send email';
+        console.error('❌ Resend verification failed:', errorMessage);
+        setError(errorMessage);
+        
+        // If code is provided in response (development mode), show it
+        if (response.data?.verificationCode) {
+          Alert.alert(
+            'Email Failed',
+            `Email sending failed, but here's your code: ${response.data.verificationCode}`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'Error',
+            `Failed to send verification email: ${errorMessage}\n\nPlease check your email address and try again.`,
+            [{ text: 'OK' }]
+          );
+        }
       }
     } catch (error) {
-      console.error('Resend error:', error);
-      setError('Failed to send email. Please try again.');
+      console.error('❌ Resend error:', error);
+      const errorMessage = error.message || 'Failed to send email. Please try again.';
+      setError(errorMessage);
+      
+      Alert.alert(
+        'Error',
+        `Failed to send verification email: ${errorMessage}\n\nPlease check your email address and try again.`,
+        [{ text: 'OK' }]
+      );
     } finally {
       setResendLoading(false);
     }

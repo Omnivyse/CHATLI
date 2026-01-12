@@ -4,18 +4,26 @@ const crypto = require('crypto');
 class EmailService {
   constructor() {
     this.transporter = null;
-    this.initializeTransporter();
+    this.initializationPromise = null;
+    // Initialize asynchronously
+    this.initializeTransporter().catch(err => {
+      console.error('❌ Failed to initialize email service on startup:', err);
+    });
   }
 
   // Initialize email transporter
-  initializeTransporter() {
+  async initializeTransporter() {
     try {
       // Check if email credentials are configured
       if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.warn('⚠️ Email credentials not configured (EMAIL_USER or EMAIL_PASS missing)');
+        console.warn('⚠️ Please set EMAIL_USER and EMAIL_PASS in your config.env file');
         this.transporter = null;
-        return;
+        return false;
       }
+
+      console.log('📧 Initializing email service...');
+      console.log('📧 Email user:', process.env.EMAIL_USER);
 
       // Use Gmail SMTP with explicit configuration
       this.transporter = nodemailer.createTransport({
@@ -28,23 +36,51 @@ class EmailService {
         },
         tls: {
           rejectUnauthorized: false // Allow self-signed certificates if needed
-        }
+        },
+        // Add connection timeout
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+        // Add debug option to see what's happening
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development'
       });
 
-      // Verify connection
-      this.transporter.verify((error, success) => {
-        if (error) {
-          console.error('❌ Email service verification failed:', error.message);
-          console.error('❌ Check your EMAIL_USER and EMAIL_PASS in config.env');
-          this.transporter = null;
-        } else {
-          console.log('✅ Email service initialized and verified');
-          console.log('📧 Email will be sent from:', process.env.EMAIL_USER);
+      // Verify connection (await the promise)
+      try {
+        await this.transporter.verify();
+        console.log('✅ Email service initialized and verified successfully');
+        console.log('📧 Email will be sent from:', process.env.EMAIL_USER);
+        return true;
+      } catch (verifyError) {
+        console.error('❌ Email service verification failed:', verifyError.message);
+        console.error('❌ Error code:', verifyError.code);
+        console.error('❌ Full error:', verifyError);
+        
+        // Provide specific guidance based on error
+        if (verifyError.code === 'EAUTH') {
+          console.error('❌ Authentication failed. Common causes:');
+          console.error('   1. Wrong email or password');
+          console.error('   2. Using regular Gmail password instead of App Password');
+          console.error('   3. 2-Step Verification not enabled');
+          console.error('   Solution: Generate an App Password from your Google Account settings');
+        } else if (verifyError.code === 'ECONNECTION') {
+          console.error('❌ Connection failed. Check:');
+          console.error('   1. Internet connection');
+          console.error('   2. Firewall settings');
+          console.error('   3. Gmail SMTP server availability');
+        } else if (verifyError.code === 'ETIMEDOUT') {
+          console.error('❌ Connection timeout. Gmail SMTP might be blocked');
         }
-      });
+        
+        this.transporter = null;
+        return false;
+      }
     } catch (error) {
       console.error('❌ Email service initialization failed:', error);
+      console.error('❌ Error stack:', error.stack);
       this.transporter = null;
+      return false;
     }
   }
 
@@ -290,13 +326,11 @@ CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны �
       // Re-initialize transporter if it's null (in case env vars were added after startup)
       if (!this.transporter) {
         console.warn('⚠️ Email transporter not initialized, attempting to re-initialize...');
-        this.initializeTransporter();
+        const initialized = await this.initializeTransporter();
         
-        // Wait a bit for verification
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        if (!this.transporter) {
+        if (!initialized || !this.transporter) {
           console.error('❌ Email service still not available after re-initialization');
+          console.error('❌ Please check your EMAIL_USER and EMAIL_PASS in config.env');
           console.log('📧 Verification code (for manual testing):', verificationCode);
           return { 
             success: false, 
@@ -305,36 +339,91 @@ CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны �
           };
         }
       }
+
+      // Verify transporter is still working before sending
+      try {
+        await this.transporter.verify();
+      } catch (verifyError) {
+        console.warn('⚠️ Transporter verification failed, re-initializing...');
+        const reinitialized = await this.initializeTransporter();
+        if (!reinitialized || !this.transporter) {
+          throw new Error('Email service verification failed. Please check your email credentials.');
+        }
+      }
       
       const mailOptions = {
         from: `"CHATLI" <${process.env.EMAIL_USER}>`,
         to: email,
+        replyTo: process.env.EMAIL_USER, // Add reply-to to avoid spam filters
         subject: 'CHATLI - Имэйл баталгаажуулалт',
         html: this.createVerificationEmailHTML(username, verificationCode),
-        text: this.createVerificationEmailText(username, verificationCode)
+        text: this.createVerificationEmailText(username, verificationCode),
+        // Add headers to improve deliverability
+        headers: {
+          'X-Mailer': 'CHATLI Email Service',
+          'X-Priority': '1',
+          'Importance': 'high',
+          'List-Unsubscribe': `<mailto:${process.env.EMAIL_USER}?subject=unsubscribe>`,
+        },
+        // Add message ID and date
+        date: new Date(),
       };
 
-      console.log('📧 Attempting to send verification email to:', email);
+      console.log('📧 Attempting to send verification email...');
+      console.log('📧 To:', email);
+      console.log('📧 From:', process.env.EMAIL_USER);
+      console.log('📧 Username:', username);
+      console.log('📧 Verification Code:', verificationCode);
+      
+      // Validate email address format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error(`Invalid email address format: ${email}`);
+      }
+      
       const result = await this.transporter.sendMail(mailOptions);
       
       console.log('✅ Verification email sent successfully!');
       console.log('📧 Message ID:', result.messageId);
+      console.log('📧 Response:', result.response);
+      console.log('📧 Accepted recipients:', result.accepted);
+      console.log('📧 Rejected recipients:', result.rejected);
+      console.log('📧 Pending recipients:', result.pending);
       console.log('📧 Sent to:', email);
       
-      return { success: true, messageId: result.messageId };
+      // Check if email was actually accepted
+      if (result.rejected && result.rejected.length > 0) {
+        console.error('❌ Email was rejected by server:', result.rejected);
+        throw new Error(`Email rejected: ${result.rejected.join(', ')}`);
+      }
+      
+      if (!result.accepted || result.accepted.length === 0) {
+        console.error('❌ Email was not accepted by server');
+        throw new Error('Email was not accepted by server');
+      }
+      
+      return { success: true, messageId: result.messageId, accepted: result.accepted };
       
     } catch (error) {
       console.error('❌ Error sending verification email:', error.message);
+      console.error('❌ Error code:', error.code);
       console.error('❌ Full error:', error);
       
-      // Log specific error types
+      // Log specific error types with solutions
       if (error.code === 'EAUTH') {
-        console.error('❌ Authentication failed. Check EMAIL_USER and EMAIL_PASS');
-        console.error('❌ Make sure you\'re using an App Password, not your regular Gmail password');
+        console.error('❌ Authentication failed. Solutions:');
+        console.error('   1. Make sure you\'re using an App Password, not your regular Gmail password');
+        console.error('   2. Generate App Password: Google Account > Security > 2-Step Verification > App Passwords');
+        console.error('   3. Check that EMAIL_USER and EMAIL_PASS are correct in config.env');
       } else if (error.code === 'ECONNECTION') {
-        console.error('❌ Connection failed. Check your internet connection and Gmail SMTP settings');
+        console.error('❌ Connection failed. Check:');
+        console.error('   1. Internet connection');
+        console.error('   2. Firewall settings');
+        console.error('   3. Gmail SMTP server (smtp.gmail.com:465) is accessible');
       } else if (error.code === 'ETIMEDOUT') {
-        console.error('❌ Connection timeout. Gmail SMTP might be blocked');
+        console.error('❌ Connection timeout. Gmail SMTP might be blocked by firewall or network');
+      } else if (error.code === 'EENVELOPE') {
+        console.error('❌ Invalid email address:', email);
       }
       
       // Return code for development/testing
@@ -342,7 +431,7 @@ CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны �
       
       return { 
         success: false, 
-        error: error.message,
+        error: error.message || 'Failed to send email',
         code: process.env.NODE_ENV === 'development' ? verificationCode : undefined
       };
     }
@@ -397,15 +486,21 @@ ${resetUrl}
   async testEmailService() {
     try {
       if (!this.transporter) {
-        console.log('📧 Email service not configured');
-        return false;
+        console.log('📧 Email service not configured, attempting initialization...');
+        const initialized = await this.initializeTransporter();
+        if (!initialized) {
+          console.log('❌ Email service initialization failed');
+          return false;
+        }
       }
 
       await this.transporter.verify();
       console.log('✅ Email service is working correctly');
+      console.log('📧 Ready to send emails from:', process.env.EMAIL_USER);
       return true;
     } catch (error) {
-      console.error('❌ Email service test failed:', error);
+      console.error('❌ Email service test failed:', error.message);
+      console.error('❌ Error code:', error.code);
       return false;
     }
   }
