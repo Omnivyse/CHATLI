@@ -26,6 +26,16 @@ console.log('RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT || 'Not Rail
 console.log('RAILWAY_DOMAIN:', process.env.RAILWAY_DOMAIN || 'Not set');
 console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Set (hidden for security)' : 'Not set');
 console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Set (hidden for security)' : 'Not set');
+console.log('EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Not set');
+console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set (hidden)' : '❌ Not set');
+
+// Warn if email is not configured
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  console.warn('⚠️ WARNING: Email service is not configured!');
+  console.warn('⚠️ Email verification and password reset will not work.');
+  console.warn('⚠️ For Railway: Set EMAIL_USER and EMAIL_PASS as environment variables in Railway dashboard');
+  console.warn('⚠️ For local: Set EMAIL_USER and EMAIL_PASS in config.env file');
+}
 
 // Import routes
 const authRoutes = require('./routes/auth');

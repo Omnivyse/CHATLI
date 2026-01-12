@@ -15,9 +15,17 @@ class EmailService {
   async initializeTransporter() {
     try {
       // Check if email credentials are configured
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      // Check both config.env (local) and environment variables (Railway/production)
+      const emailUser = process.env.EMAIL_USER;
+      const emailPass = process.env.EMAIL_PASS;
+      
+      if (!emailUser || !emailPass) {
         console.warn('⚠️ Email credentials not configured (EMAIL_USER or EMAIL_PASS missing)');
-        console.warn('⚠️ Please set EMAIL_USER and EMAIL_PASS in your config.env file');
+        console.warn('⚠️ Environment check:');
+        console.warn('   EMAIL_USER:', emailUser ? '✅ Set' : '❌ Not set');
+        console.warn('   EMAIL_PASS:', emailPass ? '✅ Set (hidden)' : '❌ Not set');
+        console.warn('⚠️ For local development: Set EMAIL_USER and EMAIL_PASS in config.env');
+        console.warn('⚠️ For Railway/production: Set EMAIL_USER and EMAIL_PASS as environment variables in Railway dashboard');
         this.transporter = null;
         return false;
       }
@@ -330,11 +338,19 @@ CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны �
         
         if (!initialized || !this.transporter) {
           console.error('❌ Email service still not available after re-initialization');
-          console.error('❌ Please check your EMAIL_USER and EMAIL_PASS in config.env');
+          console.error('❌ Environment variables check:');
+          console.error('   EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Not set');
+          console.error('   EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set (hidden)' : '❌ Not set');
+          console.error('❌ For local development: Set EMAIL_USER and EMAIL_PASS in server/config.env');
+          console.error('❌ For Railway/production:');
+          console.error('   1. Go to Railway dashboard → Your project → Variables');
+          console.error('   2. Add EMAIL_USER = your-email@gmail.com');
+          console.error('   3. Add EMAIL_PASS = your-gmail-app-password (16 characters, no spaces)');
+          console.error('   4. Redeploy the service');
           console.log('📧 Verification code (for manual testing):', verificationCode);
           return { 
             success: false, 
-            error: 'Email service not configured. Please check EMAIL_USER and EMAIL_PASS in config.env',
+            error: 'Email service not configured. Please set EMAIL_USER and EMAIL_PASS environment variables in Railway dashboard.',
             code: verificationCode // Return code for development/testing
           };
         }
