@@ -48,7 +48,13 @@ class ApiService {
             return { success: true, data: { notifications: [] } };
           }
         }
-        throw new Error(data.message || 'Серверийн алдаа');
+        // Return error response with all error details
+        return {
+          success: false,
+          message: data.message || data.error || 'Серверийн алдаа',
+          error: data.error || data.message,
+          data: data.data || null
+        };
       }
 
       return data;

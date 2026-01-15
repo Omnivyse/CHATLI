@@ -32,6 +32,16 @@ const Login = ({ onLogin, onBack }) => {
         if (res.success) {
           // For new users, check if they need email verification
           const userData = res.data.user;
+          
+          // Check if email was sent
+          if (!res.data.emailSent) {
+            console.warn('⚠️ Email was not sent during registration');
+            // Show warning but still allow login
+            if (process.env.NODE_ENV === 'development' && userData.verificationCode) {
+              console.log('📧 Verification code (dev):', userData.verificationCode);
+            }
+          }
+          
           onLogin(userData, { isNewUser: true });
         } else {
           setError(res.message || 'Бүртгүүлэхэд алдаа гарлаа');

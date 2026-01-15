@@ -13,6 +13,7 @@ const EmailVerificationModal = ({
   const [useTextArea, setUseTextArea] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [resendLoading, setResendLoading] = useState(false);
   const inputRefs = useRef([]);
@@ -22,6 +23,7 @@ const EmailVerificationModal = ({
       setVerificationCode(['', '', '', '', '']);
       setTextAreaCode('');
       setError('');
+      setSuccess('');
       setCountdown(0);
       // Focus first input after modal opens
       setTimeout(() => {
@@ -97,19 +99,38 @@ const EmailVerificationModal = ({
   };
 
   const handleResendVerification = async () => {
-    if (!user.email || countdown > 0) return;
+    if (!user || !user.email || countdown > 0) {
+      setError('Имэйл хаяг олдсонгүй');
+      return;
+    }
 
     setResendLoading(true);
     setError('');
+    setSuccess('');
 
     try {
+      console.log('📧 Resending verification email to:', user.email);
       const response = await apiService.resendVerificationEmail(user.email);
       
+      console.log('📧 Resend response:', response);
+      
       if (response.success) {
+        // Show success message
+        if (response.data?.emailSent) {
+          setSuccess('Баталгаажуулах код имэйл хаяг руу илгээгдлээ!');
+        } else {
+          // Email failed but code is available (development mode)
+          if (response.data?.verificationCode) {
+            setSuccess(`Имэйл илгээхэд алдаа гарсан. Код: ${response.data.verificationCode}`);
+            setError('Имэйл илгээхэд алдаа гарсан. Дээрх кодыг ашиглана уу.');
+          } else {
+            setError('Имэйл илгээхэд алдаа гарсан. Дахин оролдоно уу.');
+          }
+        }
+        
         setCountdown(60); // Start countdown
         setVerificationCode(['', '', '', '', '']);
         setTextAreaCode('');
-        setError('');
         // Focus first input
         if (useTextArea) {
           // Text area will auto-focus
@@ -117,11 +138,15 @@ const EmailVerificationModal = ({
           inputRefs.current[0]?.focus();
         }
       } else {
-        setError(response.message || 'Имэйл илгээхэд алдаа гарлаа');
+        // Handle error response
+        const errorMessage = response.message || response.error || 'Имэйл илгээхэд алдаа гарлаа';
+        setError(errorMessage);
+        console.error('❌ Resend verification failed:', response);
       }
     } catch (error) {
-      console.error('Resend error:', error);
-      setError('Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.');
+      console.error('❌ Resend error:', error);
+      const errorMessage = error.message || error.response?.data?.message || 'Имэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.';
+      setError(errorMessage);
     } finally {
       setResendLoading(false);
     }
@@ -232,11 +257,22 @@ const EmailVerificationModal = ({
                 </div>
               )}
 
+              {/* Success Message */}
+              {success && (
+                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <p className="text-green-700 dark:text-green-400 text-sm text-center">
+                    {success}
+                  </p>
+                </div>
+              )}
+
               {/* Error Message */}
               {error && (
-                <p className="text-red-500 text-sm text-center mb-4">
-                  {error}
-                </p>
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-red-700 dark:text-red-400 text-sm text-center">
+                    {error}
+                  </p>
+                </div>
               )}
 
               {/* Timer */}
