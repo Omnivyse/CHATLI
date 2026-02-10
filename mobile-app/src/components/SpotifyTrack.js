@@ -21,10 +21,14 @@ const formatDuration = (durationMs) => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
-const SpotifyTrack = ({ track, onPress, autoPlayPreview = false }) => {
+const SpotifyTrack = ({ track, onPress, autoPlayPreview = false, player }) => {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
+  const hasExternalPlayer =
+    !!player && typeof player === 'object' && typeof player.onToggle === 'function';
+  const externalIsPlaying = hasExternalPlayer ? !!player.isPlaying : false;
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [displayDuration, setDisplayDuration] = useState('0:00');
   const previewSoundRef = useRef(null);
@@ -159,6 +163,9 @@ const SpotifyTrack = ({ track, onPress, autoPlayPreview = false }) => {
 
   useEffect(() => {
     const autoPreview = async () => {
+      // If parent controls playback, don't auto-play internally.
+      if (hasExternalPlayer) return;
+
       if (autoPlayPreview && track?.previewUrl) {
         await startPreview();
       } else {
@@ -169,10 +176,15 @@ const SpotifyTrack = ({ track, onPress, autoPlayPreview = false }) => {
     return () => {
       stopPreview();
     };
-  }, [track?.id]);
+  }, [track?.id, hasExternalPlayer]);
 
   const startPreview = async () => {
     try {
+      if (hasExternalPlayer) {
+        // Parent controls playback
+        return;
+      }
+
       if (!track.previewUrl) {
         // No preview available - don't open external app automatically
         // Just show a message that preview is not available
@@ -224,6 +236,11 @@ const SpotifyTrack = ({ track, onPress, autoPlayPreview = false }) => {
 
   const stopPreview = async () => {
     try {
+      if (hasExternalPlayer) {
+        // Parent controls playback
+        return;
+      }
+
       if (previewTimeoutRef.current) {
         clearTimeout(previewTimeoutRef.current);
         previewTimeoutRef.current = null;
@@ -241,6 +258,10 @@ const SpotifyTrack = ({ track, onPress, autoPlayPreview = false }) => {
   };
 
   const handlePlayPreview = async () => {
+    if (hasExternalPlayer) {
+      player.onToggle();
+      return;
+    }
     // Always try to play preview first - don't open external app automatically
     if (isPlaying) {
       await stopPreview();
@@ -299,7 +320,7 @@ const SpotifyTrack = ({ track, onPress, autoPlayPreview = false }) => {
         activeOpacity={0.7}
       >
         <Ionicons 
-          name={isPlaying ? "pause" : "play"} 
+          name={(hasExternalPlayer ? externalIsPlaying : isPlaying) ? "pause" : "play"} 
           size={20} 
           color={colors.textInverse} 
         />

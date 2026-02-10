@@ -8,7 +8,17 @@ const commentSchema = new mongoose.Schema({
 
 const postSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  content: { type: String, required: true, maxlength: 2000 },
+  // Allow posts that are media-only or music-only by making content
+  // required only when there is no media and no spotifyTrack
+  content: { 
+    type: String, 
+    maxlength: 2000,
+    required: function () {
+      const hasMedia = Array.isArray(this.media) && this.media.length > 0;
+      const hasSpotify = !!this.spotifyTrack;
+      return !hasMedia && !hasSpotify;
+    } 
+  },
   media: [
     {
       type: {

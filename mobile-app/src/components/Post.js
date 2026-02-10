@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Video } from 'expo-av';
+import { Video, Audio } from 'expo-av';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -24,7 +24,7 @@ import CommentSection from './CommentSection';
 import ImageViewerModal from './ImageViewerModal';
 // import TempClipsModal from './TempClipsModal'; // Temporarily hidden
 import SecretPostPasswordModal from './SecretPostPasswordModal';
-import SpotifyTrack from './SpotifyTrack';
+// Post feed uses a compact music attachment (no autoplay).
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -57,6 +57,12 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
   const [secretPasswordModalVisible, setSecretPasswordModalVisible] = useState(false);
   const [isSecretPostUnlocked, setIsSecretPostUnlocked] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState(false);
+
+  // Music preview state (post attachment)
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [musicLoading, setMusicLoading] = useState(false);
+  const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const musicSoundRef = useRef(null);
   
   // Video state management
   const [videoPlaying, setVideoPlaying] = useState({});
@@ -202,6 +208,21 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       }
     };
   }, []);
+
+  // Cleanup music preview when component unmounts / post changes
+  React.useEffect(() => {
+    return () => {
+      if (musicSoundRef.current) {
+        // Best-effort cleanup
+        musicSoundRef.current.stopAsync().catch(() => null);
+        musicSoundRef.current.unloadAsync().catch(() => null);
+        musicSoundRef.current = null;
+      }
+      setIsMusicPlaying(false);
+      setMusicLoading(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localPost?._id]);
 
   // Pause all videos when component unmounts
   React.useEffect(() => {
@@ -547,6 +568,84 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const stopMusicPreview = async () => {
+    try {
+      if (musicSoundRef.current) {
+        await musicSoundRef.current.stopAsync().catch(() => null);
+        await musicSoundRef.current.unloadAsync().catch(() => null);
+        musicSoundRef.current = null;
+      }
+    } finally {
+      setIsMusicPlaying(false);
+    }
+  };
+
+  const startMusicPreview = async () => {
+    const track = localPost?.spotifyTrack;
+    if (!track?.previewUrl) {
+      Alert.alert('No Preview', 'This track does not have a preview available.');
+      return;
+    }
+
+    if (musicLoading) return;
+
+    try {
+      setMusicLoading(true);
+
+      // Stop any existing sound first
+      await stopMusicPreview();
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: track.previewUrl },
+        { shouldPlay: true, volume: 1, isMuted: isMusicMuted }
+      );
+      musicSoundRef.current = sound;
+
+      // Ensure mute state is applied (in case platform ignores initial flag)
+      try {
+        await sound.setIsMutedAsync(isMusicMuted);
+      } catch (_) {
+        // ignore
+      }
+      setIsMusicPlaying(true);
+
+      // Auto-stop at 30s (or when preview ends)
+      const stopAtMs = 30000;
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status?.isLoaded) return;
+        if (status.didJustFinish) {
+          stopMusicPreview();
+          return;
+        }
+        if (typeof status.positionMillis === 'number' && status.positionMillis >= stopAtMs) {
+          stopMusicPreview();
+        }
+      });
+    } catch (error) {
+      console.error('Music preview error:', error);
+      Alert.alert('Playback Error', 'Could not play the preview.');
+      await stopMusicPreview();
+    } finally {
+      setMusicLoading(false);
+    }
+  };
+
+  // Auto-play music preview when this post is highlighted (center of feed)
+  useEffect(() => {
+    const track = localPost?.spotifyTrack;
+    if (!track?.previewUrl) {
+      stopMusicPreview();
+      return;
+    }
+
+    if (isHighlighted) {
+      // Best-effort ensure preview is playing whenever this post is highlighted.
+      startMusicPreview();
+    } else {
+      stopMusicPreview();
+    }
+  }, [isHighlighted, localPost?.spotifyTrack?.previewUrl]);
+
   const getVideoProgressPercentage = (videoId) => {
     const progress = videoProgress[videoId] || 0;
     const duration = videoDuration[videoId] || 1;
@@ -880,6 +979,54 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
          </View>
        )}
 
+      {/* Spotify Track (mini label above content) */}
+      {localPost.spotifyTrack && 
+       typeof localPost.spotifyTrack === 'object' && 
+       localPost.spotifyTrack.name && 
+       localPost.spotifyTrack.artist && (
+        <View style={styles.spotifyContainer}>
+          <View style={[styles.musicCard, { backgroundColor: colors.surfaceVariant }]}>
+            <View style={styles.musicLabelLeft}>
+              <Ionicons
+                name="musical-notes"
+                size={14}
+                color={colors.textSecondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[styles.musicTitle, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {localPost.spotifyTrack.name} · {localPost.spotifyTrack.artist}
+              </Text>
+            </View>
+            {localPost.spotifyTrack.previewUrl && (
+              <TouchableOpacity
+                style={styles.musicMuteButton}
+                onPress={async () => {
+                  const nextMuted = !isMusicMuted;
+                  setIsMusicMuted(nextMuted);
+                  if (musicSoundRef.current) {
+                    try {
+                      await musicSoundRef.current.setIsMutedAsync(nextMuted);
+                    } catch (_) {
+                      // ignore mute errors
+                    }
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isMusicMuted ? 'volume-mute' : 'volume-high'}
+                  size={14}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
+
       {/* Post Content */}
       {localPost.content && typeof localPost.content === 'string' && localPost.content.trim() !== '' && (() => {
         const isLockedPost = localPost.isSecret && !isSecretPostUnlocked && localPost.author._id !== user?._id;
@@ -943,16 +1090,6 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       ) : (
         // Show actual media for non-secret posts or unlocked secret posts
         renderMedia()
-      )}
-
-      {/* Spotify Track */}
-      {localPost.spotifyTrack && 
-       typeof localPost.spotifyTrack === 'object' && 
-       localPost.spotifyTrack.name && 
-       localPost.spotifyTrack.artist && (
-        <View style={styles.spotifyContainer}>
-          <SpotifyTrack track={localPost.spotifyTrack} />
-        </View>
       )}
 
       {/* Post Actions */}
@@ -1725,7 +1862,59 @@ const styles = StyleSheet.create({
   },
   spotifyContainer: {
     marginTop: 12,
-    marginHorizontal: 16,
+    marginHorizontal: 0,
+  },
+  musicCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  musicLabelLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
+  },
+  musicLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  musicArt: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+  },
+  musicArtFallback: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  musicInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  musicTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  musicArtist: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  musicMuteButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

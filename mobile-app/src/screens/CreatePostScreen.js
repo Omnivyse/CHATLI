@@ -31,6 +31,7 @@ import SpotifyTrack from '../components/SpotifyTrack';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+const MUSIC_SEGMENT_LENGTH = 30; // seconds
 const isSeekingInterruptionError = (error) =>
   typeof error?.message === 'string' && error.message.includes('Seeking interrupted');
 
@@ -57,7 +58,7 @@ const CreatePostScreen = ({ navigation, user }) => {
   const [showMusicEdit, setShowMusicEdit] = useState(false);
   const [musicStartTime, setMusicStartTime] = useState(0); // Start time in seconds
   const [musicPosition, setMusicPosition] = useState(0); // Current playback position
-  const [musicDuration, setMusicDuration] = useState(0); // Total track duration
+  const [musicDuration, setMusicDuration] = useState(0); // Total track duration (full song)
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const isScreenMountedRef = useRef(true);
@@ -95,14 +96,10 @@ const CreatePostScreen = ({ navigation, user }) => {
     console.log('testCounter state changed to:', testCounter);
   }, [testCounter]);
 
-  // Initialize music duration when track is selected
+  // Reset music selection state when no track is selected
   useEffect(() => {
-    if (selectedSpotifyTrack) {
-      const duration = selectedSpotifyTrack.duration || 
-                      selectedSpotifyTrack.durationMs || 
-                      selectedSpotifyTrack.trackTimeMillis || 
-                      30000; // Default 30 seconds for preview
-      setMusicDuration(duration / 1000); // Convert to seconds
+    if (!selectedSpotifyTrack) {
+      setMusicDuration(0);
       setMusicStartTime(0);
       setMusicPosition(0);
     }
@@ -141,12 +138,26 @@ const CreatePostScreen = ({ navigation, user }) => {
     try {
       if (!selectedSpotifyTrack?.previewUrl) return;
 
-      // If sound exists, resume it
+      // If sound exists, try to resume it (only if still loaded)
       if (musicSoundRef.current) {
-        await musicSoundRef.current.playAsync();
-        setIsMusicPlaying(true);
-        startPositionTracking();
-        return;
+        const existing = musicSoundRef.current;
+        const status = await existing.getStatusAsync().catch(() => null);
+        if (status?.isLoaded) {
+          // Ensure the sound position matches current UI state (after dragging the segment)
+          try {
+            await existing.setPositionAsync(musicPosition * 1000);
+          } catch (error) {
+            if (!isSeekingInterruptionError(error)) {
+              throw error;
+            }
+          }
+          await existing.playAsync();
+          setIsMusicPlaying(true);
+          startPositionTracking();
+          return;
+        } else {
+          musicSoundRef.current = null;
+        }
       }
 
       // Create new sound
@@ -157,19 +168,26 @@ const CreatePostScreen = ({ navigation, user }) => {
       musicSoundRef.current = sound;
       setIsMusicPlaying(true);
 
-      // Seek to start position
+      // Seek to start position of the selected segment
       if (musicStartTime > 0) {
-        await sound.setPositionAsync(musicStartTime * 1000);
+        try {
+          await sound.setPositionAsync(musicStartTime * 1000);
+        } catch (error) {
+          // Ignore benign "Seeking interrupted" errors from expo-av
+          if (!isSeekingInterruptionError(error)) {
+            throw error;
+          }
+        }
       }
 
-      // Set up playback status updates
+      // Set up playback status updates (limit to selected 30s window or end of preview)
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded) {
           const positionSeconds = status.positionMillis / 1000;
           setMusicPosition(positionSeconds);
 
-          // Stop if reached end of 15-second segment or end of track
-          if (positionSeconds >= musicStartTime + 15 || status.didJustFinish) {
+          // Stop if reached end of selected segment or end of track
+          if (positionSeconds >= musicStartTime + MUSIC_SEGMENT_LENGTH || status.didJustFinish) {
             pauseMusicPlayback();
           }
         }
@@ -256,11 +274,20 @@ const CreatePostScreen = ({ navigation, user }) => {
   const seekToPosition = useCallback(async (seconds) => {
     try {
       if (musicSoundRef.current) {
-        await musicSoundRef.current.setPositionAsync(seconds * 1000);
+        try {
+          await musicSoundRef.current.setPositionAsync(seconds * 1000);
+        } catch (error) {
+          // Ignore benign "Seeking interrupted" errors from expo-av
+          if (!isSeekingInterruptionError(error)) {
+            throw error;
+          }
+        }
       }
       setMusicPosition(seconds);
     } catch (error) {
-      console.error('Error seeking:', error);
+      if (!isSeekingInterruptionError(error)) {
+        console.error('Error seeking:', error);
+      }
     }
   }, []);
 
@@ -277,8 +304,8 @@ const CreatePostScreen = ({ navigation, user }) => {
             const positionSeconds = status.positionMillis / 1000;
             setMusicPosition(positionSeconds);
 
-            // Auto-pause if reached end of 15-second segment
-            if (positionSeconds >= musicStartTime + 15) {
+            // Auto-pause if reached end of selected segment
+            if (positionSeconds >= musicStartTime + MUSIC_SEGMENT_LENGTH) {
               await pauseMusicPlayback();
             }
           }
@@ -334,26 +361,13 @@ const CreatePostScreen = ({ navigation, user }) => {
     }
   }, [privacySettings?.isPrivateAccount, isSecretPost]);
 
-  // Initialize music duration when track is selected
-  useEffect(() => {
-    if (selectedSpotifyTrack) {
-      const duration =
-        selectedSpotifyTrack.duration ||
-        selectedSpotifyTrack.durationMs ||
-        selectedSpotifyTrack.trackTimeMillis ||
-        30000; // Default 30 seconds for preview
-      setMusicDuration(duration / 1000); // Convert to seconds
-      setMusicStartTime(0);
-      setMusicPosition(0);
-    }
-  }, [selectedSpotifyTrack]);
-
-  const usableSelectionRange = Math.max(0, musicDuration - 15);
+  // How much of the track can we slide a fixed-length segment over?
+  const usableSelectionRange = Math.max(0, musicDuration - MUSIC_SEGMENT_LENGTH);
   const canAdjustSegment = usableSelectionRange > 0;
   const clampPercentage = (value) => Math.max(0, Math.min(100, value));
   const selectionWidthPercent =
     musicDuration > 0
-      ? clampPercentage((Math.min(15, musicDuration) / musicDuration) * 100)
+      ? clampPercentage((Math.min(MUSIC_SEGMENT_LENGTH, musicDuration) / musicDuration) * 100)
       : 0;
   const selectionStartPercent =
     musicDuration > 0 ? clampPercentage((musicStartTime / musicDuration) * 100) : 0;
@@ -405,13 +419,11 @@ const CreatePostScreen = ({ navigation, user }) => {
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => canAdjustSegment,
-        onMoveShouldSetPanResponder: () => canAdjustSegment,
+        // Always allow dragging on the waveform – we'll clamp internally.
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (evt) => {
-          if (!canAdjustSegment) {
-            return;
-          }
           setIsDragging(true);
           initialTouchX.current = evt.nativeEvent.locationX;
           if (isMusicPlaying) {
@@ -420,7 +432,7 @@ const CreatePostScreen = ({ navigation, user }) => {
           handleProgressBarPress(evt);
         },
         onPanResponderMove: (evt, gestureState) => {
-          if (!canAdjustSegment || progressBarWidth.current <= 0) {
+          if (progressBarWidth.current <= 0) {
             return;
           }
           const currentX = initialTouchX.current + gestureState.dx;
@@ -621,6 +633,14 @@ const CreatePostScreen = ({ navigation, user }) => {
         content: content.trim(),
         media: uploadedMedia,
         spotifyTrack: selectedSpotifyTrack,
+        // Music segment metadata (Instagram-style 30s clip)
+        spotifyTrackSegment: selectedSpotifyTrack
+          ? {
+              startSeconds: musicStartTime,
+              durationSeconds: MUSIC_SEGMENT_LENGTH,
+              totalDurationSeconds: musicDuration,
+            }
+          : undefined,
         isSecret: isSecretPost,
         secretPassword: isSecretPost ? secretPassword : undefined,
         showDescription: isSecretPost ? showDescription : undefined
@@ -1146,23 +1166,30 @@ const CreatePostScreen = ({ navigation, user }) => {
                   </View>
                 </View>
                 <SpotifyTrack 
-                  track={selectedSpotifyTrack} 
+                  track={selectedSpotifyTrack}
+                  // Tapping the main row still opens the picker to change track
                   onPress={() => setShowSpotifyPicker(true)}
-                  autoPlayPreview
+                  // Delegate play/pause to the shared music player in this screen
+                  player={{
+                    isPlaying: isMusicPlaying,
+                    onToggle: handleMusicPlayPause,
+                  }}
+                  // Keep prop for compatibility; actual auto-play is handled here
+                  autoPlayPreview={false}
                 />
                 
-                {/* Music Edit Section - 15 Second Selection */}
+                {/* Music Edit Section - 30 Second Selection */}
                 {showMusicEdit && selectedSpotifyTrack?.previewUrl && (
                   <View style={[styles.musicEditSection, { backgroundColor: colors.surfaceVariant }]}>
                     <Text style={[styles.musicEditTitle, { color: colors.text }]}>
-                      Choose 15-second segment
+                      Choose 30-second segment
                     </Text>
                     <Text style={[styles.musicEditSubtitle, { color: colors.textSecondary }]}>
                       Drag to select start position
                     </Text>
                     {!canAdjustSegment && (
                       <Text style={[styles.musicEditWarning, { color: colors.textSecondary }]}>
-                        This preview is shorter than 15 seconds, so the full clip will be used.
+                        This preview is shorter than 30 seconds, so the full clip will be used.
                       </Text>
                     )}
                     
@@ -1179,30 +1206,42 @@ const CreatePostScreen = ({ navigation, user }) => {
                         />
                       </TouchableOpacity>
                       <View style={styles.progressContainer}>
-                        {/* Progress Bar with 15-second selection */}
+                        {/* Instagram-style waveform with 30-second selection window */}
                         <View
                           ref={progressBarContainerRef}
-                          style={[
-                            styles.progressBarContainer,
-                            !canAdjustSegment && styles.progressBarDisabled,
-                          ]}
-                          pointerEvents={canAdjustSegment ? 'auto' : 'none'}
+                          style={styles.progressBarContainer}
+                          pointerEvents="auto"
                           onLayout={(event) => {
                             progressBarWidth.current = event.nativeEvent.layout.width;
                           }}
                           {...panResponder.panHandlers}
                         >
-                          {/* Background track */}
-                          <View style={[styles.progressTrack, { backgroundColor: colors.border }]} pointerEvents="none" />
+                          {/* Background waveform (full song) */}
+                          <View
+                            style={styles.waveformBarContainer}
+                            pointerEvents="none"
+                          >
+                            {Array.from({ length: 40 }).map((_, index) => (
+                              <View
+                                // eslint-disable-next-line react/no-array-index-key
+                                key={index}
+                                style={[
+                                  styles.waveformBar,
+                                  { backgroundColor: colors.border },
+                                ]}
+                              />
+                            ))}
+                          </View>
                           
-                          {/* 15-second selection indicator */}
+                          {/* 30-second selection overlay */}
                           <View 
                             style={[
                               styles.selectionIndicator,
                               {
                                 left: `${selectionStartPercent}%`,
                                 width: `${selectionWidthPercent}%`,
-                                backgroundColor: colors.primary + '40',
+                              borderColor: colors.primary,
+                              backgroundColor: colors.primary + '20',
                               }
                             ]} 
                             pointerEvents="none"
@@ -1222,17 +1261,6 @@ const CreatePostScreen = ({ navigation, user }) => {
                             />
                           )}
                           
-                          {/* Draggable thumb */}
-                          <View 
-                            style={[
-                              styles.progressThumb,
-                              {
-                                left: `${canAdjustSegment ? progressThumbPercent : selectionStartPercent}%`,
-                                backgroundColor: colors.primary,
-                              }
-                            ]}
-                            pointerEvents="none"
-                          />
                         </View>
                         
                         {/* Time Labels */}
@@ -1241,7 +1269,7 @@ const CreatePostScreen = ({ navigation, user }) => {
                             {formatTime(musicStartTime)}
                           </Text>
                           <Text style={[styles.timeText, { color: colors.textSecondary }]}>
-                            {formatTime(Math.min(musicStartTime + 15, musicDuration))}
+                            {formatTime(Math.min(musicStartTime + MUSIC_SEGMENT_LENGTH, musicDuration))}
                           </Text>
                         </View>
                         
@@ -1255,7 +1283,7 @@ const CreatePostScreen = ({ navigation, user }) => {
                     {/* Selected Segment Display */}
                     <View style={[styles.selectedSegmentDisplay, { backgroundColor: colors.surface }]}>
                       <Text style={[styles.selectedSegmentLabel, { color: colors.text }]}>
-                        Selected Segment: {formatTime(musicStartTime)} - {formatTime(Math.min(musicStartTime + 15, musicDuration))}
+                        Selected Segment: {formatTime(musicStartTime)} - {formatTime(Math.min(musicStartTime + MUSIC_SEGMENT_LENGTH, musicDuration))}
                       </Text>
                     </View>
                   </View>
@@ -1319,7 +1347,38 @@ const CreatePostScreen = ({ navigation, user }) => {
         <SpotifyMusicPicker
           visible={showSpotifyPicker}
           onClose={() => setShowSpotifyPicker(false)}
-          onTrackSelect={setSelectedSpotifyTrack}
+          onTrackSelect={async (trackData) => {
+            // Set the selected track
+            setSelectedSpotifyTrack(trackData);
+
+            // Figure out how long the actual preview audio is.
+            // We use this for the editable timeline so that the chosen 30s
+            // segment always maps to real, playable audio.
+            let previewDurationSeconds = MUSIC_SEGMENT_LENGTH;
+
+            if (trackData.previewUrl) {
+              try {
+                const { sound } = await Audio.Sound.createAsync(
+                  { uri: trackData.previewUrl },
+                  { shouldPlay: false, volume: 0 }
+                );
+                const status = await sound.getStatusAsync();
+                await sound.unloadAsync();
+
+                if (status?.isLoaded && typeof status.durationMillis === 'number' && status.durationMillis > 0) {
+                  previewDurationSeconds = status.durationMillis / 1000;
+                }
+              } catch (e) {
+                // If probing fails, fall back to 30s (typical Spotify/iTunes preview length)
+                previewDurationSeconds = MUSIC_SEGMENT_LENGTH;
+              }
+            }
+
+            // Use the preview length for the music editor timeline.
+            setMusicDuration(previewDurationSeconds);
+            setMusicStartTime(0);
+            setMusicPosition(0);
+          }}
         />
       </View>
     </>
@@ -1627,33 +1686,43 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     position: 'relative',
-    height: 50,
+    height: 48,
     marginBottom: 8,
     justifyContent: 'center',
     width: '100%',
-    paddingVertical: 15,
+    paddingVertical: 8,
     backgroundColor: 'transparent',
   },
   progressBarDisabled: {
     opacity: 0.5,
   },
-  progressTrack: {
+  waveformBarContainer: {
     position: 'absolute',
-    height: 4,
-    width: '100%',
+    left: 0,
+    right: 0,
+    top: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  waveformBar: {
+    flex: 1,
+    marginHorizontal: 1,
     borderRadius: 2,
+    height: 16,
   },
   selectionIndicator: {
     position: 'absolute',
-    height: 4,
-    borderRadius: 2,
-    top: 18,
+    height: 28,
+    borderRadius: 4,
+    top: 8,
     pointerEvents: 'none',
+    borderWidth: 1,
   },
   progressIndicator: {
     position: 'absolute',
     width: 2,
-    height: 20,
+    height: 24,
     top: 10,
     borderRadius: 1,
     pointerEvents: 'none',

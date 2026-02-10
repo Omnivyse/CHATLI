@@ -12,7 +12,7 @@ const router = express.Router();
 
 // Create a post
 router.post('/', auth, [
-  body('content').trim().notEmpty().withMessage('Постын агуулга шаардлагатай'),
+  body('content').optional().isString().isLength({ max: 2000 }),
   body('media').optional().isArray(),
   body('media.*.type').optional().isIn(['image', 'video']),
   body('media.*.url').optional().isString(),
@@ -30,12 +30,24 @@ router.post('/', auth, [
     
     console.log('📥 Received post creation request:', {
       contentLength: content?.length || 0,
-      mediaCount: media?.length || 0,
+      mediaCount: Array.isArray(media) ? media.length : 0,
+      hasSpotifyTrack: !!spotifyTrack,
       isSecret,
       showDescription,
       showDescriptionType: typeof showDescription,
       hasPassword: !!secretPassword
     });
+
+    // At least one of content, media, or spotifyTrack is required
+    const hasContent = typeof content === 'string' && content.trim().length > 0;
+    const hasMedia = Array.isArray(media) && media.length > 0;
+    const hasSpotify = !!spotifyTrack;
+    if (!hasContent && !hasMedia && !hasSpotify) {
+      return res.status(400).json({
+        success: false,
+        message: 'Постод агуулга, медиа эсвэл хөгжим заавал байх ёстой.'
+      });
+    }
     
     // Check if user has private account and trying to create secret post
     if (isSecret) {
@@ -67,9 +79,9 @@ router.post('/', auth, [
     
     const post = new Post({
       author: req.user._id,
-      content,
-      media: Array.isArray(media) ? media : [],
-      spotifyTrack: spotifyTrack || null,
+      content: hasContent ? content : '',
+      media: hasMedia ? media : [],
+      spotifyTrack: hasSpotify ? spotifyTrack : null,
       isSecret: isSecret || false,
       secretPassword: isSecret ? secretPassword : undefined,
       showDescription: isSecret ? Boolean(showDescription) : false
@@ -79,7 +91,7 @@ router.post('/', auth, [
       isSecret: post.isSecret,
       showDescription: post.showDescription,
       showDescriptionType: typeof post.showDescription,
-      contentLength: post.content.length
+      contentLength: (post.content || '').length
     });
     
     await post.save();
@@ -89,7 +101,7 @@ router.post('/', auth, [
       isSecret: post.isSecret,
       showDescription: post.showDescription,
       showDescriptionType: typeof post.showDescription,
-      contentLength: post.content.length
+      contentLength: (post.content || '').length
     });
     
     // Also log the raw document to see all fields
