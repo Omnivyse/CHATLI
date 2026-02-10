@@ -581,8 +581,12 @@ const CreatePostScreen = ({ navigation, user }) => {
   };
 
   const handleCreatePost = async () => {
-    if (!content.trim() && selectedMedia.length === 0) {
-      Alert.alert('Error', 'Please add some content or media to your post.');
+    const hasContent = content.trim().length > 0;
+    const hasMedia = selectedMedia.length > 0;
+    const hasMusic = !!selectedSpotifyTrack;
+
+    if (!hasContent && !hasMedia && !hasMusic) {
+      Alert.alert('Error', 'Please add some content, media, or music to your post.');
       return;
     }
 
@@ -630,7 +634,7 @@ const CreatePostScreen = ({ navigation, user }) => {
 
       // Create post data
       const postData = {
-        content: content.trim(),
+        content: hasContent ? content.trim() : '',
         media: uploadedMedia,
         spotifyTrack: selectedSpotifyTrack,
         // Music segment metadata (Instagram-style 30s clip)
@@ -758,11 +762,15 @@ const CreatePostScreen = ({ navigation, user }) => {
           style={[
             styles.postButton,
             { backgroundColor: colors.primary },
-            (!content.trim() && selectedMedia.length === 0) && styles.postButtonDisabled,
+            (!content.trim() && selectedMedia.length === 0 && !selectedSpotifyTrack) && styles.postButtonDisabled,
             (isSecretPost && privacySettings?.isPrivateAccount) && styles.postButtonDisabled
           ]}
           onPress={handleCreatePost}
-          disabled={loading || (!content.trim() && selectedMedia.length === 0) || (isSecretPost && privacySettings?.isPrivateAccount)}
+          disabled={
+            loading ||
+            (!content.trim() && selectedMedia.length === 0 && !selectedSpotifyTrack) ||
+            (isSecretPost && privacySettings?.isPrivateAccount)
+          }
         >
           {loading ? (
             <ActivityIndicator size="small" color={colors.textInverse} />

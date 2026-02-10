@@ -77,15 +77,20 @@ router.post('/', auth, [
       }
     }
     
-    const post = new Post({
+    const postData = {
       author: req.user._id,
       content: hasContent ? content : '',
       media: hasMedia ? media : [],
-      spotifyTrack: hasSpotify ? spotifyTrack : null,
       isSecret: isSecret || false,
       secretPassword: isSecret ? secretPassword : undefined,
       showDescription: isSecret ? Boolean(showDescription) : false
-    });
+    };
+
+    if (hasSpotify) {
+      postData.spotifyTrack = spotifyTrack;
+    }
+
+    const post = new Post(postData);
     
     console.log('💾 Saving post to database:', {
       isSecret: post.isSecret,

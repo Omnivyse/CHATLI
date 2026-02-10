@@ -39,12 +39,13 @@ const postSchema = new mongoose.Schema({
       size: Number
     }
   ],
-  // Spotify track data
+  // Spotify track data (optional)
   spotifyTrack: {
     type: {
       type: String,
       enum: ['spotify_track'],
-      default: 'spotify_track'
+      default: 'spotify_track',
+      required: false
     },
     trackId: String,
     name: String,
@@ -55,7 +56,7 @@ const postSchema = new mongoose.Schema({
     externalUrl: String,
     duration: Number,
     formattedDuration: String,
-    popularity: Number
+    popularity: Number,
   },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [commentSchema],
