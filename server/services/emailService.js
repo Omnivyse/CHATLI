@@ -33,17 +33,18 @@ class EmailService {
       console.log('📧 Initializing email service...');
       console.log('📧 Email user:', process.env.EMAIL_USER);
 
-      // Use Gmail SMTP with explicit configuration
+      // Use Gmail SMTP with explicit configuration (port 587 + STARTTLS)
       this.transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 465,
-        secure: true, // use SSL
+        port: 587,
+        secure: false, // use STARTTLS, not SSL
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS
         },
         tls: {
-          rejectUnauthorized: false // Allow self-signed certificates if needed
+          rejectUnauthorized: false, // Allow self-signed certificates if needed
+          ciphers: 'SSLv3'
         },
         // Add connection timeout
         connectionTimeout: 10000,
