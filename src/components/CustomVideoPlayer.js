@@ -212,7 +212,7 @@ const CustomVideoPlayer = forwardRef(({
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
     };
-  }, []);
+  }, [isPlaying]);
 
   // Auto-play if specified
   useEffect(() => {

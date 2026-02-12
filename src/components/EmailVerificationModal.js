@@ -34,7 +34,7 @@ const EmailVerificationModal = ({
         }
       }, 300);
     }
-  }, [visible]);
+  }, [visible, useTextArea]);
 
   const handleCodeChange = (text, index) => {
     if (text.length > 1) {

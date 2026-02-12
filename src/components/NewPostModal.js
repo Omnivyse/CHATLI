@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X as XIcon, Image as ImageIcon } from 'lucide-react';
-import { useTheme } from '../utils/themeUtils';
+import React, { useState, useRef } from 'react';
+import { X as XIcon } from 'lucide-react';
 import api from '../services/api';
 
 const NewPostModal = ({ user, onClose, onPostCreated }) => {
@@ -8,26 +7,6 @@ const NewPostModal = ({ user, onClose, onPostCreated }) => {
   const [media, setMedia] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef(null);
-
-  const handleFileChange = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    try {
-      const uploadPromises = files.map(async (file) => {
-        const formData = new FormData();
-        formData.append('media', file);
-        
-        const response = await api.uploadMedia(formData);
-        return response.url;
-      });
-
-      const uploadedUrls = await Promise.all(uploadPromises);
-      setMedia(prev => [...prev, ...uploadedUrls]);
-    } catch (error) {
-      console.error('Error uploading media:', error);
-    }
-  };
 
   const handleRemoveMedia = (index) => {
     setMedia(prev => prev.filter((_, i) => i !== index));

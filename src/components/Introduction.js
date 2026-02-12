@@ -7,13 +7,12 @@ import {
   Shield, 
   Smartphone, 
   Globe,
-  ArrowRight,
-  CheckCircle
+  ArrowRight
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 const Introduction = ({ onShowLogin }) => {
-  const [activeFeature, setActiveFeature] = useState(0);
+  const [, setActiveFeature] = useState(0);
   const [showContactModal, setShowContactModal] = useState(false);
 
      const features = [
