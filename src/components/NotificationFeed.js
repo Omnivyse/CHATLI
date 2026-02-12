@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
 import socketService from '../services/socket';
-import { Bell, Heart, MessageCircle, Loader2, User as UserIcon, UserPlus } from 'lucide-react';
+import { Bell, Heart, MessageCircle, Loader2, UserPlus } from 'lucide-react';
 import PostModal from './PostModal';
 
 const NotificationFeed = ({ user }) => {
@@ -11,24 +11,7 @@ const NotificationFeed = ({ user }) => {
   const [modalPostId, setModalPostId] = useState(null);
   const lastFetchRef = useRef(0);
 
-  useEffect(() => {
-    const now = Date.now();
-    if (now - lastFetchRef.current > 5000) { // 5 seconds cooldown
-      api.markAllNotificationsRead();
-      fetchNotifications();
-      lastFetchRef.current = now;
-    }
-    // Listen for real-time notifications
-    const handleRealtimeNotification = (notification) => {
-      setNotifications(prev => [notification, ...prev]);
-    };
-    socketService.on('notification', handleRealtimeNotification);
-    return () => {
-      socketService.off('notification', handleRealtimeNotification);
-    };
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -45,7 +28,24 @@ const NotificationFeed = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastFetchRef.current > 5000) { // 5 seconds cooldown
+      api.markAllNotificationsRead();
+      fetchNotifications();
+      lastFetchRef.current = now;
+    }
+    // Listen for real-time notifications
+    const handleRealtimeNotification = (notification) => {
+      setNotifications(prev => [notification, ...prev]);
+    };
+    socketService.on('notification', handleRealtimeNotification);
+    return () => {
+      socketService.off('notification', handleRealtimeNotification);
+    };
+  }, [fetchNotifications]);
 
   const filterInvalidFollowRequests = async (notifications) => {
     try {

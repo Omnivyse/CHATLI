@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { X as XIcon, Loader2, Shield, Eye, EyeOff, MessageCircle, Calendar, Clock, UserCheck } from 'lucide-react';
+import { X as XIcon, Loader2, Shield, MessageCircle, Clock } from 'lucide-react';
 
 const PrivacySettingsModal = ({ isOpen, onClose, user }) => {
   const [privacySettings, setPrivacySettings] = useState({

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X as XIcon, User as UserIcon, Loader2 } from 'lucide-react';
+import { X as XIcon, Loader2 } from 'lucide-react';
 import api from '../services/api';
 import UserProfileModal from './UserProfileModal';
 import ReactDOM from 'react-dom';

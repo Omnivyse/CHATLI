@@ -28,7 +28,16 @@ import SecretPostPasswordModal from './SecretPostPasswordModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHighlighted }) => {
+const Post = ({ 
+  post, 
+  user, 
+  onPostUpdate = () => {}, 
+  navigation, 
+  isTopPost, 
+  isHighlighted,
+  isGlobalMusicMuted = false,
+  onToggleGlobalMusicMute,
+}) => {
   const insets = useSafeAreaInsets();
   // Debug: Validate props
   if (!post || typeof post !== 'object') {
@@ -61,7 +70,6 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
   // Music preview state (post attachment)
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [musicLoading, setMusicLoading] = useState(false);
-  const [isMusicMuted, setIsMusicMuted] = useState(false);
   const musicSoundRef = useRef(null);
   
   // Video state management
@@ -592,21 +600,33 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
     try {
       setMusicLoading(true);
 
-      // Stop any existing sound first
-      await stopMusicPreview();
+      // If we already have a loaded sound, just resume it
+      if (musicSoundRef.current) {
+        const existing = musicSoundRef.current;
+        const status = await existing.getStatusAsync().catch(() => null);
+        if (status?.isLoaded) {
+          try {
+            await existing.setIsMutedAsync(isGlobalMusicMuted);
+          } catch (_) {}
+          await existing.playAsync();
+          setIsMusicPlaying(true);
+          return;
+        } else {
+          musicSoundRef.current = null;
+        }
+      }
 
+      // Otherwise create a new sound
       const { sound } = await Audio.Sound.createAsync(
         { uri: track.previewUrl },
-        { shouldPlay: true, volume: 1, isMuted: isMusicMuted }
+        { shouldPlay: true, volume: 1, isMuted: isGlobalMusicMuted }
       );
       musicSoundRef.current = sound;
 
       // Ensure mute state is applied (in case platform ignores initial flag)
       try {
-        await sound.setIsMutedAsync(isMusicMuted);
-      } catch (_) {
-        // ignore
-      }
+        await sound.setIsMutedAsync(isGlobalMusicMuted);
+      } catch (_) {}
       setIsMusicPlaying(true);
 
       // Auto-stop at 30s (or when preview ends)
@@ -631,6 +651,7 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
   };
 
   // Auto-play music preview when this post is highlighted (center of feed)
+  // and global mute is OFF. Stop when not highlighted or when globally muted.
   useEffect(() => {
     const track = localPost?.spotifyTrack;
     if (!track?.previewUrl) {
@@ -638,13 +659,12 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
       return;
     }
 
-    if (isHighlighted) {
-      // Best-effort ensure preview is playing whenever this post is highlighted.
+    if (isHighlighted && !isGlobalMusicMuted) {
       startMusicPreview();
     } else {
       stopMusicPreview();
     }
-  }, [isHighlighted, localPost?.spotifyTrack?.previewUrl]);
+  }, [isHighlighted, isGlobalMusicMuted, localPost?.spotifyTrack?.previewUrl]);
 
   const getVideoProgressPercentage = (videoId) => {
     const progress = videoProgress[videoId] || 0;
@@ -847,23 +867,16 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
   };
 
   return (
-    <View style={[styles.container, { 
-      backgroundColor: colors.surface, 
-      borderColor: colors.border,
-      shadowColor: colors.shadow 
-    }, isHighlighted && {
-      borderWidth: 3,
-      borderColor: colors.primary,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 8,
-    }]}>
-      
-      {/* Highlight Bar */}
-      {isHighlighted && (
-        <View style={[styles.highlightBar, { backgroundColor: colors.primary }]} />
-      )}
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          borderColor: 'transparent',
+          shadowColor: colors.shadow,
+        },
+      ]}
+    >
       
       {/* Post Header */}
       <View style={styles.header}>
@@ -1000,24 +1013,14 @@ const Post = ({ post, user, onPostUpdate = () => {}, navigation, isTopPost, isHi
                 {localPost.spotifyTrack.name} · {localPost.spotifyTrack.artist}
               </Text>
             </View>
-            {localPost.spotifyTrack.previewUrl && (
+            {localPost.spotifyTrack.previewUrl && onToggleGlobalMusicMute && (
               <TouchableOpacity
                 style={styles.musicMuteButton}
-                onPress={async () => {
-                  const nextMuted = !isMusicMuted;
-                  setIsMusicMuted(nextMuted);
-                  if (musicSoundRef.current) {
-                    try {
-                      await musicSoundRef.current.setIsMutedAsync(nextMuted);
-                    } catch (_) {
-                      // ignore mute errors
-                    }
-                  }
-                }}
+                onPress={onToggleGlobalMusicMute}
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name={isMusicMuted ? 'volume-mute' : 'volume-high'}
+                  name={isGlobalMusicMuted ? 'volume-mute' : 'volume-high'}
                   size={14}
                   color={colors.textSecondary}
                 />
@@ -1328,7 +1331,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     marginBottom: 24,
-    borderWidth: 1,
+    borderWidth: 0,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -1796,15 +1799,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '500',
   },
-  highlightBar: {
-    height: 4,
-    width: '100%',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-  },
+  highlightBar: {},
   
   // Hidden Post Banner Styles
   hiddenPostBanner: {

@@ -15,6 +15,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Post from '../components/Post';
+import { Audio } from 'expo-av';
 import Event from '../components/Event';
 import EventCreationModal from '../components/EventCreationModal';
 import apiService from '../services/api';
@@ -48,6 +49,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
   const flatListRef = useRef(null);
   const [highlightedPostId, setHighlightedPostId] = useState(null);
   const [filteredPosts, setFilteredPosts] = useState([]);
+  const [isGlobalMusicMuted, setIsGlobalMusicMuted] = useState(false);
 
 
   const removeDuplicatePosts = (postsArray) => {
@@ -389,6 +391,36 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
     }
   };
 
+  // Global music mute toggle for all posts
+  const toggleGlobalMusicMute = async () => {
+    const next = !isGlobalMusicMuted;
+    setIsGlobalMusicMuted(next);
+    try {
+      await Audio.setIsEnabledAsync(!next);
+    } catch (e) {
+      console.warn('Failed to toggle global audio mute', e);
+    }
+  };
+
+  // Track which post is most visible on screen for auto-play
+  const viewabilityConfig = {
+    itemVisiblePercentThreshold: 60,
+  };
+
+  const onViewableItemsChanged = React.useRef(({ viewableItems }) => {
+    if (!Array.isArray(viewableItems) || viewableItems.length === 0) {
+      setHighlightedPostId(null);
+      return;
+    }
+    // Pick the first fully/mostly visible post
+    const firstVisible = viewableItems.find(v => v?.item?._id);
+    if (firstVisible) {
+      setHighlightedPostId(firstVisible.item._id);
+    } else {
+      setHighlightedPostId(null);
+    }
+  }).current;
+
   const handleLikeEvent = async (eventId) => {
     try {
       const response = await apiService.likeEvent(eventId);
@@ -470,7 +502,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
     />
   );
 
-  const renderPost = ({ item: post, index }) => {
+  const renderPost = ({ item: post }) => {
     // If Events filter is selected, render Event component
     if (selectedFilter === 'Events') {
       return (
@@ -496,6 +528,8 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
         onPostUpdate={() => handleRefresh()}
         navigation={navigation}
         isHighlighted={post._id === highlightedPostId}
+        isGlobalMusicMuted={isGlobalMusicMuted}
+        onToggleGlobalMusicMute={toggleGlobalMusicMute}
       />
     );
   };
@@ -715,6 +749,8 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
             }
             onEndReached={selectedFilter === 'CHATLI' ? handleLoadMore : null}
             onEndReachedThreshold={selectedFilter === 'CHATLI' ? 0.1 : null}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={onViewableItemsChanged}
             ListEmptyComponent={renderEmptyState}
             ListFooterComponent={
               loadingMore && selectedFilter === 'CHATLI' ? (

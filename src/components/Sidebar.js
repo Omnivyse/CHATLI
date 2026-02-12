@@ -6,7 +6,6 @@ import {
   LogOut,
   Loader2,
   Home,
-  User as UserIcon,
   Bell,
   Settings as SettingsIcon,
   ArrowLeft

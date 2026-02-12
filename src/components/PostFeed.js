@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import Post from './Post';
 import { Search as SearchIcon } from 'lucide-react';
@@ -13,38 +13,7 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => {
-    fetchPosts();
-    
-    // Check if mobile
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    // Listen for custom event from bottom navigation
-    const handleOpenPostModal = () => {
-      setShowModal(true);
-    };
-    
-    // Listen for custom event from header search button
-    const handleOpenUserSearchModal = () => {
-      setShowUserSearchModal(true);
-    };
-    
-    window.addEventListener('openPostModal', handleOpenPostModal);
-    window.addEventListener('openUserSearchModal', handleOpenUserSearchModal);
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-      window.removeEventListener('openPostModal', handleOpenPostModal);
-      window.removeEventListener('openUserSearchModal', handleOpenUserSearchModal);
-    };
-  }, []);
-
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -76,7 +45,38 @@ const PostFeed = ({ user, settingsModalOpen, onStartChat }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchPosts();
+
+    // Check if mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    // Listen for custom event from bottom navigation
+    const handleOpenPostModal = () => {
+      setShowModal(true);
+    };
+
+    // Listen for custom event from header search button
+    const handleOpenUserSearchModal = () => {
+      setShowUserSearchModal(true);
+    };
+
+    window.addEventListener('openPostModal', handleOpenPostModal);
+    window.addEventListener('openUserSearchModal', handleOpenUserSearchModal);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('openPostModal', handleOpenPostModal);
+      window.removeEventListener('openUserSearchModal', handleOpenUserSearchModal);
+    };
+  }, [fetchPosts]);
 
   return (
     <div className="max-w-xl mx-auto w-full px-2 sm:px-4 py-2 sm:py-4 pb-12 sm:pb-4 mobile-scroll-container">
