@@ -216,7 +216,11 @@ router.post('/register', [
 
     // Send verification email
     console.log('📧 Sending verification email to:', user.email);
-    const emailResult = await emailService.sendVerificationEmail(user.email, user.username, user.verificationCode);
+    const emailResult = await emailService.sendVerificationEmail(
+      user.email,
+      user.username,
+      user.verificationCode
+    );
     
     if (!emailResult.success) {
       console.error('⚠️ Failed to send verification email during registration:', emailResult.error);
@@ -226,6 +230,12 @@ router.post('/register', [
     } else {
       console.log('✅ Verification email sent successfully to:', user.email);
     }
+
+    // Decide when to expose the verification code in the API response:
+    // - Always in development (ease of testing)
+    // - In any environment when the email failed to send, so the user can still verify.
+    const shouldExposeVerificationCode =
+      process.env.NODE_ENV === 'development' || !emailResult.success;
 
     res.status(201).json({
       success: true,
@@ -237,8 +247,6 @@ router.post('/register', [
           username: user.username,
           email: user.email,
           emailVerified: user.emailVerified,
-          // Include verification code in development if email failed
-          verificationCode: (process.env.NODE_ENV === 'development' && !emailResult.success) ? user.verificationCode : undefined,
           avatar: user.avatar,
           coverImage: user.coverImage,
           bio: user.bio,
@@ -247,7 +255,7 @@ router.post('/register', [
           following: user.following,
           posts: user.posts,
           createdAt: user.createdAt,
-          verificationCode: process.env.NODE_ENV === 'development' ? user.verificationCode : undefined
+          verificationCode: shouldExposeVerificationCode ? user.verificationCode : undefined
         },
         token,
         refreshToken,

@@ -157,20 +157,22 @@ class ApiService {
       if (__DEV__) console.log('🔐 Already clearing token, skipping...');
       return;
     }
-    
+
     isClearingToken = true;
-    
+
     try {
       this.token = null;
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('refreshToken');
-      
-      // Call global token expiration handler if set (only once)
-      if (this.onTokenExpiration && !isClearingToken) {
-        this.onTokenExpiration();
-      }
     } finally {
       isClearingToken = false;
+    }
+
+    // Call global token expiration handler if set, *after* we finish clearing.
+    // This avoids recursion issues and ensures the app can react (e.g. show a message),
+    // while keeping the stored tokens cleared.
+    if (this.onTokenExpiration) {
+      this.onTokenExpiration();
     }
   }
 
@@ -201,11 +203,12 @@ class ApiService {
       const refreshToken = await this.getRefreshToken();
       if (!refreshToken) {
         if (__DEV__) console.log('🔐 No refresh token available');
+        // No refresh token means the session really is gone – caller can treat as logged out.
         return false;
       }
 
       if (__DEV__) console.log('🔄 Refreshing access token...');
-      
+
       const response = await fetch(`${this.baseURL}/auth/refresh`, {
         method: 'POST',
         headers: {
@@ -215,19 +218,33 @@ class ApiService {
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.success && data.data.token) {
         if (__DEV__) console.log('✅ Access token refreshed successfully');
         await this.storeTokens(data.data.token, data.data.refreshToken || refreshToken);
         return true;
-      } else {
-        if (__DEV__) console.log('❌ Failed to refresh token:', data.message);
-        await this.clearToken();
-        return false;
       }
+
+      // Non-OK responses
+      if (__DEV__) {
+        console.log('❌ Failed to refresh token:', {
+          status: response.status,
+          message: data?.message,
+        });
+      }
+
+      // Only clear tokens when the server explicitly tells us the refresh token is invalid/unauthorized.
+      if (response.status === 401 || response.status === 403) {
+        if (__DEV__) console.log('🔐 Refresh token invalid, clearing tokens');
+        await this.clearToken();
+      }
+
+      // For other errors (5xx, network flakiness, etc.) we keep the stored tokens
+      // so the user does not get logged out just because of a temporary problem.
+      return false;
     } catch (error) {
-      if (__DEV__) console.error('❌ Token refresh error:', error);
-      await this.clearToken();
+      if (__DEV__) console.error('❌ Token refresh error (network or other):', error);
+      // Do NOT clear tokens on generic/network errors – keep session so user stays logged in.
       return false;
     }
   }
@@ -423,11 +440,12 @@ class ApiService {
               
               return retryData;
             } else {
-              if (__DEV__) {
-                console.log('🔐 Token refresh failed, clearing token');
-              }
-              await this.clearToken();
-              throw new Error('Token has expired');
+              // If refresh failed, we *do not* clear tokens here.
+              // - If the refresh token was actually invalid, refreshAccessToken()
+              //   has already called clearToken() and the global handler will react.
+              // - If it was just a transient/network error, we keep tokens so the user
+              //   stays logged in and can retry later.
+              throw new Error('Token has expired or could not be refreshed');
             }
           }
           
