@@ -28,13 +28,17 @@ console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Set (hidden for security)
 console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Set (hidden for security)' : 'Not set');
 console.log('EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Not set');
 console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set (hidden)' : '❌ Not set');
+console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? '✅ Set' : '❌ Not set');
+console.log('RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL ? '✅ Set' : '❌ Not set');
 
-// Warn if email is not configured
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+// Warn if email is not configured (either Resend or Gmail)
+const hasResend = !!(process.env.RESEND_API_KEY && (process.env.RESEND_FROM_EMAIL || process.env.EMAIL_USER));
+const hasGmail = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+if (!hasResend && !hasGmail) {
   console.warn('⚠️ WARNING: Email service is not configured!');
   console.warn('⚠️ Email verification and password reset will not work.');
-  console.warn('⚠️ For Railway: Set EMAIL_USER and EMAIL_PASS as environment variables in Railway dashboard');
-  console.warn('⚠️ For local: Set EMAIL_USER and EMAIL_PASS in config.env file');
+  console.warn('⚠️ For Railway: Set either (A) RESEND_API_KEY + RESEND_FROM_EMAIL, or (B) EMAIL_USER + EMAIL_PASS in Variables');
+  console.warn('⚠️ For local: Set the same in server/config.env');
 }
 
 // Import routes

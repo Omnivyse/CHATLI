@@ -1,1053 +1,239 @@
 const crypto = require('crypto');
 const { Resend } = require('resend');
-
-class EmailService {
-  constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.warn('⚠️ RESEND_API_KEY is not set. Email sending will be disabled.');
-      this.client = null;
-    } else {
-      this.client = new Resend(apiKey);
-      console.log('📧 Resend email service initialized');
-    }
-  }
-
-  // Generate verification token
-  generateVerificationToken() {
-    return crypto.randomBytes(32).toString('hex');
-  }
-
-  // Generate 5-digit verification code
-  generateVerificationCode() {
-    return Math.floor(10000 + Math.random() * 90000).toString();
-  }
-
-  // Create verification email HTML
-  createVerificationEmailHTML(username, verificationCode) {
-    return `
-      <!DOCTYPE html>
-      <html lang="mn">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>CHATLI - Имэйл баталгаажуулалт</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.5;
-            color: #1c1e21;
-            background-color: #ffffff;
-          }
-          .email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-          .header {
-            background-color: #ffffff;
-            padding: 40px 32px 32px;
-            text-align: center;
-            border-bottom: 1px solid #e4e6ea;
-          }
-          .logo { font-size: 32px; font-weight: 700; color: #1c1e21; margin-bottom: 8px; }
-          .subtitle { font-size: 16px; color: #65676b; text-transform: uppercase; letter-spacing: 1px; }
-          .content { padding: 32px; }
-          .greeting { font-size: 18px; margin-bottom: 24px; font-weight: 500; }
-          .message { font-size: 16px; color: #65676b; margin-bottom: 32px; }
-          .code-container {
-            background-color: #f0f2f5;
-            border: 2px solid #e4e6ea;
-            border-radius: 8px;
-            padding: 24px;
-            margin: 32px 0;
-            text-align: center;
-          }
-          .code-label {
-            font-size: 14px;
-            color: #65676b;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            font-weight: 500;
-          }
-          .verification-code {
-            font-size: 48px;
-            font-weight: 700;
-            color: #1c1e21;
-            letter-spacing: 8px;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-          }
-          .warning {
-            background-color: #f0f2f5;
-            border-left: 4px solid #1877f2;
-            padding: 16px 20px;
-            margin: 24px 0;
-            border-radius: 0 8px 8px 0;
-          }
-          .warning-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-          .warning-text { font-size: 14px; color: #65676b; }
-          .footer {
-            background-color: #f0f2f5;
-            padding: 24px 32px;
-            text-align: center;
-            border-top: 1px solid #e4e6ea;
-          }
-          .footer-text { font-size: 12px; color: #65676b; margin-bottom: 8px; }
-          .footer-copy { font-size: 12px; color: #8e8e93; }
-        </style>
-      </head>
-      <body>
-        <div class="email-container">
-          <div class="header">
-            <div class="logo">CHATLI</div>
-            <div class="subtitle">Имэйл баталгаажуулалт</div>
-          </div>
-          <div class="content">
-            <div class="greeting">Сайн байна уу, ${username}!</div>
-            <div class="message">
-              CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
-            </div>
-            <div class="code-container">
-              <div class="code-label">Баталгаажуулах код</div>
-              <div class="verification-code">${verificationCode}</div>
-            </div>
-            <div class="warning">
-              <div class="warning-title">Анхааруулга</div>
-              <div class="warning-text">
-                Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм. Энэ кодыг 10 минутын дотор оруулна уу.
-              </div>
-            </div>
-          </div>
-          <div class="footer">
-            <div class="footer-text">Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.</div>
-            <div class="footer-copy">&copy; 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  // Text version
-  createVerificationEmailText(username, verificationCode) {
-    return `
-CHATLI - Имэйл баталгаажуулалт
-
-Сайн байна уу, ${username}!
-
-CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
-
-Код: ${verificationCode}
-
-Энэ кодыг 1 минутын дотор оруулна уу. Хугацаа дууссаны дараа шинэ код хүсэх боломжтой.
-
-Анхааруулга: Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм.
-
-Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.
-
-© 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.
-    `;
-  }
-
-  // Send verification email via Resend
-  async sendVerificationEmail(email, username, verificationCode) {
-    try {
-      if (!this.client) {
-        console.error('❌ Resend client not initialized (RESEND_API_KEY missing)');
-        console.log('📧 Verification code (for manual testing):', verificationCode);
-        return {
-          success: false,
-          error: 'Email service not configured. Please set RESEND_API_KEY in Railway variables.',
-          code: verificationCode,
-        };
-      }
-
-      const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_USER;
-      if (!fromEmail) {
-        console.error('❌ RESEND_FROM_EMAIL/EMAIL_USER not set for from-address');
-        console.log('📧 Verification code (for manual testing):', verificationCode);
-        return {
-          success: false,
-          error: 'From email not configured. Set RESEND_FROM_EMAIL or EMAIL_USER.',
-          code: verificationCode,
-        };
-      }
-
-      const html = this.createVerificationEmailHTML(username, verificationCode);
-      const text = this.createVerificationEmailText(username, verificationCode);
-
-      console.log('📧 Attempting to send verification email via Resend...');
-      console.log('📧 To:', email);
-      console.log('📧 From:', fromEmail);
-
-      const { data, error } = await this.client.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: 'CHATLI - Имэйл баталгаажуулалт',
-        html,
-        text,
-      });
-
-      if (error) throw error;
-
-      console.log('✅ Verification email sent successfully via Resend!');
-      console.log('📧 Message ID:', data?.id);
-      return { success: true, messageId: data?.id, accepted: [email] };
-    } catch (error) {
-      console.error('❌ Error sending verification email via Resend:', error.message || error);
-      console.log('📧 Verification code (for manual testing):', verificationCode);
-      return {
-        success: false,
-        error: error.message || 'Failed to send email',
-        code: process.env.NODE_ENV === 'development' ? verificationCode : undefined,
-      };
-    }
-  }
-
-  // Optional: password reset email via Resend
-  async sendPasswordResetEmail(email, username, resetToken) {
-    try {
-      if (!this.client) {
-        console.log('📧 Password reset email would be sent to:', email);
-        return { success: true, message: 'Email logged (service not configured)' };
-      }
-
-      const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_USER;
-      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-
-      const { data, error } = await this.client.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: 'CHATLI - Нууц үг сэргээх',
-        html: `
-          <h2>Нууц үг сэргээх</h2>
-          <p>Сайн байна уу, ${username}!</p>
-          <p>Таны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Доорх холбоосыг дарж шинэ нууц үгээ оруулна уу:</p>
-          <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Нууц үг сэргээх</a>
-          <p>Хэрэв та энэ хүсэлтийг өгөөгүй бол энэ имэйлийг үл хэрэгсээрэй.</p>
-        `,
-        text: `
-Нууц үг сэргээх
-
-Сайн байна уу, ${username}!
-
-Таны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Доорх холбоосыг дарж шинэ нууц үгээ оруулна уу:
-
-${resetUrl}
-
-Хэрэв та энэ хүсэлтийг өгөөгүй бол энэ имэйлийг үл хэрэгсээрэй.
-        `,
-      });
-
-      if (error) throw error;
-
-      console.log('✅ Password reset email sent successfully via Resend to:', email);
-      return { success: true, messageId: data?.id };
-    } catch (error) {
-      console.error('❌ Error sending password reset email via Resend:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async testEmailService() {
-    if (!this.client) {
-      console.log('📧 Resend client not initialized (RESEND_API_KEY missing)');
-      return false;
-    }
-    console.log('✅ Resend email service is configured');
-    return true;
-  }
-}
-
-const emailService = new EmailService();
-module.exports = emailService;
-
-const crypto = require('crypto');
-const { Resend } = require('resend');
-
-class EmailService {
-  constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.warn('⚠️ RESEND_API_KEY is not set. Email sending will be disabled.');
-      this.client = null;
-    } else {
-      this.client = new Resend(apiKey);
-      console.log('📧 Resend email service initialized');
-    }
-  }
-
-  // Generate verification token
-  generateVerificationToken() {
-    return crypto.randomBytes(32).toString('hex');
-  }
-
-  // Generate 5-digit verification code
-  generateVerificationCode() {
-    return Math.floor(10000 + Math.random() * 90000).toString();
-  }
-
-  // Create verification email HTML
-  createVerificationEmailHTML(username, verificationCode) {
-    return `
-      <!DOCTYPE html>
-      <html lang="mn">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>CHATLI - Имэйл баталгаажуулалт</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.5;
-            color: #1c1e21;
-            background-color: #ffffff;
-          }
-          .email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-          .header {
-            background-color: #ffffff;
-            padding: 40px 32px 32px;
-            text-align: center;
-            border-bottom: 1px solid #e4e6ea;
-          }
-          .logo { font-size: 32px; font-weight: 700; color: #1c1e21; margin-bottom: 8px; }
-          .subtitle { font-size: 16px; color: #65676b; text-transform: uppercase; letter-spacing: 1px; }
-          .content { padding: 32px; }
-          .greeting { font-size: 18px; margin-bottom: 24px; font-weight: 500; }
-          .message { font-size: 16px; color: #65676b; margin-bottom: 32px; }
-          .code-container {
-            background-color: #f0f2f5;
-            border: 2px solid #e4e6ea;
-            border-radius: 8px;
-            padding: 24px;
-            margin: 32px 0;
-            text-align: center;
-          }
-          .code-label {
-            font-size: 14px;
-            color: #65676b;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            font-weight: 500;
-          }
-          .verification-code {
-            font-size: 48px;
-            font-weight: 700;
-            color: #1c1e21;
-            letter-spacing: 8px;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-          }
-          .warning {
-            background-color: #f0f2f5;
-            border-left: 4px solid #1877f2;
-            padding: 16px 20px;
-            margin: 24px 0;
-            border-radius: 0 8px 8px 0;
-          }
-          .warning-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-          .warning-text { font-size: 14px; color: #65676b; }
-          .footer {
-            background-color: #f0f2f5;
-            padding: 24px 32px;
-            text-align: center;
-            border-top: 1px solid #e4e6ea;
-          }
-          .footer-text { font-size: 12px; color: #65676b; margin-bottom: 8px; }
-          .footer-copy { font-size: 12px; color: #8e8e93; }
-        </style>
-      </head>
-      <body>
-        <div class="email-container">
-          <div class="header">
-            <div class="logo">CHATLI</div>
-            <div class="subtitle">Имэйл баталгаажуулалт</div>
-          </div>
-          <div class="content">
-            <div class="greeting">Сайн байна уу, ${username}!</div>
-            <div class="message">
-              CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
-            </div>
-            <div class="code-container">
-              <div class="code-label">Баталгаажуулах код</div>
-              <div class="verification-code">${verificationCode}</div>
-            </div>
-            <div class="warning">
-              <div class="warning-title">Анхааруулга</div>
-              <div class="warning-text">
-                Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм. Энэ кодыг 10 минутын дотор оруулна уу.
-              </div>
-            </div>
-          </div>
-          <div class="footer">
-            <div class="footer-text">Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.</div>
-            <div class="footer-copy">&copy; 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  // Text version
-  createVerificationEmailText(username, verificationCode) {
-    return `
-CHATLI - Имэйл баталгаажуулалт
-
-Сайн байна уу, ${username}!
-
-CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
-
-Код: ${verificationCode}
-
-Энэ кодыг 1 минутын дотор оруулна уу. Хугацаа дууссаны дараа шинэ код хүсэх боломжтой.
-
-Анхааруулга: Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм.
-
-Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.
-
-© 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.
-    `;
-  }
-
-  // Send verification email via Resend
-  async sendVerificationEmail(email, username, verificationCode) {
-    try {
-      if (!this.client) {
-        console.error('❌ Resend client not initialized (RESEND_API_KEY missing)');
-        console.log('📧 Verification code (for manual testing):', verificationCode);
-        return {
-          success: false,
-          error: 'Email service not configured. Please set RESEND_API_KEY in Railway variables.',
-          code: verificationCode,
-        };
-      }
-
-      const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_USER;
-      if (!fromEmail) {
-        console.error('❌ RESEND_FROM_EMAIL/EMAIL_USER not set for from-address');
-        console.log('📧 Verification code (for manual testing):', verificationCode);
-        return {
-          success: false,
-          error: 'From email not configured. Set RESEND_FROM_EMAIL or EMAIL_USER.',
-          code: verificationCode,
-        };
-      }
-
-      const html = this.createVerificationEmailHTML(username, verificationCode);
-      const text = this.createVerificationEmailText(username, verificationCode);
-
-      console.log('📧 Attempting to send verification email via Resend...');
-      console.log('📧 To:', email);
-      console.log('📧 From:', fromEmail);
-
-      const { data, error } = await this.client.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: 'CHATLI - Имэйл баталгаажуулалт',
-        html,
-        text,
-      });
-
-      if (error) throw error;
-
-      console.log('✅ Verification email sent successfully via Resend!');
-      console.log('📧 Message ID:', data?.id);
-      return { success: true, messageId: data?.id, accepted: [email] };
-    } catch (error) {
-      console.error('❌ Error sending verification email via Resend:', error.message || error);
-      console.log('📧 Verification code (for manual testing):', verificationCode);
-      return {
-        success: false,
-        error: error.message || 'Failed to send email',
-        code: process.env.NODE_ENV === 'development' ? verificationCode : undefined,
-      };
-    }
-  }
-
-  // Optional: password reset email via Resend
-  async sendPasswordResetEmail(email, username, resetToken) {
-    try {
-      if (!this.client) {
-        console.log('📧 Password reset email would be sent to:', email);
-        return { success: true, message: 'Email logged (service not configured)' };
-      }
-
-      const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_USER;
-      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-
-      const { data, error } = await this.client.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: 'CHATLI - Нууц үг сэргээх',
-        html: `
-          <h2>Нууц үг сэргээх</h2>
-          <p>Сайн байна уу, ${username}!</p>
-          <p>Таны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Доорх холбоосыг дарж шинэ нууц үгээ оруулна уу:</p>
-          <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Нууц үг сэргээх</a>
-          <p>Хэрэв та энэ хүсэлтийг өгөөгүй бол энэ имэйлийг үл хэрэгсээрэй.</p>
-        `,
-        text: `
-Нууц үг сэргээх
-
-Сайн байна уу, ${username}!
-
-Таны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Доорх холбоосыг дарж шинэ нууц үгээ оруулна уу:
-
-${resetUrl}
-
-Хэрэв та энэ хүсэлтийг өгөөгүй бол энэ имэйлийг үл хэрэгсээрэй.
-        `,
-      });
-
-      if (error) throw error;
-
-      console.log('✅ Password reset email sent successfully via Resend to:', email);
-      return { success: true, messageId: data?.id };
-    } catch (error) {
-      console.error('❌ Error sending password reset email via Resend:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async testEmailService() {
-    if (!this.client) {
-      console.log('📧 Resend client not initialized (RESEND_API_KEY missing)');
-      return false;
-    }
-    console.log('✅ Resend email service is configured');
-    return true;
-  }
-}
-
-const emailService = new EmailService();
-module.exports = emailService;
-
 const nodemailer = require('nodemailer');
-const crypto = require('crypto');
 
 class EmailService {
   constructor() {
+    this.resend = null;
     this.transporter = null;
-    this.initializationPromise = null;
-    // Initialize asynchronously
-    this.initializeTransporter().catch(err => {
-      console.error('❌ Failed to initialize email service on startup:', err);
-    });
-  }
+    this.fromEmail = null;
+    this.provider = null;
 
-  // Initialize email transporter
-  async initializeTransporter() {
-    try {
-      // Check if email credentials are configured
-      // Check both config.env (local) and environment variables (Railway/production)
-      const emailUser = process.env.EMAIL_USER;
-      const emailPass = process.env.EMAIL_PASS;
-      
-      if (!emailUser || !emailPass) {
-        console.warn('⚠️ Email credentials not configured (EMAIL_USER or EMAIL_PASS missing)');
-        console.warn('⚠️ Environment check:');
-        console.warn('   EMAIL_USER:', emailUser ? '✅ Set' : '❌ Not set');
-        console.warn('   EMAIL_PASS:', emailPass ? '✅ Set (hidden)' : '❌ Not set');
-        console.warn('⚠️ For local development: Set EMAIL_USER and EMAIL_PASS in config.env');
-        console.warn('⚠️ For Railway/production: Set EMAIL_USER and EMAIL_PASS as environment variables in Railway dashboard');
-        this.transporter = null;
-        return false;
-      }
+    const resendKey = process.env.RESEND_API_KEY;
+    const fromResend = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_USER;
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
 
-      console.log('📧 Initializing email service...');
-      console.log('📧 Email user:', process.env.EMAIL_USER);
-
-      // Use Gmail SMTP with explicit configuration (port 587 + STARTTLS)
+    if (resendKey && fromResend) {
+      this.resend = new Resend(resendKey);
+      this.fromEmail = fromResend;
+      this.provider = 'resend';
+      console.log('📧 Email service initialized (Resend)');
+    } else if (emailUser && emailPass) {
       this.transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
-        secure: false, // use STARTTLS, not SSL
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        tls: {
-          rejectUnauthorized: false, // Allow self-signed certificates if needed
-          ciphers: 'SSLv3'
-        },
-        // Add connection timeout
+        secure: false,
+        auth: { user: emailUser, pass: emailPass },
+        tls: { rejectUnauthorized: false, ciphers: 'SSLv3' },
         connectionTimeout: 10000,
         greetingTimeout: 10000,
         socketTimeout: 10000,
-        // Add debug option to see what's happening
         debug: process.env.NODE_ENV === 'development',
-        logger: process.env.NODE_ENV === 'development'
+        logger: process.env.NODE_ENV === 'development',
       });
-
-      // Verify connection (await the promise)
-      try {
-        await this.transporter.verify();
-        console.log('✅ Email service initialized and verified successfully');
-        console.log('📧 Email will be sent from:', process.env.EMAIL_USER);
-        return true;
-      } catch (verifyError) {
-        console.error('❌ Email service verification failed:', verifyError.message);
-        console.error('❌ Error code:', verifyError.code);
-        console.error('❌ Full error:', verifyError);
-        
-        // Provide specific guidance based on error
-        if (verifyError.code === 'EAUTH') {
-          console.error('❌ Authentication failed. Common causes:');
-          console.error('   1. Wrong email or password');
-          console.error('   2. Using regular Gmail password instead of App Password');
-          console.error('   3. 2-Step Verification not enabled');
-          console.error('   Solution: Generate an App Password from your Google Account settings');
-        } else if (verifyError.code === 'ECONNECTION') {
-          console.error('❌ Connection failed. Check:');
-          console.error('   1. Internet connection');
-          console.error('   2. Firewall settings');
-          console.error('   3. Gmail SMTP server availability');
-        } else if (verifyError.code === 'ETIMEDOUT') {
-          console.error('❌ Connection timeout. Gmail SMTP might be blocked');
-        }
-        
-        this.transporter = null;
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Email service initialization failed:', error);
-      console.error('❌ Error stack:', error.stack);
-      this.transporter = null;
-      return false;
+      this.fromEmail = emailUser;
+      this.provider = 'nodemailer';
+      this.transporter.verify().then(() => {
+        console.log('📧 Email service initialized (Nodemailer / Gmail)');
+      }).catch((err) => {
+        console.warn('⚠️ Email transporter verify failed:', err.message);
+      });
+    } else {
+      console.warn('⚠️ Email service is not configured!');
+      console.warn('⚠️ Email verification and password reset will not work.');
+      console.warn('⚠️ For Railway: Set either (A) RESEND_API_KEY + RESEND_FROM_EMAIL, or (B) EMAIL_USER + EMAIL_PASS in Variables');
+      console.warn('⚠️ For local: Set the same in server/config.env');
     }
   }
 
-  // Generate verification token
   generateVerificationToken() {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  // Generate 5-digit verification code
   generateVerificationCode() {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
 
-  // Create verification email HTML
-  createVerificationEmailHTML(username, verificationCode) {
+  buildVerificationHtml(username, code) {
     return `
-      <!DOCTYPE html>
-      <html lang="mn">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>CHATLI - Имэйл баталгаажуулалт</title>
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.5;
-            color: #1c1e21;
-            background-color: #ffffff;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-          }
-          
-          .email-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 0;
-            overflow: hidden;
-          }
-          
-          .header {
-            background-color: #ffffff;
-            padding: 40px 32px 32px;
-            text-align: center;
-            border-bottom: 1px solid #e4e6ea;
-          }
-          
-          .logo {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1c1e21;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-          }
-          
-          .subtitle {
-            font-size: 16px;
-            color: #65676b;
-            font-weight: 400;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-          }
-          
-          .content {
-            padding: 32px;
-            background-color: #ffffff;
-          }
-          
-          .greeting {
-            font-size: 18px;
-            color: #1c1e21;
-            margin-bottom: 24px;
-            font-weight: 500;
-          }
-          
-          .message {
-            font-size: 16px;
-            color: #65676b;
-            line-height: 1.6;
-            margin-bottom: 32px;
-          }
-          
-          .code-container {
-            background-color: #f0f2f5;
-            border: 2px solid #e4e6ea;
-            border-radius: 8px;
-            padding: 24px;
-            margin: 32px 0;
-            text-align: center;
-          }
-          
-          .code-label {
-            font-size: 14px;
-            color: #65676b;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            font-weight: 500;
-          }
-          
-          .verification-code {
-            font-size: 48px;
-            font-weight: 700;
-            color: #1c1e21;
-            letter-spacing: 8px;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-            line-height: 1;
-          }
-          
-          .warning {
-            background-color: #f0f2f5;
-            border-left: 4px solid #1877f2;
-            padding: 16px 20px;
-            margin: 24px 0;
-            border-radius: 0 8px 8px 0;
-          }
-          
-          .warning-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1c1e21;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          
-          .warning-text {
-            font-size: 14px;
-            color: #65676b;
-            line-height: 1.5;
-          }
-          
-          .footer {
-            background-color: #f0f2f5;
-            padding: 24px 32px;
-            text-align: center;
-            border-top: 1px solid #e4e6ea;
-          }
-          
-          .footer-text {
-            font-size: 12px;
-            color: #65676b;
-            margin-bottom: 8px;
-          }
-          
-          .footer-copyright {
-            font-size: 12px;
-            color: #8e8e93;
-          }
-          
-          @media only screen and (max-width: 600px) {
-            .email-container {
-              margin: 0;
-              border-radius: 0;
-            }
-            
-            .header {
-              padding: 24px 20px 20px;
-            }
-            
-            .content {
-              padding: 20px;
-            }
-            
-            .verification-code {
-              font-size: 36px;
-              letter-spacing: 6px;
-            }
-            
-            .footer {
-              padding: 20px;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="email-container">
-          <div class="header">
-            <div class="logo">CHATLI</div>
-            <div class="subtitle">Имэйл баталгаажуулалт</div>
-          </div>
-          
-          <div class="content">
-            <div class="greeting">Сайн байна уу, ${username}!</div>
-            
-            <div class="message">
-              CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
+      <html>
+        <body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+            <h1 style="margin-bottom: 8px;">CHATLI</h1>
+            <h2 style="margin-bottom: 16px;">Имэйл баталгаажуулалт</h2>
+            <p style="margin-bottom: 16px;">Сайн байна уу, ${username || ''}!</p>
+            <p style="margin-bottom: 16px;">
+              CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх 5 оронтой кодыг оруулна уу:
+            </p>
+            <div style="
+              font-size: 32px;
+              letter-spacing: 8px;
+              font-weight: 700;
+              padding: 16px 24px;
+              display: inline-block;
+              background: #f0f2f5;
+              border-radius: 8px;
+              margin-bottom: 16px;
+            ">
+              ${code}
             </div>
-            
-            <div class="code-container">
-              <div class="code-label">Баталгаажуулах код</div>
-              <div class="verification-code">${verificationCode}</div>
-            </div>
-            
-            <div class="warning">
-              <div class="warning-title">Анхааруулга</div>
-              <div class="warning-text">
-                Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм. Энэ кодыг 10 минутын дотор оруулна уу.
-              </div>
-            </div>
+            <p style="font-size: 13px; color: #666;">
+              Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм.
+            </p>
           </div>
-          
-          <div class="footer">
-            <div class="footer-text">Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.</div>
-            <div class="footer-copyright">&copy; 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.</div>
-          </div>
-        </div>
-      </body>
+        </body>
       </html>
     `;
   }
 
-  // Create verification email text version
-  createVerificationEmailText(username, verificationCode) {
-    return `
-CHATLI - Имэйл баталгаажуулалт
+  buildVerificationText(username, code) {
+    return `CHATLI - Имэйл баталгаажуулалт
 
-Сайн байна уу, ${username}!
+Сайн байна уу, ${username || ''}!
 
-CHATLI дээр бүртгэл үүсгэсэнд баярлалаа. Таны акаунтыг идэвхжүүлэхийн тулд доорх кодыг оруулна уу:
+Таны баталгаажуулах код: ${code}
 
-Код: ${verificationCode}
-
-Энэ кодыг 1 минутын дотор оруулна уу. Хугацаа дууссаны дараа шинэ код хүсэх боломжтой.
-
-Анхааруулга: Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм.
-
-Энэ имэйл автоматаар илгээгдсэн. Хариулж болохгүй.
-
-© 2024 CHATLI. Бүх эрх хуулиар хамгаалагдсан.
-    `;
+Хэрэв та энэ имэйлийг хүлээн аваагүй бол, таны имэйл хаяг буруу байж болох юм.`;
   }
 
-  // Send verification email
-  async sendVerificationEmail(email, username, verificationCode) {
-    try {
-      // Re-initialize transporter if it's null (in case env vars were added after startup)
-      if (!this.transporter) {
-        console.warn('⚠️ Email transporter not initialized, attempting to re-initialize...');
-        const initialized = await this.initializeTransporter();
-        
-        if (!initialized || !this.transporter) {
-          console.error('❌ Email service still not available after re-initialization');
-          console.error('❌ Environment variables check:');
-          console.error('   EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Not set');
-          console.error('   EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set (hidden)' : '❌ Not set');
-          console.error('❌ For local development: Set EMAIL_USER and EMAIL_PASS in server/config.env');
-          console.error('❌ For Railway/production:');
-          console.error('   1. Go to Railway dashboard → Your project → Variables');
-          console.error('   2. Add EMAIL_USER = your-email@gmail.com');
-          console.error('   3. Add EMAIL_PASS = your-gmail-app-password (16 characters, no spaces)');
-          console.error('   4. Redeploy the service');
-          console.log('📧 Verification code (for manual testing):', verificationCode);
-          return { 
-            success: false, 
-            error: 'Email service not configured. Please set EMAIL_USER and EMAIL_PASS environment variables in Railway dashboard.',
-            code: verificationCode // Return code for development/testing
-          };
-        }
-      }
+  async sendVerificationEmail(email, username, code) {
+    if (!this.fromEmail) {
+      console.error('❌ Email service not configured.');
+      console.log('📧 Verification code (for manual entry):', code);
+      return {
+        success: false,
+        error: 'Email service not configured. Set RESEND_API_KEY + RESEND_FROM_EMAIL, or EMAIL_USER + EMAIL_PASS (e.g. in Railway Variables).',
+        code,
+      };
+    }
 
-      // Verify transporter is still working before sending
+    const html = this.buildVerificationHtml(username, code);
+    const text = this.buildVerificationText(username, code);
+
+    if (this.provider === 'resend') {
+      try {
+        console.log('📧 Sending verification email via Resend...');
+        const { data, error } = await this.resend.emails.send({
+          from: this.fromEmail,
+          to: email,
+          subject: 'CHATLI - Имэйл баталгаажуулалт',
+          html,
+          text,
+        });
+        if (error) throw error;
+        console.log('✅ Verification email sent via Resend. Message ID:', data?.id);
+        return { success: true, messageId: data?.id, accepted: [email] };
+      } catch (err) {
+        console.error('❌ Error sending verification email via Resend:', err.message || err);
+        console.log('📧 Verification code (for manual entry):', code);
+        return {
+          success: false,
+          error: err.message || 'Failed to send email',
+          code: process.env.NODE_ENV === 'development' ? code : undefined,
+        };
+      }
+    }
+
+    if (this.provider === 'nodemailer' && this.transporter) {
+      try {
+        console.log('📧 Sending verification email via Nodemailer...');
+        const result = await this.transporter.sendMail({
+          from: `"CHATLI" <${this.fromEmail}>`,
+          to: email,
+          subject: 'CHATLI - Имэйл баталгаажуулалт',
+          html,
+          text,
+        });
+        console.log('✅ Verification email sent. Message ID:', result.messageId);
+        return { success: true, messageId: result.messageId, accepted: result.accepted || [email] };
+      } catch (err) {
+        console.error('❌ Error sending verification email:', err.message || err);
+        console.log('📧 Verification code (for manual entry):', code);
+        return {
+          success: false,
+          error: err.message || 'Failed to send email',
+          code: process.env.NODE_ENV === 'development' ? code : undefined,
+        };
+      }
+    }
+
+    console.log('📧 Verification code (for manual entry):', code);
+    return { success: false, error: 'Email service not configured.', code };
+  }
+
+  async sendPasswordResetEmail(email, username, resetToken) {
+    if (!this.fromEmail) {
+      console.log('📧 Password reset email would be sent to:', email);
+      return { success: true, message: 'Email logged (service not configured)' };
+    }
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    const html = `
+      <h2>Нууц үг сэргээх</h2>
+      <p>Сайн байна уу, ${username || ''}!</p>
+      <p>Таны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Доорх холбоосыг дарж шинэ нууц үгээ оруулна уу:</p>
+      <a href="${resetUrl}">${resetUrl}</a>
+    `;
+    const text = `Нууц үг сэргээх\n\nСайн байна уу, ${username || ''}!\n\nТаны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Дараах холбоосоор орж шинэ нууц үгээ оруулна уу:\n\n${resetUrl}`;
+
+    if (this.provider === 'resend') {
+      try {
+        const { data, error } = await this.resend.emails.send({
+          from: this.fromEmail,
+          to: email,
+          subject: 'CHATLI - Нууц үг сэргээх',
+          html,
+          text,
+        });
+        if (error) throw error;
+        console.log('✅ Password reset email sent via Resend to:', email);
+        return { success: true, messageId: data?.id };
+      } catch (err) {
+        console.error('❌ Error sending password reset email via Resend:', err);
+        return { success: false, error: err.message };
+      }
+    }
+
+    if (this.provider === 'nodemailer' && this.transporter) {
+      try {
+        const result = await this.transporter.sendMail({
+          from: `"CHATLI" <${this.fromEmail}>`,
+          to: email,
+          subject: 'CHATLI - Нууц үг сэргээх',
+          html,
+          text,
+        });
+        console.log('✅ Password reset email sent to:', email);
+        return { success: true, messageId: result.messageId };
+      } catch (err) {
+        console.error('❌ Error sending password reset email:', err);
+        return { success: false, error: err.message };
+      }
+    }
+
+    return { success: true, message: 'Email not sent (service not configured)' };
+  }
+
+  async testEmailService() {
+    if (this.provider === 'resend' && this.resend) {
+      console.log('✅ Resend email service is configured');
+      return true;
+    }
+    if (this.provider === 'nodemailer' && this.transporter) {
       try {
         await this.transporter.verify();
-      } catch (verifyError) {
-        console.warn('⚠️ Transporter verification failed, re-initializing...');
-        const reinitialized = await this.initializeTransporter();
-        if (!reinitialized || !this.transporter) {
-          throw new Error('Email service verification failed. Please check your email credentials.');
-        }
+        console.log('✅ Nodemailer email service is configured');
+        return true;
+      } catch (e) {
+        console.log('❌ Nodemailer verify failed:', e.message);
+        return false;
       }
-      
-      const mailOptions = {
-        from: `"CHATLI" <${process.env.EMAIL_USER}>`,
-        to: email,
-        replyTo: process.env.EMAIL_USER, // Add reply-to to avoid spam filters
-        subject: 'CHATLI - Имэйл баталгаажуулалт',
-        html: this.createVerificationEmailHTML(username, verificationCode),
-        text: this.createVerificationEmailText(username, verificationCode),
-        // Add headers to improve deliverability
-        headers: {
-          'X-Mailer': 'CHATLI Email Service',
-          'X-Priority': '1',
-          'Importance': 'high',
-          'List-Unsubscribe': `<mailto:${process.env.EMAIL_USER}?subject=unsubscribe>`,
-        },
-        // Add message ID and date
-        date: new Date(),
-      };
-
-      console.log('📧 Attempting to send verification email...');
-      console.log('📧 To:', email);
-      console.log('📧 From:', process.env.EMAIL_USER);
-      console.log('📧 Username:', username);
-      console.log('📧 Verification Code:', verificationCode);
-      
-      // Validate email address format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        throw new Error(`Invalid email address format: ${email}`);
-      }
-      
-      const result = await this.transporter.sendMail(mailOptions);
-      
-      console.log('✅ Verification email sent successfully!');
-      console.log('📧 Message ID:', result.messageId);
-      console.log('📧 Response:', result.response);
-      console.log('📧 Accepted recipients:', result.accepted);
-      console.log('📧 Rejected recipients:', result.rejected);
-      console.log('📧 Pending recipients:', result.pending);
-      console.log('📧 Sent to:', email);
-      
-      // Check if email was actually accepted
-      if (result.rejected && result.rejected.length > 0) {
-        console.error('❌ Email was rejected by server:', result.rejected);
-        throw new Error(`Email rejected: ${result.rejected.join(', ')}`);
-      }
-      
-      if (!result.accepted || result.accepted.length === 0) {
-        console.error('❌ Email was not accepted by server');
-        throw new Error('Email was not accepted by server');
-      }
-      
-      return { success: true, messageId: result.messageId, accepted: result.accepted };
-      
-    } catch (error) {
-      console.error('❌ Error sending verification email:', error.message);
-      console.error('❌ Error code:', error.code);
-      console.error('❌ Full error:', error);
-      
-      // Log specific error types with solutions
-      if (error.code === 'EAUTH') {
-        console.error('❌ Authentication failed. Solutions:');
-        console.error('   1. Make sure you\'re using an App Password, not your regular Gmail password');
-        console.error('   2. Generate App Password: Google Account > Security > 2-Step Verification > App Passwords');
-        console.error('   3. Check that EMAIL_USER and EMAIL_PASS are correct in config.env');
-      } else if (error.code === 'ECONNECTION') {
-        console.error('❌ Connection failed. Check:');
-        console.error('   1. Internet connection');
-        console.error('   2. Firewall settings');
-        console.error('   3. Gmail SMTP server (smtp.gmail.com:465) is accessible');
-      } else if (error.code === 'ETIMEDOUT') {
-        console.error('❌ Connection timeout. Gmail SMTP might be blocked by firewall or network');
-      } else if (error.code === 'EENVELOPE') {
-        console.error('❌ Invalid email address:', email);
-      }
-      
-      // Return code for development/testing
-      console.log('📧 Verification code (for manual testing):', verificationCode);
-      
-      return { 
-        success: false, 
-        error: error.message || 'Failed to send email',
-        code: process.env.NODE_ENV === 'development' ? verificationCode : undefined
-      };
     }
-  }
-
-  // Send password reset email (for future use)
-  async sendPasswordResetEmail(email, username, resetToken) {
-    try {
-      if (!this.transporter) {
-        console.log('📧 Password reset email would be sent to:', email);
-        return { success: true, message: 'Email logged (service not configured)' };
-      }
-
-      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-      
-      const mailOptions = {
-        from: `"CHATLI" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'CHATLI - Нууц үг сэргээх',
-        html: `
-          <h2>Нууц үг сэргээх</h2>
-          <p>Сайн байна уу, ${username}!</p>
-          <p>Таны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Доорх холбоосыг дарж шинэ нууц үгээ оруулна уу:</p>
-          <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Нууц үг сэргээх</a>
-          <p>Хэрэв та энэ хүсэлтийг өгөөгүй бол энэ имэйлийг үл хэрэгсээрэй.</p>
-        `,
-        text: `
-Нууц үг сэргээх
-
-Сайн байна уу, ${username}!
-
-Таны нууц үгийг сэргээх хүсэлт хүлээн авлаа. Доорх холбоосыг дарж шинэ нууц үгээ оруулна уу:
-
-${resetUrl}
-
-Хэрэв та энэ хүсэлтийг өгөөгүй бол энэ имэйлийг үл хэрэгсээрэй.
-        `
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      
-      console.log('✅ Password reset email sent successfully to:', email);
-      return { success: true, messageId: result.messageId };
-      
-    } catch (error) {
-      console.error('❌ Error sending password reset email:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Test email service
-  async testEmailService() {
-    try {
-      if (!this.transporter) {
-        console.log('📧 Email service not configured, attempting initialization...');
-        const initialized = await this.initializeTransporter();
-        if (!initialized) {
-          console.log('❌ Email service initialization failed');
-          return false;
-        }
-      }
-
-      await this.transporter.verify();
-      console.log('✅ Email service is working correctly');
-      console.log('📧 Ready to send emails from:', process.env.EMAIL_USER);
-      return true;
-    } catch (error) {
-      console.error('❌ Email service test failed:', error.message);
-      console.error('❌ Error code:', error.code);
-      return false;
-    }
+    console.log('📧 Email service not configured (RESEND_API_KEY + RESEND_FROM_EMAIL, or EMAIL_USER + EMAIL_PASS)');
+    return false;
   }
 }
 
-// Create singleton instance
 const emailService = new EmailService();
-
-module.exports = emailService; 
+module.exports = emailService;
