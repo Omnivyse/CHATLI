@@ -8,72 +8,38 @@ const EmailVerificationModal = ({
   user, 
   onVerificationSuccess 
 }) => {
-  const [verificationCode, setVerificationCode] = useState(['', '', '', '', '']);
-  const [textAreaCode, setTextAreaCode] = useState('');
-  const [useTextArea, setUseTextArea] = useState(false);
+  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [resendLoading, setResendLoading] = useState(false);
-  const inputRefs = useRef([]);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
-      setVerificationCode(['', '', '', '', '']);
-      setTextAreaCode('');
+      setCode('');
       setError('');
       setSuccess('');
       setCountdown(0);
-      // Focus first input after modal opens
-      setTimeout(() => {
-        if (useTextArea) {
-          // Text area will auto-focus
-        } else {
-          inputRefs.current[0]?.focus();
-        }
-      }, 300);
+      setTimeout(() => inputRef.current?.focus(), 300);
     }
-  }, [visible, useTextArea]);
+  }, [visible]);
 
-  const handleCodeChange = (text, index) => {
-    if (text.length > 1) {
-      text = text[0];
-    }
-
-    const newCode = [...verificationCode];
-    newCode[index] = text;
-    setVerificationCode(newCode);
-    setError('');
-
-    // Auto-focus next input
-    if (text && index < 4) {
-      inputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit when all digits are entered
-    if (index === 4 && text && newCode.every(digit => digit !== '')) {
-      handleVerification();
-    }
-  };
-
-  const handleTextAreaChange = (text) => {
-    // Only allow numbers and limit to 5 digits
+  const handleCodeChange = (text) => {
     const numericText = text.replace(/[^0-9]/g, '');
     if (numericText.length <= 5) {
-      setTextAreaCode(numericText);
+      setCode(numericText);
       setError('');
-      
-      // Auto-submit when 5 digits are entered
       if (numericText.length === 5) {
         handleVerification(numericText);
       }
     }
   };
 
-  const handleVerification = async (codeFromTextArea = null) => {
-    const code = codeFromTextArea || verificationCode.join('');
-    if (code.length !== 5) {
+  const handleVerification = async (codeToVerify = null) => {
+    const codeValue = codeToVerify ?? code;
+    if (codeValue.length !== 5) {
       setError('5 оронтой код оруулна уу');
       return;
     }
@@ -82,7 +48,7 @@ const EmailVerificationModal = ({
     setError('');
 
     try {
-      const response = await apiService.verifyEmail(code, user.email);
+      const response = await apiService.verifyEmail(codeValue, user.email);
       
       if (response.success) {
         onVerificationSuccess(response.data.user);
@@ -128,15 +94,9 @@ const EmailVerificationModal = ({
           }
         }
         
-        setCountdown(60); // Start countdown
-        setVerificationCode(['', '', '', '', '']);
-        setTextAreaCode('');
-        // Focus first input
-        if (useTextArea) {
-          // Text area will auto-focus
-        } else {
-          inputRefs.current[0]?.focus();
-        }
+        setCountdown(60);
+        setCode('');
+        inputRef.current?.focus();
       } else {
         // Handle error response
         const errorMessage = response.message || response.error || 'Имэйл илгээхэд алдаа гарлаа';
@@ -212,50 +172,21 @@ const EmailVerificationModal = ({
                 </span>
               </div>
 
-              <p className="text-gray-600 dark:text-gray-300 text-sm mb-6 text-center">
+              <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 text-center">
                 Имэйл хаягаа шалгаж, 5 оронтой кодыг оруулна уу
               </p>
 
-              {/* Input Toggle */}
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-gray-700 dark:text-gray-300 text-sm">
-                  Оролтын хэлбэр:
-                </span>
-                <button
-                  onClick={() => setUseTextArea(!useTextArea)}
-                  className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  {useTextArea ? 'Цэгүүд' : 'Текст'}
-                </button>
-              </div>
-
-              {/* Code Input */}
-              {useTextArea ? (
-                <input
-                  type="text"
-                  value={textAreaCode}
-                  onChange={(e) => handleTextAreaChange(e.target.value)}
-                  placeholder="12345"
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-center text-lg font-mono tracking-widest bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                  maxLength={5}
-                  autoFocus
-                />
-              ) : (
-                <div className="flex justify-center space-x-2 mb-4">
-                  {verificationCode.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={(ref) => (inputRefs.current[index] = ref)}
-                      type="text"
-                      value={digit}
-                      onChange={(e) => handleCodeChange(e.target.value, index)}
-                      className="w-12 h-12 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-center text-lg font-mono bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                      maxLength={1}
-                      autoFocus={index === 0}
-                    />
-                  ))}
-                </div>
-              )}
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                value={code}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                placeholder="12345"
+                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-center text-lg font-mono tracking-widest bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none mb-4"
+                maxLength={5}
+                autoFocus
+              />
 
               {/* Success Message */}
               {success && (
@@ -288,10 +219,10 @@ const EmailVerificationModal = ({
               {/* Action Buttons */}
               <div className="space-y-3">
                 <button
-                  onClick={handleVerification}
-                  disabled={loading || (verificationCode.join('').length !== 5 && textAreaCode.length !== 5)}
+                  onClick={() => handleVerification()}
+                  disabled={loading || code.length !== 5}
                   className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    (verificationCode.join('').length === 5 || textAreaCode.length === 5) && !loading
+                    code.length === 5 && !loading
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   }`}
