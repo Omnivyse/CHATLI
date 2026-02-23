@@ -39,14 +39,9 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle auth errors gracefully
-        if (response.status === 401) {
-          // Clear invalid token
-          this.setToken(null);
-          // Don't throw error for optional auth endpoints
-          if (endpoint === '/notifications') {
-            return { success: true, data: { notifications: [] } };
-          }
+        // Do not clear token on 401 – user stays logged in until explicit logout or password change
+        if (response.status === 401 && endpoint === '/notifications') {
+          return { success: true, data: { notifications: [] } };
         }
         // Return error response with all error details
         return {

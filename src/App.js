@@ -111,7 +111,7 @@ function App() {
         }
       } catch (error) {
         console.error('Auth check error:', error);
-        localStorage.removeItem('token');
+        // Do not clear token – user stays logged in until explicit logout or password change
       } finally {
         setLoading(false);
       }
