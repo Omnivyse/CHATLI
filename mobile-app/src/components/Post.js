@@ -37,6 +37,7 @@ const Post = ({
   isHighlighted,
   isGlobalMusicMuted = false,
   onToggleGlobalMusicMute,
+  feedFocused = true,
 }) => {
   const insets = useSafeAreaInsets();
   // Debug: Validate props
@@ -650,6 +651,13 @@ const Post = ({
     }
   };
 
+  // Stop music when user leaves Feed tab (e.g. goes to Chats, Notifications, Profile)
+  useEffect(() => {
+    if (!feedFocused) {
+      stopMusicPreview();
+    }
+  }, [feedFocused]);
+
   // Auto-play music preview when this post is highlighted (center of feed)
   // and global mute is OFF. Stop when not highlighted or when globally muted.
   useEffect(() => {
@@ -659,12 +667,12 @@ const Post = ({
       return;
     }
 
-    if (isHighlighted && !isGlobalMusicMuted) {
+    if (isHighlighted && !isGlobalMusicMuted && feedFocused) {
       startMusicPreview();
     } else {
       stopMusicPreview();
     }
-  }, [isHighlighted, isGlobalMusicMuted, localPost?.spotifyTrack?.previewUrl]);
+  }, [isHighlighted, isGlobalMusicMuted, feedFocused, localPost?.spotifyTrack?.previewUrl]);
 
   const getVideoProgressPercentage = (videoId) => {
     const progress = videoProgress[videoId] || 0;

@@ -386,7 +386,8 @@ function AuthStackNavigator({ onLogin }) {
 function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerificationBanner, onProfileUpdate, onTestPushNotification }) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
-  
+  const navigationColors = getNavigationColors(theme);
+
   return (
     <Stack.Navigator
       screenOptions={{
@@ -430,8 +431,19 @@ function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerifica
       <Stack.Screen 
         name="Settings" 
         options={{ 
+          headerShown: true,
           title: 'Тохиргоо',
           headerBackTitleVisible: false,
+          headerStyle: {
+            backgroundColor: navigationColors.backgroundColor,
+            borderBottomWidth: 1,
+            borderBottomColor: navigationColors.borderBottomColor,
+          },
+          headerTitleStyle: {
+            fontWeight: 'bold',
+            color: navigationColors.titleColor,
+          },
+          headerTintColor: navigationColors.tintColor,
         }}
       >
         {(props) => <SettingsScreen {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onShowVerificationBanner={onShowVerificationBanner} />}

@@ -49,39 +49,30 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
         {
           icon: 'person-outline',
           title: getTranslation('editProfile', language),
-          subtitle: getTranslation('editProfile', language),
+          subtitle: null,
           type: 'arrow',
           onPress: () => navigation.navigate('EditProfile'),
         },
         {
           icon: 'notifications-outline',
           title: getTranslation('notificationSettings', language),
-          subtitle: getTranslation('notificationSettings', language),
+          subtitle: null,
           type: 'arrow',
           onPress: () => navigation.navigate('NotificationSettings'),
         },
-        // Only show verify email option if user's email is not verified
         ...(user && !user.emailVerified ? [{
           icon: 'mail-unread-outline',
           title: 'Verify Email',
           subtitle: 'Complete email verification',
           type: 'arrow',
-          onPress: () => {
-            if (onGoToVerification) {
-              onGoToVerification();
-            }
-          },
+          onPress: () => onGoToVerification?.(),
         },
         {
           icon: 'mail-outline',
           title: 'Show Verification Banner',
           subtitle: 'Display verification reminder',
           type: 'arrow',
-          onPress: () => {
-            if (onShowVerificationBanner) {
-              onShowVerificationBanner();
-            }
-          },
+          onPress: () => onShowVerificationBanner?.(),
         }] : []),
       ],
     },
@@ -91,14 +82,14 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
         {
           icon: 'moon-outline',
           title: getTranslation('darkMode', language),
-          subtitle: getTranslation('darkMode', language),
+          subtitle: theme === 'dark' ? getTranslation('on', language) || 'On' : getTranslation('off', language) || 'Off',
           type: 'custom',
-          customComponent: <ThemeToggle size={20} />,
+          customComponent: <ThemeToggle size={22} />,
         },
         {
           icon: 'download-outline',
           title: getTranslation('autoDownload', language),
-          subtitle: getTranslation('autoDownload', language),
+          subtitle: null,
           type: 'switch',
           value: autoDownload,
           onToggle: setAutoDownload,
@@ -106,7 +97,7 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
         {
           icon: 'cellular-outline',
           title: getTranslation('mobileData', language),
-          subtitle: getTranslation('mobileData', language),
+          subtitle: getTranslation('comingSoon', language),
           type: 'arrow',
           onPress: () => {
             Toast.show({
@@ -131,7 +122,7 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
         {
           icon: 'shield-outline',
           title: getTranslation('twoFactorAuth', language),
-          subtitle: getTranslation('twoFactorAuth', language),
+          subtitle: getTranslation('comingSoon', language),
           type: 'arrow',
           onPress: () => {
             Toast.show({
@@ -144,26 +135,21 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
         {
           icon: 'lock-closed-outline',
           title: getTranslation('changePassword', language),
-          subtitle: getTranslation('changePassword', language),
+          subtitle: null,
           type: 'arrow',
-          onPress: () => {
-            console.log('🔄 Password change button pressed');
-            setShowChangePassword(true);
-          },
+          onPress: () => setShowChangePassword(true),
         },
         {
           icon: 'shield-checkmark-outline',
           title: getTranslation('privacySettings', language),
-          subtitle: getTranslation('privacySettings', language),
+          subtitle: null,
           type: 'arrow',
-          onPress: () => {
-            setShowPrivacySettings(true);
-          },
+          onPress: () => setShowPrivacySettings(true),
         },
         {
-          icon: 'eye-off-outline',
+          icon: 'document-text-outline',
           title: getTranslation('privacyPolicy', language),
-          subtitle: getTranslation('privacyPolicy', language),
+          subtitle: null,
           type: 'arrow',
           onPress: () => {
             Alert.alert(
@@ -181,11 +167,9 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
         {
           icon: 'help-circle-outline',
           title: getTranslation('helpCenter', language),
-          subtitle: getTranslation('helpCenter', language),
+          subtitle: null,
           type: 'arrow',
-          onPress: () => {
-            navigation.navigate('HelpCenter');
-          },
+          onPress: () => navigation.navigate('HelpCenter'),
         },
         {
           icon: 'mail-outline',
@@ -205,15 +189,13 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
           title: getTranslation('report', language),
           subtitle: getTranslation('reportIssue', language),
           type: 'arrow',
-          onPress: () => {
-            setShowReportModal(true);
-          },
+          onPress: () => setShowReportModal(true),
           isDestructive: true,
         },
         {
           icon: 'log-out-outline',
           title: getTranslation('logout', language),
-          subtitle: getTranslation('logout', language),
+          subtitle: null,
           type: 'arrow',
           onPress: () => {
             Alert.alert(
@@ -230,54 +212,62 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
     },
   ];
 
-  const renderSettingItem = (item, index) => {
+  const renderSettingItem = (item, index, sectionItems) => {
     const isDestructive = item.isDestructive;
-    const iconColor = isDestructive ? '#FF3B30' : colors.primary;
-    const iconBgColor = isDestructive ? '#FF3B3015' : colors.primary + '15';
+    const isFirst = index === 0;
+    const isLast = index === sectionItems.length - 1;
+    const iconColor = isDestructive ? '#FF3B30' : colors.textSecondary;
+    const iconBgColor = isDestructive ? '#FF3B3012' : (theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)');
     const titleColor = isDestructive ? '#FF3B30' : colors.text;
-    const subtitleColor = isDestructive ? '#FF3B3080' : colors.textSecondary;
-    
+    const subtitleColor = isDestructive ? '#FF3B3099' : colors.textSecondary;
+    const showSubtitle = item.subtitle && item.subtitle.trim() !== '';
+
     return (
       <TouchableOpacity
         key={index}
         style={[
           styles.settingItem,
-          { backgroundColor: colors.surface },
-          index === 0 && { borderTopLeftRadius: 12, borderTopRightRadius: 12 },
-          index === settingsData.find(section => section.items.includes(item))?.items.length - 1 && 
-            { borderBottomLeftRadius: 12, borderBottomRightRadius: 12, borderBottomWidth: 0 }
+          {
+            backgroundColor: colors.surface,
+            borderBottomWidth: isLast ? 0 : 1,
+            borderBottomColor: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+          },
+          isFirst && { borderTopLeftRadius: 12, borderTopRightRadius: 12 },
+          isLast && { borderBottomLeftRadius: 12, borderBottomRightRadius: 12 },
         ]}
         onPress={item.onPress}
         disabled={item.type === 'switch'}
-        activeOpacity={0.7}
+        activeOpacity={0.6}
       >
         <View style={styles.settingItemLeft}>
           <View style={[styles.settingIcon, { backgroundColor: iconBgColor }]}>
-            <Ionicons name={item.icon} size={22} color={iconColor} />
+            <Ionicons name={item.icon} size={20} color={iconColor} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: titleColor }]}>
+            <Text style={[styles.settingTitle, { color: titleColor }]} numberOfLines={1}>
               {item.title}
             </Text>
-            <Text style={[styles.settingSubtitle, { color: subtitleColor }]}>
-              {item.subtitle}
-            </Text>
+            {showSubtitle && (
+              <Text style={[styles.settingSubtitle, { color: subtitleColor }]} numberOfLines={1}>
+                {item.subtitle}
+              </Text>
+            )}
           </View>
         </View>
-        
+
         <View style={styles.settingItemRight}>
           {item.type === 'switch' ? (
             <Switch
               value={item.value}
               onValueChange={item.onToggle}
-              trackColor={{ false: colors.surfaceVariant, true: colors.primary + '40' }}
-              thumbColor={item.value ? colors.primary : colors.textSecondary}
+              trackColor={{ false: colors.surfaceVariant, true: colors.primary + '50' }}
+              thumbColor={item.value ? colors.primary : colors.textTertiary}
               ios_backgroundColor={colors.surfaceVariant}
             />
           ) : item.type === 'custom' ? (
             item.customComponent
           ) : item.type === 'arrow' ? (
-            <Ionicons name="chevron-forward" size={20} color={subtitleColor} />
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
           ) : null}
         </View>
       </TouchableOpacity>
@@ -308,25 +298,19 @@ const SettingsScreen = ({ navigation, user, onLogout, onGoToVerification, onShow
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {getTranslation('settings', language)}
-        </Text>
-      </View>
-      
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 16 }]}
       >
         {settingsData.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>
               {section.title}
             </Text>
             <View style={[styles.sectionContainer, { backgroundColor: colors.surface }]}>
-              {section.items.map((item, itemIndex) => renderSettingItem(item, itemIndex))}
+              {section.items.map((item, itemIndex) => renderSettingItem(item, itemIndex, section.items))}
             </View>
           </View>
         ))}
@@ -450,95 +434,80 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingTop: 20,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     paddingHorizontal: 4,
-    paddingBottom: 12,
+    paddingBottom: 8,
+    paddingTop: 4,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   sectionContainer: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   settingItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   settingIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   settingContent: {
     flex: 1,
+    minWidth: 0,
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: '500',
   },
   settingSubtitle: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    marginTop: 2,
+    opacity: 0.85,
   },
   settingItemRight: {
     alignItems: 'center',
+    marginLeft: 8,
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 24,
     paddingHorizontal: 24,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
   },
   footerSubtext: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 2,
     opacity: 0.7,
   },
   modalOverlay: {
@@ -579,10 +548,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+    padding: 18,
+    borderRadius: 12,
   },
   languageInfo: {
     flex: 1,

@@ -12,6 +12,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 
+import { useIsFocused } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Post from '../components/Post';
@@ -29,6 +30,7 @@ import Toast from 'react-native-toast-message';
 const { width: screenWidth } = Dimensions.get('window');
 
 const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
+  const isFeedFocused = useIsFocused();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { updateNavigationState } = useNavigationState();
@@ -530,6 +532,7 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
         isHighlighted={post._id === highlightedPostId}
         isGlobalMusicMuted={isGlobalMusicMuted}
         onToggleGlobalMusicMute={toggleGlobalMusicMute}
+        feedFocused={isFeedFocused}
       />
     );
   };
@@ -723,6 +726,9 @@ const PostFeedScreen = ({ navigation, user, onGoToVerification, route }) => {
                     onPostUpdate={() => handleRefresh()}
                     isTopPost={true}
                     isHighlighted={item._id === highlightedPostId}
+                    isGlobalMusicMuted={isGlobalMusicMuted}
+                    onToggleGlobalMusicMute={toggleGlobalMusicMute}
+                    feedFocused={isFeedFocused}
                   />
                 )}
                 keyExtractor={(item, index) => `top-${item._id}-${index}`}
