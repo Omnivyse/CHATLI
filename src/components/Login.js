@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import api from '../services/api';
 import { motion } from 'framer-motion';
 import logo from '../assets/logo.png';
 import ForgotPasswordModal from './ForgotPasswordModal';
+
+// Password rules must match server: min 10, max 128, lowercase, uppercase, digit, special
+const PASSWORD_RULES = [
+  { id: 'length', label: 'Хамгийн багадаа 10 тэмдэгт', test: (p) => p.length >= 10 },
+  { id: 'uppercase', label: 'Нэг том үсэг (A-Z)', test: (p) => /[A-Z]/.test(p) },
+  { id: 'lowercase', label: 'Нэг жижиг үсэг (a-z)', test: (p) => /[a-z]/.test(p) },
+  { id: 'digit', label: 'Нэг тоо (0-9)', test: (p) => /\d/.test(p) },
+  { id: 'special', label: 'Нэг тусгай тэмдэгт (!@#$%^&* гэх мэт)', test: (p) => /[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(p) },
+];
 
 const Login = ({ onLogin, onBack }) => {
   const [mode, setMode] = useState('login'); // 'login' or 'register'
@@ -14,6 +23,11 @@ const Login = ({ onLogin, onBack }) => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+
+  const passwordChecks = useMemo(() => 
+    PASSWORD_RULES.map((rule) => ({ ...rule, ok: rule.test(password) })),
+    [password]
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -127,6 +141,35 @@ const Login = ({ onLogin, onBack }) => {
             required
             autoFocus={mode === 'login'}
           />
+          {mode === 'register' && (
+            <div className="rounded-lg border border-border dark:border-border-dark bg-muted/30 dark:bg-muted-dark/30 p-3">
+              <p className="text-xs text-secondary dark:text-secondary-dark mb-2">
+                Нууц үгэнд дараах шаардлагыг хангана уу:
+              </p>
+              <ul className="space-y-1.5">
+                {passwordChecks.map(({ id, label, ok }) => (
+                  <li key={id} className="flex items-center gap-2 text-sm">
+                    {ok ? (
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center" aria-hidden>
+                        <svg className="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
+                    ) : (
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" aria-hidden>
+                        <svg className="w-3 h-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </span>
+                    )}
+                    <span className={ok ? 'text-green-700 dark:text-green-400' : 'text-secondary dark:text-secondary-dark'}>
+                      {label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -135,6 +178,8 @@ const Login = ({ onLogin, onBack }) => {
               onChange={e => setPassword(e.target.value)}
               className="w-full px-0 py-2 pr-8 border-0 border-b border-border bg-transparent focus:ring-0 focus:border-primary transition placeholder:text-secondary text-black dark:text-white text-base rounded-none"
               required
+              minLength={mode === 'register' ? 10 : undefined}
+              maxLength={mode === 'register' ? 128 : undefined}
             />
             <button
               type="button"
