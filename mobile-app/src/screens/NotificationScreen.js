@@ -331,9 +331,11 @@ const NotificationScreen = ({ navigation, user, onProfileUpdate }) => {
       const response = await api.declineRelationshipRequest(fromUserId);
       if (response.success) {
         setNotifications(prev =>
-          prev.filter(n =>
-            !(n.type === 'relationship_request' && n.from && n.from.length > 0 && n.from[0]._id === fromUserId)
-          )
+          prev.filter(n => {
+            if (n.type !== 'relationship_request' || !n.from || n.from.length === 0) return true;
+            const fromId = n.from[0]._id;
+            return String(fromId) !== String(fromUserId);
+          })
         );
       } else {
         Alert.alert('Error', response.message || getTranslation('error', language));
