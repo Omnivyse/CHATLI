@@ -38,32 +38,35 @@ const RelationshipRequestNotification = ({
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {requester.name || requester.username}
           </Text>
-          <Text style={[styles.message, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.message, { color: colors.textSecondary }]}
+            numberOfLines={3}
+          >
             {getTranslation('relationshipRequestMessage', language)}
           </Text>
         </View>
+      </View>
 
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton, { backgroundColor: colors.primary }]}
-            onPress={onAccept}
-            disabled={loading}
-          >
-            <Text style={[styles.actionButtonText, { color: colors.textInverse }]}>
-              {getTranslation('accept', language)}
-            </Text>
-          </TouchableOpacity>
+      <View style={styles.actionsRow}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.acceptButton, { backgroundColor: colors.primary }]}
+          onPress={onAccept}
+          disabled={loading}
+        >
+          <Text style={[styles.actionButtonText, { color: colors.textInverse }]}>
+            {getTranslation('accept', language)}
+          </Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton, { backgroundColor: colors.error }]}
-            onPress={onReject}
-            disabled={loading}
-          >
-            <Text style={[styles.actionButtonText, { color: colors.textInverse }]}>
-              {getTranslation('decline', language)}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.rejectButton, { backgroundColor: colors.error }]}
+          onPress={onReject}
+          disabled={loading}
+        >
+          <Text style={[styles.actionButtonText, { color: colors.textInverse }]}>
+            {getTranslation('decline', language)}
+          </Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -84,10 +87,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
-  avatarContainer: { marginRight: 16 },
+  avatarContainer: { marginRight: 12 },
   avatar: {
     width: 48,
     height: 48,
@@ -100,20 +105,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  textContainer: { flex: 1, marginRight: 16 },
+  textContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
   name: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
-  message: { fontSize: 14, lineHeight: 18 },
-  actions: { flexDirection: 'row', gap: 10 },
-  actionButton: {
+  message: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
     paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 4,
+    marginLeft: 64,
+  },
+  actionButton: {
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,
-    minWidth: 70,
+    minWidth: 80,
     alignItems: 'center',
   },
   acceptButton: {},
   rejectButton: {},
-  actionButtonText: { fontSize: 13, fontWeight: '700' },
+  actionButtonText: { fontSize: 14, fontWeight: '700' },
 });
 
 export default RelationshipRequestNotification;
