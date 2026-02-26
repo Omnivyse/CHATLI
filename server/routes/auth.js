@@ -807,14 +807,10 @@ router.post('/relationship-request/decline', auth, async (req, res) => {
       to: req.user._id,
       status: 'pending'
     });
-    if (!request) {
-      return res.status(404).json({
-        success: false,
-        message: 'Хүсэлт олдсонгүй эсвэл цуцлагдсан'
-      });
+    if (request) {
+      await RelationshipRequest.findByIdAndUpdate(request._id, { status: 'declined' });
     }
-    await RelationshipRequest.findByIdAndUpdate(request._id, { status: 'declined' });
-    // Remove the relationship_request notification so it doesn't keep showing after decline
+    // Always remove the relationship_request notification (even if request was already declined)
     await Notification.deleteMany({
       user: req.user._id,
       type: 'relationship_request',

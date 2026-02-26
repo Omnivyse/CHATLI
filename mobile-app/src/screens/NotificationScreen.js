@@ -325,24 +325,33 @@ const NotificationScreen = ({ navigation, user, onProfileUpdate }) => {
     }
   };
 
+  const removeRelationshipRequestNotification = (fromUserId) => {
+    setNotifications(prev =>
+      prev.filter(n => {
+        if (n.type !== 'relationship_request' || !n.from || n.from.length === 0) return true;
+        const fromId = n.from[0]._id;
+        return String(fromId) !== String(fromUserId);
+      })
+    );
+  };
+
   const handleDeclineRelationshipRequest = async (fromUserId) => {
     try {
       setRelationshipRequestLoadingId(fromUserId);
       const response = await api.declineRelationshipRequest(fromUserId);
       if (response.success) {
-        setNotifications(prev =>
-          prev.filter(n => {
-            if (n.type !== 'relationship_request' || !n.from || n.from.length === 0) return true;
-            const fromId = n.from[0]._id;
-            return String(fromId) !== String(fromUserId);
-          })
-        );
+        removeRelationshipRequestNotification(fromUserId);
       } else {
         Alert.alert('Error', response.message || getTranslation('error', language));
       }
     } catch (error) {
-      console.error('Decline relationship request error:', error);
-      Alert.alert('Error', getTranslation('error', language));
+      // If request already declined or not found, still remove the notification from the list
+      const msg = error?.message || '';
+      if (msg.includes('олдсонгүй') || msg.includes('цуцлагдсан') || msg.includes('not found') || msg.includes('declined')) {
+        removeRelationshipRequestNotification(fromUserId);
+      } else {
+        Alert.alert('Error', getTranslation('error', language));
+      }
     } finally {
       setRelationshipRequestLoadingId(null);
     }
