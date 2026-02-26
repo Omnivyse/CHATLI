@@ -633,44 +633,56 @@ router.put('/profile', auth, [
             message: 'Өөрөөсөө харилцааны хүсэлт илгээж болохгүй'
           });
         }
-        await RelationshipRequest.updateMany(
-          { from: req.user._id, status: 'pending' },
-          { status: 'declined' }
-        );
-        await RelationshipRequest.create({
+        // If there is already a pending request from this user to the same target, do not create duplicate request/notification
+        const existingPending = await RelationshipRequest.findOne({
           from: req.user._id,
           to: toUserId,
           status: 'pending'
         });
-        const recipient = await User.findById(toUserId).select('name pushToken');
-        if (recipient) {
-          const notif = await Notification.create({
-            user: toUserId,
-            type: 'relationship_request',
-            from: [req.user._id],
-            message: 'Харилцааны хүсэлт илгээлээ'
+        if (!existingPending) {
+          await RelationshipRequest.updateMany(
+            { from: req.user._id, status: 'pending' },
+            { status: 'declined' }
+          );
+          await RelationshipRequest.create({
+            from: req.user._id,
+            to: toUserId,
+            status: 'pending'
           });
-          const notifPopulated = await Notification.findById(notif._id)
-            .populate('from', 'name avatar username');
-          if (recipient.pushToken) {
+          const recipient = await User.findById(toUserId).select('name pushToken');
+          const senderName = req.user.name || req.user.username || 'Someone';
+          const notifMessage = `${senderName} wants to be in a relationship with you`;
+          if (recipient) {
+            const notif = await Notification.create({
+              user: new mongoose.Types.ObjectId(toUserId),
+              type: 'relationship_request',
+              from: [req.user._id],
+              message: notifMessage
+            });
+            const notifPopulated = await Notification.findById(notif._id)
+              .populate('from', 'name avatar username')
+              .lean();
+            if (!notifPopulated.from) notifPopulated.from = [];
+            if (recipient.pushToken) {
+              try {
+                await pushNotificationService.sendGeneralNotification(
+                  recipient.pushToken,
+                  'Relationship request',
+                  notifMessage,
+                  { type: 'relationship_request', fromUserId: req.user._id.toString(), notificationId: notif._id.toString() }
+                );
+              } catch (e) {
+                console.warn('Push relationship request failed:', e.message);
+              }
+            }
             try {
-              await pushNotificationService.sendGeneralNotification(
-                recipient.pushToken,
-                'Харилцааны хүсэлт',
-                `${req.user.name || req.user.username} таныг харилцаанд нэмэхийг хүсч байна`,
-                { type: 'relationship_request', fromUserId: req.user._id.toString(), notificationId: notif._id.toString() }
-              );
+              const io = req.app.get('io');
+              if (io) {
+                io.to(`user_${toUserId}`).emit('notification', notifPopulated);
+              }
             } catch (e) {
-              console.warn('Push relationship request failed:', e.message);
+              console.warn('Socket relationship notification failed:', e.message);
             }
-          }
-          try {
-            const io = req.app.get('io');
-            if (io) {
-              io.to(`user_${toUserId}`).emit('notification', notifPopulated);
-            }
-          } catch (e) {
-            console.warn('Socket relationship notification failed:', e.message);
           }
         }
         updateFields.relationshipWith = null;
