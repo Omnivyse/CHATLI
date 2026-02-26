@@ -74,7 +74,9 @@
           "cameraPermission": "Allow CHATLI to access your camera to take photos and videos."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-video",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

@@ -170,8 +170,10 @@ const auth = async (req, res, next) => {
       });
     }
 
-    // Find user and check if still exists
-    const user = await User.findById(decoded.userId).select('-password');
+    // Find user and check if still exists (populate relationship for profile display)
+    const user = await User.findById(decoded.userId)
+      .select('-password')
+      .populate('relationshipWith', 'name username avatar');
     
     if (!user) {
       return res.status(401).json({ 

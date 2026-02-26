@@ -150,6 +150,10 @@ export const translations = {
     imageSelectionError: 'Зураг сонгоход алдаа гарлаа.',
     profileUpdateSuccess: 'Профайл амжилттай шинэчлэгдлээ!',
     aboutMe: 'Таны тухай...',
+    relationshipStatus: 'Харилцааны статус',
+    relationshipStatusHint: 'Дагасан хэрэглэгчээс сонгоно уу',
+    inARelationshipWith: 'Хамтдаа',
+    none: 'Байхгүй',
 
     // Settings
     settings: 'Тохиргоо',
@@ -473,6 +477,10 @@ export const translations = {
     imageSelectionError: 'Error selecting image.',
     profileUpdateSuccess: 'Profile updated successfully!',
     aboutMe: 'About me...',
+    relationshipStatus: 'Relationship status',
+    relationshipStatusHint: 'Choose from people you follow',
+    inARelationshipWith: 'In a relationship with',
+    none: 'None',
 
     // Settings
     settings: 'Settings',

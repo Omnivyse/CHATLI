@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, Alert, Platform, ImageBackground } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, Alert, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,9 +18,34 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
   const [bio, setBio] = useState(user?.bio || '');
   const [avatar, setAvatar] = useState(user?.avatar || '');
   const [coverImage, setCoverImage] = useState(user?.coverImage || '');
+  const [relationshipWith, setRelationshipWith] = useState(user?.relationshipWith || null);
+  const [followingList, setFollowingList] = useState([]);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const [relationshipModalVisible, setRelationshipModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imageRefreshKey, setImageRefreshKey] = useState(0);
+
+  useEffect(() => {
+    setRelationshipWith(user?.relationshipWith || null);
+  }, [user?.relationshipWith]);
+
+  useEffect(() => {
+    const fetchFollowing = async () => {
+      setFollowingLoading(true);
+      try {
+        const res = await api.getFollowing();
+        if (res.success && res.data?.following) {
+          setFollowingList(res.data.following);
+        }
+      } catch (e) {
+        console.warn('Failed to load following:', e);
+      } finally {
+        setFollowingLoading(false);
+      }
+    };
+    fetchFollowing();
+  }, []);
 
   // Refresh images when component mounts to ensure they're up to date
   React.useEffect(() => {
@@ -148,6 +173,7 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
         bio: bio.trim(),
         avatar: avatar,
         coverImage: coverImage,
+        relationshipWith: relationshipWith?._id || null,
       };
       
       console.log('💾 Saving profile data:', profileData);
@@ -165,6 +191,7 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
             bio: bio.trim(),
             avatar: avatar,
             coverImage: coverImage,
+            relationshipWith: response.data?.user?.relationshipWith ?? relationshipWith,
           });
         }
         
@@ -297,7 +324,99 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
             maxLength={500}
             placeholderTextColor={colors.placeholder}
           />
+          <Text style={[styles.label, { color: colors.text }]}>{getTranslation('relationshipStatus', language)}</Text>
+          <TouchableOpacity
+            style={[styles.input, styles.relationshipRow, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
+            onPress={() => setRelationshipModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            {relationshipWith ? (
+              <View style={styles.relationshipSelected}>
+                {relationshipWith.avatar ? (
+                  <Image source={{ uri: relationshipWith.avatar }} style={styles.relationshipAvatar} />
+                ) : (
+                  <View style={[styles.relationshipAvatarPlaceholder, { backgroundColor: colors.border }]}>
+                    <Ionicons name="person" size={18} color={colors.textTertiary} />
+                  </View>
+                )}
+                <Text style={[styles.relationshipName, { color: colors.text }]} numberOfLines={1}>
+                  {relationshipWith.name || relationshipWith.username}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.relationshipPlaceholder, { color: colors.placeholder }]}>
+                {getTranslation('relationshipStatusHint', language)}
+              </Text>
+            )}
+            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
         </View>
+
+        <Modal
+          visible={relationshipModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setRelationshipModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setRelationshipModalVisible(false)}
+          >
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>{getTranslation('relationshipStatus', language)}</Text>
+                <TouchableOpacity onPress={() => setRelationshipModalVisible(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[styles.relationshipOption, { borderBottomColor: colors.border }]}
+                onPress={() => {
+                  setRelationshipWith(null);
+                  setRelationshipModalVisible(false);
+                }}
+              >
+                <Text style={[styles.relationshipOptionText, { color: colors.text }]}>{getTranslation('none', language)}</Text>
+                {!relationshipWith && <Ionicons name="checkmark" size={22} color={colors.primary} />}
+              </TouchableOpacity>
+              {followingLoading ? (
+                <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 24 }} />
+              ) : (
+                <FlatList
+                  data={followingList}
+                  keyExtractor={(item) => item._id}
+                  renderItem={({ item }) => {
+                    const isSelected = relationshipWith?._id === item._id;
+                    return (
+                      <TouchableOpacity
+                        style={[styles.relationshipOption, { borderBottomColor: colors.border }]}
+                        onPress={() => {
+                          setRelationshipWith(item);
+                          setRelationshipModalVisible(false);
+                        }}
+                      >
+                        <View style={styles.relationshipOptionLeft}>
+                          {item.avatar ? (
+                            <Image source={{ uri: item.avatar }} style={styles.relationshipOptionAvatar} />
+                          ) : (
+                            <View style={[styles.relationshipOptionAvatarPlaceholder, { backgroundColor: colors.surfaceVariant }]}>
+                              <Ionicons name="person" size={20} color={colors.textTertiary} />
+                            </View>
+                          )}
+                          <Text style={[styles.relationshipOptionText, { color: colors.text }]} numberOfLines={1}>
+                            {item.name || item.username}
+                          </Text>
+                        </View>
+                        {isSelected && <Ionicons name="checkmark" size={22} color={colors.primary} />}
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        </Modal>
         {/* Save Button */}
         <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving || uploading}>
           <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>{saving ? getTranslation('saving', language) : getTranslation('save', language)}</Text>
@@ -422,6 +541,77 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
+  relationshipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  relationshipSelected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  relationshipAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 10,
+  },
+  relationshipAvatarPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  relationshipName: { fontSize: 16, flex: 1 },
+  relationshipPlaceholder: { fontSize: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '70%',
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '600' },
+  relationshipOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  relationshipOptionLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
+  relationshipOptionAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  relationshipOptionAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  relationshipOptionText: { fontSize: 16, flex: 1 },
 });
 
 export default EditProfileScreen; 

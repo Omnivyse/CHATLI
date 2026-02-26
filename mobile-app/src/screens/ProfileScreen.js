@@ -166,6 +166,28 @@ const ProfileScreen = ({ navigation, user, onLogout, onTestPushNotification }) =
           <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
             @{user.username && typeof user.username === 'string' ? user.username : 'unknown'}
           </Text>
+
+          {user.relationshipWith && (user.relationshipWith.name || user.relationshipWith.username) && (
+            <TouchableOpacity
+              style={[styles.relationshipBadge, { backgroundColor: colors.surfaceVariant }]}
+              onPress={() => navigation.navigate('UserProfile', { userId: user.relationshipWith._id })}
+              activeOpacity={0.7}
+            >
+              {user.relationshipWith.avatar ? (
+                <Image source={{ uri: user.relationshipWith.avatar }} style={styles.relationshipBadgeAvatar} />
+              ) : (
+                <View style={[styles.relationshipBadgeAvatarPlaceholder, { backgroundColor: colors.border }]}>
+                  <Ionicons name="person" size={14} color={colors.textTertiary} />
+                </View>
+              )}
+              <Text style={[styles.relationshipBadgeLabel, { color: colors.textTertiary }]}>
+                {getTranslation('inARelationshipWith', language)}
+              </Text>
+              <Text style={[styles.relationshipBadgeName, { color: colors.text }]} numberOfLines={1}>
+                {user.relationshipWith.name || user.relationshipWith.username}
+              </Text>
+            </TouchableOpacity>
+          )}
           
           {user.bio && (
             <Text style={[styles.userBio, { color: colors.textSecondary }]}>
@@ -445,6 +467,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
+  },
+  relationshipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 12,
+    gap: 8,
+  },
+  relationshipBadgeAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  relationshipBadgeAvatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  relationshipBadgeLabel: {
+    fontSize: 12,
+  },
+  relationshipBadgeName: {
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: 120,
   },
   statsContainer: {
     flexDirection: 'row',

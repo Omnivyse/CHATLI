@@ -112,6 +112,11 @@ const userSchema = new mongoose.Schema({
   passwordChangedAt: {
     type: Date,
     default: null
+  },
+  relationshipWith: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   }
 }, {
   timestamps: true

@@ -341,13 +341,6 @@ const LoginScreen = ({ onLogin }) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            
-            {/* Beta Badge */}
-            <View style={styles.betaBadge}>
-              <Text style={styles.betaText}>
-                🚧 <Text style={styles.betaBold}>BETA VERSION</Text> - Testing Mode
-              </Text>
-            </View>
 
             {/* Form */}
             <View style={styles.form}>
@@ -645,24 +638,6 @@ const styles = StyleSheet.create({
   activeRegisterButtonText: {
     color: '#1a1a1a',
     fontWeight: '600',
-  },
-  betaBadge: {
-    backgroundColor: '#fff3cd',
-    borderColor: '#ffc107',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 24,
-  },
-  betaText: {
-    fontSize: 11,
-    color: '#856404',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  betaBold: {
-    fontWeight: '700',
   },
   form: {
     width: '100%',

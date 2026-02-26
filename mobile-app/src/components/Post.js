@@ -9,6 +9,7 @@ import {
   Alert,
   Dimensions,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -601,6 +602,23 @@ const Post = ({
     try {
       setMusicLoading(true);
 
+      // On iOS: allow music to play when device is in silent/muted mode (ring switch)
+      if (Platform.OS === 'ios') {
+        try {
+          await Audio.setAudioModeAsync({
+            playsInSilentModeIOS: true,
+            allowsRecordingIOS: false,
+            staysActiveInBackground: false,
+            interruptionModeIOS: 1, // DuckOthers
+            shouldDuckAndroid: true,
+            interruptionModeAndroid: 1,
+            playThroughEarpieceAndroid: false,
+          });
+        } catch (e) {
+          if (__DEV__) console.warn('Audio mode set failed:', e);
+        }
+      }
+
       // If we already have a loaded sound, just resume it
       if (musicSoundRef.current) {
         const existing = musicSoundRef.current;
@@ -1000,16 +1018,28 @@ const Post = ({
          </View>
        )}
 
-      {/* Spotify Track (mini label above content) */}
+      {/* Spotify Track (mini label above content) - tappable to play/pause */}
       {localPost.spotifyTrack && 
        typeof localPost.spotifyTrack === 'object' && 
        localPost.spotifyTrack.name && 
        localPost.spotifyTrack.artist && (
         <View style={styles.spotifyContainer}>
-          <View style={[styles.musicCard, { backgroundColor: colors.surfaceVariant }]}>
+          <TouchableOpacity
+            style={[styles.musicCard, { backgroundColor: colors.surfaceVariant }]}
+            onPress={() => {
+              if (!localPost.spotifyTrack?.previewUrl) return;
+              if (isMusicPlaying) {
+                stopMusicPreview();
+              } else {
+                startMusicPreview();
+              }
+            }}
+            activeOpacity={0.7}
+            disabled={!localPost.spotifyTrack?.previewUrl}
+          >
             <View style={styles.musicLabelLeft}>
               <Ionicons
-                name="musical-notes"
+                name={isMusicPlaying ? 'pause' : 'musical-notes'}
                 size={14}
                 color={colors.textSecondary}
                 style={{ marginRight: 6 }}
@@ -1021,10 +1051,13 @@ const Post = ({
                 {localPost.spotifyTrack.name} · {localPost.spotifyTrack.artist}
               </Text>
             </View>
-            {localPost.spotifyTrack.previewUrl && onToggleGlobalMusicMute && (
+            {localPost.spotifyTrack.previewUrl && onToggleGlobalMusicMute ? (
               <TouchableOpacity
                 style={styles.musicMuteButton}
-                onPress={onToggleGlobalMusicMute}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  onToggleGlobalMusicMute();
+                }}
                 activeOpacity={0.7}
               >
                 <Ionicons
@@ -1033,8 +1066,15 @@ const Post = ({
                   color={colors.textSecondary}
                 />
               </TouchableOpacity>
-            )}
-          </View>
+            ) : localPost.spotifyTrack.previewUrl ? (
+              <Ionicons
+                name={isMusicPlaying ? 'pause-circle' : 'play-circle'}
+                size={20}
+                color={colors.primary}
+                style={{ marginLeft: 8 }}
+              />
+            ) : null}
+          </TouchableOpacity>
         </View>
       )}
 

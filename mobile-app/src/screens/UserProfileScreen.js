@@ -16,10 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import Post from '../components/Post';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { getThemeColors } from '../utils/themeUtils';
+import { getTranslation } from '../utils/translations';
 
 const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const colors = getThemeColors(theme);
   const { userId, userName } = route.params;
   const [profileUser, setProfileUser] = useState(null);
@@ -375,6 +378,28 @@ const UserProfileScreen = ({ navigation, route, user: currentUser }) => {
           <Text style={[styles.userHandle, { color: colors.textSecondary }]}>
             @{profileUser.username && typeof profileUser.username === 'string' ? profileUser.username : 'unknown'}
           </Text>
+
+          {profileUser.relationshipWith && (profileUser.relationshipWith.name || profileUser.relationshipWith.username) && (
+            <TouchableOpacity
+              style={[styles.relationshipBadge, { backgroundColor: colors.surfaceVariant }]}
+              onPress={() => navigation.push('UserProfile', { userId: profileUser.relationshipWith._id })}
+              activeOpacity={0.7}
+            >
+              {profileUser.relationshipWith.avatar ? (
+                <Image source={{ uri: profileUser.relationshipWith.avatar }} style={styles.relationshipBadgeAvatar} />
+              ) : (
+                <View style={[styles.relationshipBadgeAvatarPlaceholder, { backgroundColor: colors.border }]}>
+                  <Ionicons name="person" size={14} color={colors.textTertiary} />
+                </View>
+              )}
+              <Text style={[styles.relationshipBadgeLabel, { color: colors.textTertiary }]}>
+                {getTranslation('inARelationshipWith', language)}
+              </Text>
+              <Text style={[styles.relationshipBadgeName, { color: colors.text }]} numberOfLines={1}>
+                {profileUser.relationshipWith.name || profileUser.relationshipWith.username}
+              </Text>
+            </TouchableOpacity>
+          )}
           
           {profileUser.bio && (
             <Text style={[styles.userBio, { color: colors.textSecondary }]}>
@@ -713,6 +738,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
+  },
+  relationshipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 12,
+    gap: 8,
+  },
+  relationshipBadgeAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  relationshipBadgeAvatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  relationshipBadgeLabel: {
+    fontSize: 12,
+  },
+  relationshipBadgeName: {
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: 120,
   },
   statsContainer: {
     flexDirection: 'row',

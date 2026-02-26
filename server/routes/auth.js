@@ -122,7 +122,9 @@ router.get('/users/:id', auth, async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .populate('relationshipWith', 'name username avatar');
     if (!user) {
       return res.status(404).json({ success: false, message: 'Хэрэглэгч олдсонгүй' });
     }
@@ -573,7 +575,11 @@ router.put('/profile', auth, [
   body('privateProfile')
     .optional()
     .isBoolean()
-    .withMessage('Хувийн профайл утга буруу байна')
+    .withMessage('Хувийн профайл утга буруу байна'),
+  body('relationshipWith')
+    .optional()
+    .custom((val) => val === null || val === '' || mongoose.Types.ObjectId.isValid(val))
+    .withMessage('Relationship хэрэглэгчийн ID буруу байна')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -585,7 +591,7 @@ router.put('/profile', auth, [
       });
     }
 
-    const { name, bio, avatar, coverImage, privateProfile } = req.body;
+    const { name, bio, avatar, coverImage, privateProfile, relationshipWith } = req.body;
     const updateFields = {};
 
     if (name) updateFields.name = name;
@@ -594,11 +600,29 @@ router.put('/profile', auth, [
     if (coverImage) updateFields.coverImage = coverImage;
     if (privateProfile !== undefined) updateFields.privateProfile = privateProfile;
 
+    // relationshipWith: only allow if empty or a user ID that the current user follows
+    if (relationshipWith !== undefined) {
+      if (relationshipWith === null || relationshipWith === '') {
+        updateFields.relationshipWith = null;
+      } else {
+        const followingIds = (req.user.following || []).map(id => id.toString());
+        if (!followingIds.includes(relationshipWith.toString())) {
+          return res.status(400).json({
+            success: false,
+            message: 'Та зөвхөн дагасан хэрэглэгчээс сонгоно уу'
+          });
+        }
+        updateFields.relationshipWith = relationshipWith;
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
       updateFields,
       { new: true, runValidators: true }
-    ).select('-password');
+    )
+      .select('-password')
+      .populate('relationshipWith', 'name username avatar');
 
     res.json({
       success: true,
