@@ -350,11 +350,15 @@ router.post('/login', [
     const token = generateToken(user._id, req);
     const refreshToken = generateRefreshTokenForUser(user._id, req);
 
+    const safeUser = await User.findById(user._id)
+      .select('-password')
+      .populate('relationshipWith', 'name username avatar');
+
     res.json({
       success: true,
       message: 'Амжилттай нэвтэрлээ',
       data: {
-        user,
+        user: safeUser,
         token,
         refreshToken
       }

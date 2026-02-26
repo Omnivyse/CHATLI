@@ -950,11 +950,22 @@ function App() {
       } else {
         console.error('❌ CRITICAL: No authentication token available after login');
       }
-      
-      setUser(userData);
-      
+
+      // Refresh user from server so populated fields (e.g. relationshipWith) persist after login
+      let sessionUser = userData;
+      try {
+        const meResponse = await apiService.getCurrentUser();
+        if (meResponse.success && meResponse.data?.user) {
+          sessionUser = meResponse.data.user;
+        }
+      } catch (e) {
+        console.warn('⚠️ Failed to refresh user after login:', e?.message || e);
+      }
+
+      setUser(sessionUser);
+
       // Set current user ID for notification filtering
-      setCurrentUserId(userData._id);
+      setCurrentUserId(sessionUser._id);
       
       // Show welcome modal for new users or on app update
       const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
@@ -986,14 +997,14 @@ function App() {
       
       // Initialize services with error handling
       try {
-        await socketService.connect(token || userData.token);
+        await socketService.connect(token || apiService.token);
       } catch (socketError) {
         console.error('Socket connection error:', socketError);
       }
       
       try {
         if (analyticsService && typeof analyticsService.initialize === 'function') {
-          await analyticsService.initialize(userData._id);
+          await analyticsService.initialize(sessionUser._id);
         }
       } catch (analyticsError) {
         console.error('Analytics initialization error:', analyticsError);
@@ -1001,7 +1012,7 @@ function App() {
       
       try {
         if (pushNotificationService && typeof pushNotificationService.initialize === 'function') {
-          await pushNotificationService.initialize(userData._id);
+          await pushNotificationService.initialize(sessionUser._id);
         }
       } catch (pushError) {
         console.error('Push notification initialization error:', pushError);
@@ -1048,7 +1059,7 @@ function App() {
        }, 2000); // Increased delay for TestFlight builds
       
       // Show verification banner if needed
-      if (!userData.emailVerified) {
+      if (!sessionUser.emailVerified) {
         setShowVerificationBanner(true);
       }
       
