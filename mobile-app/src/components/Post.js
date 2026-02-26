@@ -599,56 +599,32 @@ const Post = ({
 
     if (musicLoading) return;
 
-    try {
-      setMusicLoading(true);
-
-      // On iOS: allow music to play when device is in silent/muted mode (ring switch)
-      if (Platform.OS === 'ios') {
-        try {
-          await Audio.setAudioModeAsync({
-            playsInSilentModeIOS: true,
-            allowsRecordingIOS: false,
-            staysActiveInBackground: false,
-            interruptionModeIOS: 1, // DuckOthers
-            shouldDuckAndroid: true,
-            interruptionModeAndroid: 1,
-            playThroughEarpieceAndroid: false,
-          });
-        } catch (e) {
-          if (__DEV__) console.warn('Audio mode set failed:', e);
-        }
+    const setAudioMode = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          allowsRecordingIOS: false,
+          staysActiveInBackground: false,
+          interruptionModeIOS: 1,
+          shouldDuckAndroid: true,
+          interruptionModeAndroid: 1,
+          playThroughEarpieceAndroid: false,
+        });
+      } catch (e) {
+        if (__DEV__) console.warn('Audio mode set failed:', e);
       }
+    };
 
-      // If we already have a loaded sound, just resume it
-      if (musicSoundRef.current) {
-        const existing = musicSoundRef.current;
-        const status = await existing.getStatusAsync().catch(() => null);
-        if (status?.isLoaded) {
-          try {
-            await existing.setIsMutedAsync(isGlobalMusicMuted);
-          } catch (_) {}
-          await existing.playAsync();
-          setIsMusicPlaying(true);
-          return;
-        } else {
-          musicSoundRef.current = null;
-        }
-      }
-
-      // Otherwise create a new sound
+    const loadAndPlaySound = async () => {
       const { sound } = await Audio.Sound.createAsync(
         { uri: track.previewUrl },
         { shouldPlay: true, volume: 1, isMuted: isGlobalMusicMuted }
       );
       musicSoundRef.current = sound;
-
-      // Ensure mute state is applied (in case platform ignores initial flag)
       try {
         await sound.setIsMutedAsync(isGlobalMusicMuted);
       } catch (_) {}
       setIsMusicPlaying(true);
-
-      // Auto-stop at 30s (or when preview ends)
       const stopAtMs = 30000;
       sound.setOnPlaybackStatusUpdate((status) => {
         if (!status?.isLoaded) return;
@@ -660,8 +636,45 @@ const Post = ({
           stopMusicPreview();
         }
       });
+    };
+
+    try {
+      setMusicLoading(true);
+
+      // Ensure audio session is active (required after login/foreground; avoids "audio is not enabled")
+      await setAudioMode();
+
+      if (musicSoundRef.current) {
+        const existing = musicSoundRef.current;
+        const status = await existing.getStatusAsync().catch(() => null);
+        if (status?.isLoaded) {
+          try {
+            await existing.setIsMutedAsync(isGlobalMusicMuted);
+          } catch (_) {}
+          await existing.playAsync();
+          setIsMusicPlaying(true);
+          return;
+        }
+        musicSoundRef.current = null;
+      }
+
+      try {
+        await loadAndPlaySound();
+      } catch (firstError) {
+        const isAudioNotEnabled = /audio is not enabled|cannot complete operation/i.test(
+          firstError?.message || ''
+        );
+        if (isAudioNotEnabled) {
+          await setAudioMode();
+          await loadAndPlaySound();
+        } else {
+          throw firstError;
+        }
+      }
     } catch (error) {
-      console.error('Music preview error:', error);
+      if (__DEV__) {
+        console.warn('Music preview error:', error?.message || error);
+      }
       Alert.alert('Playback Error', 'Could not play the preview.');
       await stopMusicPreview();
     } finally {
