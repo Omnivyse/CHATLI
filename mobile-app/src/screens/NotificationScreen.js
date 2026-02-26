@@ -23,8 +23,9 @@ import { getTranslation } from '../utils/translations';
 import { getThemeColors } from '../utils/themeUtils';
 import socketService from '../services/socket';
 import FollowRequestNotification from '../components/FollowRequestNotification';
+import RelationshipRequestNotification from '../components/RelationshipRequestNotification';
 
-const NotificationScreen = ({ navigation, user }) => {
+const NotificationScreen = ({ navigation, user, onProfileUpdate }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const colors = getThemeColors(theme);
@@ -34,6 +35,7 @@ const NotificationScreen = ({ navigation, user }) => {
   const [error, setError] = useState('');
   const [postModalVisible, setPostModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [relationshipRequestLoadingId, setRelationshipRequestLoadingId] = useState(null);
 
   useEffect(() => {
     loadNotifications();
@@ -300,6 +302,50 @@ const NotificationScreen = ({ navigation, user }) => {
     }
   };
 
+  const handleAcceptRelationshipRequest = async (fromUserId) => {
+    if (!onProfileUpdate) return;
+    try {
+      setRelationshipRequestLoadingId(fromUserId);
+      const response = await api.acceptRelationshipRequest(fromUserId);
+      if (response.success) {
+        if (response.data?.user && onProfileUpdate) onProfileUpdate(response.data.user);
+        setNotifications(prev =>
+          prev.filter(n =>
+            !(n.type === 'relationship_request' && n.from && n.from.length > 0 && n.from[0]._id === fromUserId)
+          )
+        );
+      } else {
+        Alert.alert('Error', response.message || getTranslation('error', language));
+      }
+    } catch (error) {
+      console.error('Accept relationship request error:', error);
+      Alert.alert('Error', getTranslation('error', language));
+    } finally {
+      setRelationshipRequestLoadingId(null);
+    }
+  };
+
+  const handleDeclineRelationshipRequest = async (fromUserId) => {
+    try {
+      setRelationshipRequestLoadingId(fromUserId);
+      const response = await api.declineRelationshipRequest(fromUserId);
+      if (response.success) {
+        setNotifications(prev =>
+          prev.filter(n =>
+            !(n.type === 'relationship_request' && n.from && n.from.length > 0 && n.from[0]._id === fromUserId)
+          )
+        );
+      } else {
+        Alert.alert('Error', response.message || getTranslation('error', language));
+      }
+    } catch (error) {
+      console.error('Decline relationship request error:', error);
+      Alert.alert('Error', getTranslation('error', language));
+    } finally {
+      setRelationshipRequestLoadingId(null);
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'like':
@@ -310,6 +356,10 @@ const NotificationScreen = ({ navigation, user }) => {
         return 'person-add';
       case 'follow_request':
         return 'person-add';
+      case 'relationship_request':
+        return 'heart';
+      case 'relationship_accepted':
+        return 'heart';
       case 'mention':
         return 'at';
       case 'event_invite':
@@ -329,6 +379,10 @@ const NotificationScreen = ({ navigation, user }) => {
         return '#3742fa';
       case 'follow_request':
         return '#ffa502';
+      case 'relationship_request':
+        return '#e84393';
+      case 'relationship_accepted':
+        return '#e84393';
       case 'mention':
         return '#ff6348';
       case 'event_invite':
@@ -392,13 +446,27 @@ const NotificationScreen = ({ navigation, user }) => {
 
     // Handle follow request notifications
     if (notification.type === 'follow_request' && notification.from && notification.from.length > 0) {
-      const requester = notification.from[0]; // Get the first user from the array
+      const requester = notification.from[0];
       return (
         <FollowRequestNotification
           requester={requester}
           onAccept={() => handleAcceptFollowRequest(requester._id)}
           onReject={() => handleRejectFollowRequest(requester._id)}
           onPress={() => handleNotificationPress(notification)}
+        />
+      );
+    }
+
+    // Handle relationship request notifications
+    if (notification.type === 'relationship_request' && notification.from && notification.from.length > 0) {
+      const requester = notification.from[0];
+      return (
+        <RelationshipRequestNotification
+          requester={requester}
+          onAccept={() => handleAcceptRelationshipRequest(requester._id)}
+          onReject={() => handleDeclineRelationshipRequest(requester._id)}
+          onPress={() => handleNotificationPress(notification)}
+          loading={relationshipRequestLoadingId === requester._id}
         />
       );
     }

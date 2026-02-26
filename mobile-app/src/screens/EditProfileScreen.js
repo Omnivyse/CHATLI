@@ -26,6 +26,11 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
   const [uploading, setUploading] = useState(false);
   const [imageRefreshKey, setImageRefreshKey] = useState(0);
 
+  const pendingRequestUserId = user?.pendingRelationshipRequestTo || null;
+  const pendingUser = pendingRequestUserId && followingList.length
+    ? followingList.find((f) => f._id === pendingRequestUserId) || null
+    : null;
+
   useEffect(() => {
     setRelationshipWith(user?.relationshipWith || null);
   }, [user?.relationshipWith]);
@@ -173,7 +178,7 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
         bio: bio.trim(),
         avatar: avatar,
         coverImage: coverImage,
-        relationshipWith: relationshipWith?._id || null,
+        relationshipWith: relationshipWith?._id ?? pendingUser?._id ?? null,
       };
       
       console.log('💾 Saving profile data:', profileData);
@@ -343,6 +348,22 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
                   {relationshipWith.name || relationshipWith.username}
                 </Text>
               </View>
+            ) : pendingUser ? (
+              <View style={styles.relationshipSelected}>
+                {pendingUser.avatar ? (
+                  <Image source={{ uri: pendingUser.avatar }} style={styles.relationshipAvatar} />
+                ) : (
+                  <View style={[styles.relationshipAvatarPlaceholder, { backgroundColor: colors.border }]}>
+                    <Ionicons name="person" size={18} color={colors.textTertiary} />
+                  </View>
+                )}
+                <Text style={[styles.relationshipName, { color: colors.text }]} numberOfLines={1}>
+                  {pendingUser.name || pendingUser.username}
+                </Text>
+                <View style={[styles.pendingBadge, { backgroundColor: colors.primary + '20' }]}>
+                  <Text style={[styles.pendingBadgeText, { color: colors.primary }]}>{getTranslation('pending', language)}</Text>
+                </View>
+              </View>
             ) : (
               <Text style={[styles.relationshipPlaceholder, { color: colors.placeholder }]}>
                 {getTranslation('relationshipStatusHint', language)}
@@ -378,7 +399,7 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
                 }}
               >
                 <Text style={[styles.relationshipOptionText, { color: colors.text }]}>{getTranslation('none', language)}</Text>
-                {!relationshipWith && <Ionicons name="checkmark" size={22} color={colors.primary} />}
+                {!relationshipWith && !pendingUser && <Ionicons name="checkmark" size={22} color={colors.primary} />}
               </TouchableOpacity>
               {followingLoading ? (
                 <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 24 }} />
@@ -388,6 +409,7 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
                   keyExtractor={(item) => item._id}
                   renderItem={({ item }) => {
                     const isSelected = relationshipWith?._id === item._id;
+                    const isPending = pendingUser?._id === item._id;
                     return (
                       <TouchableOpacity
                         style={[styles.relationshipOption, { borderBottomColor: colors.border }]}
@@ -407,6 +429,11 @@ const EditProfileScreen = ({ navigation, user, onProfileUpdate }) => {
                           <Text style={[styles.relationshipOptionText, { color: colors.text }]} numberOfLines={1}>
                             {item.name || item.username}
                           </Text>
+                          {isPending && (
+                            <View style={[styles.pendingBadge, { backgroundColor: colors.primary + '20', marginLeft: 8 }]}>
+                              <Text style={[styles.pendingBadgeText, { color: colors.primary }]}>{getTranslation('pending', language)}</Text>
+                            </View>
+                          )}
                         </View>
                         {isSelected && <Ionicons name="checkmark" size={22} color={colors.primary} />}
                       </TouchableOpacity>
@@ -567,6 +594,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   relationshipName: { fontSize: 16, flex: 1 },
+  pendingBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  pendingBadgeText: { fontSize: 12, fontWeight: '600' },
   relationshipPlaceholder: { fontSize: 16 },
   modalOverlay: {
     flex: 1,

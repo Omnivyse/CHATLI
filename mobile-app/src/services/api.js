@@ -952,6 +952,20 @@ class ApiService {
     return this.request('/auth/following');
   }
 
+  async acceptRelationshipRequest(fromUserId) {
+    return this.request('/auth/relationship-request/accept', {
+      method: 'POST',
+      body: { fromUserId },
+    });
+  }
+
+  async declineRelationshipRequest(fromUserId) {
+    return this.request('/auth/relationship-request/decline', {
+      method: 'POST',
+      body: { fromUserId },
+    });
+  }
+
   // File upload for React Native
   async uploadFile(formData) {
     const response = await fetch(`${this.baseURL}/upload/single`, {

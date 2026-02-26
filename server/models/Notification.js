@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // recipient
-  type: { type: String, enum: ['like', 'comment', 'follow', 'follow_request'], required: true },
+  type: { type: String, enum: ['like', 'comment', 'follow', 'follow_request', 'relationship_request', 'relationship_accepted'], required: true },
   post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
   from: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // array for grouping
   message: { type: String },

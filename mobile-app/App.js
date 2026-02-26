@@ -64,7 +64,7 @@ const Tab = createBottomTabNavigator();
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
 
-function MainTabNavigator({ user, onLogout, onGoToVerification, onTestPushNotification }) {
+function MainTabNavigator({ user, onLogout, onGoToVerification, onTestPushNotification, onProfileUpdate }) {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const tabBarColors = getTabBarColors(theme);
@@ -333,7 +333,7 @@ function MainTabNavigator({ user, onLogout, onGoToVerification, onTestPushNotifi
           tabBarLabel: getTranslation('notifications', language)
         }}
       >
-        {(props) => <NotificationScreen {...props} user={user} />}
+        {(props) => <NotificationScreen {...props} user={user} onProfileUpdate={onProfileUpdate} />}
       </Tab.Screen>
       <Tab.Screen 
         name="Profile"
@@ -396,7 +396,7 @@ function MainStackNavigator({ user, onLogout, onGoToVerification, onShowVerifica
       }}
     >
              <Stack.Screen name="MainTabs">
-         {(props) => <MainTabNavigator {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onTestPushNotification={onTestPushNotification} />}
+         {(props) => <MainTabNavigator {...props} user={user} onLogout={onLogout} onGoToVerification={onGoToVerification} onTestPushNotification={onTestPushNotification} onProfileUpdate={onProfileUpdate} />}
        </Stack.Screen>
       
       <Stack.Screen 

@@ -154,6 +154,8 @@ export const translations = {
     relationshipStatusHint: 'Дагасан хэрэглэгчээс сонгоно уу',
     inARelationshipWith: 'Хамтдаа',
     none: 'Байхгүй',
+    relationshipRequestMessage: 'таныг харилцаанд нэмэхийг хүсч байна',
+    pending: 'Хүлээгдэж байна',
 
     // Settings
     settings: 'Тохиргоо',
@@ -481,6 +483,8 @@ export const translations = {
     relationshipStatusHint: 'Choose from people you follow',
     inARelationshipWith: 'In a relationship with',
     none: 'None',
+    relationshipRequestMessage: 'wants to be in a relationship with you',
+    pending: 'Pending',
 
     // Settings
     settings: 'Settings',

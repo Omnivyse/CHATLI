@@ -6,6 +6,7 @@ const User = require('../models/User');
 const PrivacySettings = require('../models/PrivacySettings');
 const Notification = require('../models/Notification');
 const Post = require('../models/Post');
+const RelationshipRequest = require('../models/RelationshipRequest');
 const { auth, optionalAuth, generateSecureToken, generateRefreshToken } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const pushNotificationService = require('../services/pushNotificationService');
@@ -535,10 +536,19 @@ router.post('/validate', async (req, res) => {
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
+    const userObj = req.user.toObject ? req.user.toObject() : { ...req.user };
+    const pendingRequest = await RelationshipRequest.findOne(
+      { from: req.user._id, status: 'pending' }
+    ).select('to');
+    if (pendingRequest) {
+      userObj.pendingRelationshipRequestTo = pendingRequest.to;
+    } else {
+      userObj.pendingRelationshipRequestTo = null;
+    }
     res.json({
       success: true,
       data: {
-        user: req.user
+        user: userObj
       }
     });
   } catch (error) {
@@ -600,10 +610,14 @@ router.put('/profile', auth, [
     if (coverImage) updateFields.coverImage = coverImage;
     if (privateProfile !== undefined) updateFields.privateProfile = privateProfile;
 
-    // relationshipWith: only allow if empty or a user ID that the current user follows
+    // relationshipWith: send request (don't set until other user accepts) or clear
     if (relationshipWith !== undefined) {
       if (relationshipWith === null || relationshipWith === '') {
         updateFields.relationshipWith = null;
+        await RelationshipRequest.updateMany(
+          { from: req.user._id, status: 'pending' },
+          { status: 'declined' }
+        );
       } else {
         const followingIds = (req.user.following || []).map(id => id.toString());
         if (!followingIds.includes(relationshipWith.toString())) {
@@ -612,7 +626,54 @@ router.put('/profile', auth, [
             message: 'Та зөвхөн дагасан хэрэглэгчээс сонгоно уу'
           });
         }
-        updateFields.relationshipWith = relationshipWith;
+        const toUserId = relationshipWith.toString();
+        if (toUserId === req.user._id.toString()) {
+          return res.status(400).json({
+            success: false,
+            message: 'Өөрөөсөө харилцааны хүсэлт илгээж болохгүй'
+          });
+        }
+        await RelationshipRequest.updateMany(
+          { from: req.user._id, status: 'pending' },
+          { status: 'declined' }
+        );
+        await RelationshipRequest.create({
+          from: req.user._id,
+          to: toUserId,
+          status: 'pending'
+        });
+        const recipient = await User.findById(toUserId).select('name pushToken');
+        if (recipient) {
+          const notif = await Notification.create({
+            user: toUserId,
+            type: 'relationship_request',
+            from: [req.user._id],
+            message: 'Харилцааны хүсэлт илгээлээ'
+          });
+          const notifPopulated = await Notification.findById(notif._id)
+            .populate('from', 'name avatar username');
+          if (recipient.pushToken) {
+            try {
+              await pushNotificationService.sendGeneralNotification(
+                recipient.pushToken,
+                'Харилцааны хүсэлт',
+                `${req.user.name || req.user.username} таныг харилцаанд нэмэхийг хүсч байна`,
+                { type: 'relationship_request', fromUserId: req.user._id.toString(), notificationId: notif._id.toString() }
+              );
+            } catch (e) {
+              console.warn('Push relationship request failed:', e.message);
+            }
+          }
+          try {
+            const io = req.app.get('io');
+            if (io) {
+              io.to(`user_${toUserId}`).emit('notification', notifPopulated);
+            }
+          } catch (e) {
+            console.warn('Socket relationship notification failed:', e.message);
+          }
+        }
+        updateFields.relationshipWith = null;
       }
     }
 
@@ -626,13 +687,123 @@ router.put('/profile', auth, [
 
     res.json({
       success: true,
-      message: 'Профайл амжилттай шинэчлэгдлээ',
+      message: relationshipWith && relationshipWith !== '' && relationshipWith !== null
+        ? 'Хүсэлт илгээгдлээ'
+        : 'Профайл амжилттай шинэчлэгдлээ',
       data: {
         user
       }
     });
   } catch (error) {
     console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/auth/relationship-request/accept
+// @desc    Accept a relationship request (recipient only)
+// @access  Private
+router.post('/relationship-request/accept', auth, async (req, res) => {
+  try {
+    const fromUserId = req.body.fromUserId;
+    if (!fromUserId || !mongoose.Types.ObjectId.isValid(fromUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Хүсэлт олдсонгүй'
+      });
+    }
+    const request = await RelationshipRequest.findOne({
+      from: fromUserId,
+      to: req.user._id,
+      status: 'pending'
+    });
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Хүсэлт олдсонгүй эсвэл баталгаажсан'
+      });
+    }
+    await RelationshipRequest.findByIdAndUpdate(request._id, { status: 'accepted' });
+    await User.findByIdAndUpdate(request.from, { relationshipWith: req.user._id });
+    await User.findByIdAndUpdate(request.to, { relationshipWith: request.from });
+    const fromUser = await User.findById(request.from).select('name username pushToken');
+    const notifAccepted = await Notification.create({
+      user: request.from,
+      type: 'relationship_accepted',
+      from: [req.user._id],
+      message: `${req.user.name || req.user.username} таны харилцааны хүсэлтийг зөвшөөрлөө`
+    });
+    if (fromUser && fromUser.pushToken) {
+      try {
+        await pushNotificationService.sendGeneralNotification(
+          fromUser.pushToken,
+          'Хүсэлт зөвшөөрөгдлөө',
+          `${req.user.name || req.user.username} таныг харилцаанд нэмлээ`,
+          { type: 'relationship_accepted', userId: req.user._id.toString() }
+        );
+      } catch (e) {
+        console.warn('Push relationship accepted failed:', e.message);
+      }
+    }
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        const notifPopulated = await Notification.findById(notifAccepted._id).populate('from', 'name avatar username');
+        io.to(`user_${request.from}`).emit('notification', notifPopulated);
+      }
+    } catch (e) {
+      console.warn('Socket relationship accepted notification failed:', e.message);
+    }
+    const updatedUser = await User.findById(req.user._id)
+      .select('-password')
+      .populate('relationshipWith', 'name username avatar');
+    res.json({
+      success: true,
+      message: 'Зөвшөөрлөө',
+      data: { user: updatedUser }
+    });
+  } catch (error) {
+    console.error('Accept relationship request error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Серверийн алдаа'
+    });
+  }
+});
+
+// @route   POST /api/auth/relationship-request/decline
+// @desc    Decline a relationship request (recipient only)
+// @access  Private
+router.post('/relationship-request/decline', auth, async (req, res) => {
+  try {
+    const fromUserId = req.body.fromUserId;
+    if (!fromUserId || !mongoose.Types.ObjectId.isValid(fromUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Хүсэлт олдсонгүй'
+      });
+    }
+    const request = await RelationshipRequest.findOne({
+      from: fromUserId,
+      to: req.user._id,
+      status: 'pending'
+    });
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Хүсэлт олдсонгүй эсвэл цуцлагдсан'
+      });
+    }
+    await RelationshipRequest.findByIdAndUpdate(request._id, { status: 'declined' });
+    res.json({
+      success: true,
+      message: 'Цуцлалаа'
+    });
+  } catch (error) {
+    console.error('Decline relationship request error:', error);
     res.status(500).json({
       success: false,
       message: 'Серверийн алдаа'
